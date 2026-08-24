@@ -1,0 +1,368 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>Migración única de datos — App Integrada (Prototipo)</title>
+
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-auth-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/10.7.1/firebase-database-compat.js"></script>
+
+<style>
+    * { box-sizing: border-box; }
+    body {
+        font-family: 'Segoe UI', Arial, sans-serif;
+        max-width: 820px;
+        margin: 0 auto;
+        padding: 24px 20px 80px;
+        background: #f8fafc;
+        color: #1e293b;
+    }
+    h1 { font-size: 1.4rem; color: #0b2a4f; margin-bottom: 8px; }
+    .aviso {
+        background: #fef3c7; border: 1px solid #f59e0b; border-radius: 10px;
+        padding: 14px 16px; font-size: 0.88rem; line-height: 1.6; margin-bottom: 24px;
+    }
+    .paso {
+        background: white; border: 1px solid #e2e8f0; border-radius: 12px;
+        padding: 18px 20px; margin-bottom: 18px;
+    }
+    .paso h2 { font-size: 1rem; color: #0b2a4f; margin: 0 0 10px; }
+    .paso.deshabilitado { opacity: 0.5; pointer-events: none; }
+    input[type="email"], input[type="password"] {
+        padding: 8px 10px; border: 1px solid #d1d9e6; border-radius: 6px;
+        font-size: 0.85rem; margin-right: 6px; width: 220px;
+    }
+    button {
+        padding: 8px 16px; border: none; border-radius: 20px; cursor: pointer;
+        font-size: 0.82rem; font-weight: 600; background: #0b2a4f; color: white;
+    }
+    button:disabled { opacity: 0.5; cursor: not-allowed; }
+    button.peligro { background: #dc2626; }
+    .estado { margin-left: 10px; font-size: 0.82rem; font-weight: 600; }
+    .estado.ok { color: #059669; }
+    .estado.error { color: #dc2626; }
+    pre.log {
+        background: #0f172a; color: #e2e8f0; padding: 12px 14px; border-radius: 8px;
+        font-size: 0.78rem; max-height: 320px; overflow-y: auto; white-space: pre-wrap;
+        margin-top: 12px;
+    }
+    label.confirmacion { display: block; font-size: 0.85rem; margin: 12px 0; }
+</style>
+</head>
+<body>
+
+<h1>🔧 Migración única de datos — App Integrada (Prototipo)</h1>
+<div class="aviso">
+    ⚠️ Herramienta de un solo uso. LEE de las dos apps originales (Tabla Quirúrgica y Lista de Espera)
+    y ESCRIBE una sola vez en la base de datos nueva de esta app integrada.
+    <strong>Nunca escribe ni modifica nada en las dos bases de datos originales</strong> — solo hace lecturas
+    ahí (<code>.once('value')</code>). No se migran las colecciones de usuarios de ninguna de las dos apps
+    originales (<code>usuarios</code>/<code>users</code>): las cuentas de Firebase Auth no se pueden copiar
+    desde el navegador, así que cada persona necesita una cuenta nueva creada desde el panel de administrador
+    de esta app integrada, una vez migrados los datos.
+</div>
+
+<!-- 1. Login en el proyecto ORIGEN: Tabla Quirúrgica -->
+<div class="paso" id="pasoTabla">
+    <h2>1. Iniciar sesión — Tabla Quirúrgica (origen, solo lectura)</h2>
+    <input type="email" id="emailTabla" placeholder="Correo (cuenta admin de Tabla Quirúrgica)">
+    <input type="password" id="passTabla" placeholder="Contraseña">
+    <button onclick="loginOrigen('tabla')">Iniciar sesión</button>
+    <span class="estado" id="estadoTabla"></span>
+</div>
+
+<!-- 2. Login en el proyecto ORIGEN: Lista de Espera -->
+<div class="paso" id="pasoLE">
+    <h2>2. Iniciar sesión — Lista de Espera (origen, solo lectura)</h2>
+    <input type="email" id="emailLE" placeholder="Correo (cuenta admin de Lista de Espera)">
+    <input type="password" id="passLE" placeholder="Contraseña">
+    <button onclick="loginOrigen('le')">Iniciar sesión</button>
+    <span class="estado" id="estadoLE"></span>
+</div>
+
+<!-- 3. Login en el proyecto DESTINO: la app integrada -->
+<div class="paso" id="pasoDestino">
+    <h2>3. Iniciar sesión — App Integrada (destino, donde se va a escribir)</h2>
+    <input type="email" id="emailDestino" placeholder="Correo (tu cuenta superadministrador ya creada)">
+    <input type="password" id="passDestino" placeholder="Contraseña">
+    <button onclick="loginOrigen('destino')">Iniciar sesión</button>
+    <span class="estado" id="estadoDestino"></span>
+</div>
+
+<!-- 4. Vista previa -->
+<div class="paso deshabilitado" id="pasoPreview">
+    <h2>4. Vista previa (solo cuenta registros, no escribe nada)</h2>
+    <button onclick="vistaPrevia()" id="btnPreview" disabled>👁️ Vista previa</button>
+    <pre class="log" id="logPreview" style="display:none;"></pre>
+</div>
+
+<!-- 5. Ejecutar migración -->
+<div class="paso deshabilitado" id="pasoRun">
+    <h2>5. Ejecutar migración (escribe en la base NUEVA, una sola vez)</h2>
+    <label class="confirmacion">
+        <input type="checkbox" id="chkConfirmar" disabled onchange="actualizarBotonRun()">
+        Ya revisé la vista previa y quiero escribir estos datos en la base de datos nueva.
+    </label>
+    <button class="peligro" onclick="confirmarYEjecutar()" id="btnRun" disabled>⚠️ Ejecutar migración</button>
+    <pre class="log" id="logRun" style="display:none;"></pre>
+</div>
+
+<script>
+    // -------------------------------------------------------------
+    // Configuración de los 3 proyectos (dos orígenes, uno destino).
+    // Los dos orígenes son de SOLO LECTURA en esta herramienta.
+    // -------------------------------------------------------------
+    const CONFIG_ORIGEN_TABLA = {
+        apiKey: "AIzaSyBwH88DBuT-KrtFtkw_wImxzpL8-ZH9dj0",
+        authDomain: "tabla-quirurgica.firebaseapp.com",
+        databaseURL: "https://tabla-quirurgica-default-rtdb.firebaseio.com",
+        projectId: "tabla-quirurgica",
+        storageBucket: "tabla-quirurgica.firebasestorage.app",
+        messagingSenderId: "202787334487",
+        appId: "1:202787334487:web:a6e2b6b2acdec2b1ae7612"
+    };
+    const CONFIG_ORIGEN_LE = {
+        apiKey: "AIzaSyCLyDSiBtHs3X0OfdkNHZZslmAuZSfmI0A",
+        authDomain: "hospital-illapel-prequirurgico.firebaseapp.com",
+        databaseURL: "https://hospital-illapel-prequirurgico-default-rtdb.firebaseio.com",
+        projectId: "hospital-illapel-prequirurgico",
+        storageBucket: "hospital-illapel-prequirurgico.firebasestorage.app",
+        messagingSenderId: "116781822974",
+        appId: "1:116781822974:web:3f9dd916f357a31b4a86af"
+    };
+    const CONFIG_DESTINO = {
+        apiKey: "AIzaSyDev4ZgPnltWMKLHbrk-IQCyFHqFBF49zw",
+        authDomain: "gestion-proceso-quirurgico.firebaseapp.com",
+        databaseURL: "https://gestion-proceso-quirurgico-default-rtdb.firebaseio.com",
+        projectId: "gestion-proceso-quirurgico",
+        storageBucket: "gestion-proceso-quirurgico.firebasestorage.app",
+        messagingSenderId: "316500976369",
+        appId: "1:316500976369:web:254eb8df56de2d2c1abf50"
+    };
+
+    const appTabla = firebase.initializeApp(CONFIG_ORIGEN_TABLA, 'origenTabla');
+    const appLE = firebase.initializeApp(CONFIG_ORIGEN_LE, 'origenListaEspera');
+    const appDestino = firebase.initializeApp(CONFIG_DESTINO, 'destino');
+
+    const authTabla = appTabla.auth();
+    const dbTabla = appTabla.database();
+    const authLE = appLE.auth();
+    const dbLE = appLE.database();
+    const authDestino = appDestino.auth();
+    const dbDestino = appDestino.database();
+
+    const loginState = { tabla: false, le: false, destino: false };
+    let datosLeidos = null; // { tabla: {...}, le: {...} } — cacheado tras la vista previa
+
+    async function loginOrigen(cual) {
+        const mapa = {
+            tabla: { auth: authTabla, emailId: 'emailTabla', passId: 'passTabla', estadoId: 'estadoTabla' },
+            le: { auth: authLE, emailId: 'emailLE', passId: 'passLE', estadoId: 'estadoLE' },
+            destino: { auth: authDestino, emailId: 'emailDestino', passId: 'passDestino', estadoId: 'estadoDestino' }
+        };
+        const cfg = mapa[cual];
+        const email = document.getElementById(cfg.emailId).value.trim();
+        const pass = document.getElementById(cfg.passId).value;
+        const estadoEl = document.getElementById(cfg.estadoId);
+
+        if (!email || !pass) {
+            estadoEl.textContent = '⚠️ Completa correo y contraseña';
+            estadoEl.className = 'estado error';
+            return;
+        }
+
+        try {
+            await cfg.auth.signInWithEmailAndPassword(email, pass);
+            estadoEl.textContent = '✅ Sesión iniciada';
+            estadoEl.className = 'estado ok';
+            loginState[cual] = true;
+            actualizarPasos();
+        } catch (error) {
+            estadoEl.textContent = '❌ ' + (error.message || 'Error al iniciar sesión');
+            estadoEl.className = 'estado error';
+        }
+    }
+
+    function actualizarPasos() {
+        const previewListo = loginState.tabla && loginState.le && loginState.destino;
+        document.getElementById('pasoPreview').classList.toggle('deshabilitado', !previewListo);
+        document.getElementById('btnPreview').disabled = !previewListo;
+    }
+
+    // -------------------------------------------------------------
+    // Lectura completa de un proyecto origen (solo .once('value'),
+    // nunca se escribe nada de vuelta en dbTabla/dbLE).
+    // -------------------------------------------------------------
+    async function leerArbolCompleto(dbRef) {
+        const snap = await dbRef.ref().once('value');
+        return snap.val() || {};
+    }
+
+    function contar(valor) {
+        if (!valor || typeof valor !== 'object') return valor === undefined || valor === null ? 0 : 1;
+        return Object.keys(valor).length;
+    }
+
+    function log(elId, texto) {
+        const el = document.getElementById(elId);
+        el.style.display = 'block';
+        el.textContent += texto + '\n';
+    }
+
+    // Colecciones a migrar de cada origen. Deliberadamente NO se incluyen
+    // 'usuarios' (Tabla Quirúrgica) ni 'users' (Lista de Espera): las
+    // cuentas de Firebase Auth no se pueden migrar desde el navegador, así
+    // que esas colecciones quedarían con UIDs que no corresponden a ninguna
+    // cuenta real del proyecto nuevo. Tampoco se migra 'bitacora_accesos'
+    // (también ligada a UIDs viejos) — la bitácora del proyecto nuevo
+    // empieza limpia.
+    const COLECCIONES_TABLA = ['registros_quirurgicos', 'registros_definitivos', 'pacientes_diferidos', 'disponibilidad_pabellon', 'metas_produccion', 'desplegables'];
+    const COLECCIONES_LE = ['patients', 'rdll_historico', 'configuracion'];
+
+    async function vistaPrevia() {
+        const btn = document.getElementById('btnPreview');
+        btn.disabled = true;
+        btn.textContent = 'Leyendo...';
+        document.getElementById('logPreview').textContent = '';
+        document.getElementById('logPreview').style.display = 'block';
+
+        try {
+            const dataTabla = await leerArbolCompleto(dbTabla);
+            const dataLE = await leerArbolCompleto(dbLE);
+            datosLeidos = { tabla: dataTabla, le: dataLE };
+
+            log('logPreview', '📥 Tabla Quirúrgica (origen) — colecciones a migrar:');
+            COLECCIONES_TABLA.forEach(c => log('logPreview', `   ${c}: ${contar(dataTabla[c])} registros`));
+            log('logPreview', '');
+            log('logPreview', '📥 Lista de Espera (origen) — colecciones a migrar:');
+            COLECCIONES_LE.forEach(c => log('logPreview', `   ${c}: ${contar(dataLE[c])} registros`));
+            log('logPreview', '');
+            log('logPreview', '⛔ NO se migran: usuarios (Tabla), users (Lista de Espera), bitacora_accesos.');
+            log('logPreview', '');
+            log('logPreview', '✅ Vista previa lista. Revisa los números y luego marca la casilla de confirmación abajo.');
+
+            document.getElementById('pasoRun').classList.remove('deshabilitado');
+            document.getElementById('chkConfirmar').disabled = false;
+
+        } catch (error) {
+            log('logPreview', '❌ Error al leer: ' + (error.message || error));
+        } finally {
+            btn.disabled = false;
+            btn.textContent = '👁️ Vista previa';
+        }
+    }
+
+    function actualizarBotonRun() {
+        document.getElementById('btnRun').disabled = !document.getElementById('chkConfirmar').checked;
+    }
+
+    // Escribe UNA colección completa en desde/dbDestino. Primero intenta en
+    // una sola escritura (rápido, lo normal); si Firebase la rechaza por
+    // tamaño ("Write too large" — pasa con años de historial acumulado), la
+    // parte en lotes de EL_TAMANO_DEL_LOTE registros y los escribe uno por
+    // uno con update() sobre las rutas "coleccion/clave". Devuelve true/false
+    // según si terminó sin errores.
+    const EL_TAMANO_DEL_LOTE = 200;
+
+    async function escribirColeccionEnLotes(nombreColeccion, datosColeccion) {
+        if (!datosColeccion || typeof datosColeccion !== 'object') {
+            log('logRun', `⏭️ ${nombreColeccion}: sin datos, se omite.`);
+            return true;
+        }
+
+        const claves = Object.keys(datosColeccion);
+        log('logRun', `⏳ ${nombreColeccion}: escribiendo ${claves.length} registros...`);
+
+        // Intento 1: todo junto (rápido si el volumen es normal).
+        try {
+            await dbDestino.ref(nombreColeccion).set(datosColeccion);
+            log('logRun', `✅ ${nombreColeccion}: ${claves.length} registros escritos.`);
+            return true;
+        } catch (error) {
+            log('logRun', `⚠️ ${nombreColeccion}: escritura completa falló (${error.message || error}) — probando por lotes de ${EL_TAMANO_DEL_LOTE}...`);
+        }
+
+        // Intento 2: por lotes.
+        try {
+            for (let i = 0; i < claves.length; i += EL_TAMANO_DEL_LOTE) {
+                const loteClaves = claves.slice(i, i + EL_TAMANO_DEL_LOTE);
+                const loteUpdates = {};
+                loteClaves.forEach(clave => {
+                    loteUpdates[`${nombreColeccion}/${clave}`] = datosColeccion[clave];
+                });
+                await dbDestino.ref().update(loteUpdates);
+                log('logRun', `   ...lote ${Math.floor(i / EL_TAMANO_DEL_LOTE) + 1} (${loteClaves.length} registros) ✔️`);
+            }
+            log('logRun', `✅ ${nombreColeccion}: ${claves.length} registros escritos (por lotes).`);
+            return true;
+        } catch (error) {
+            log('logRun', `❌ ${nombreColeccion}: falló incluso por lotes — ${error.message || error}`);
+            return false;
+        }
+    }
+
+    async function confirmarYEjecutar() {
+        if (!datosLeidos) {
+            alert('Primero haz la Vista Previa.');
+            return;
+        }
+
+        // Chequeo defensivo: si el destino ya tiene datos en alguna de estas
+        // colecciones, advertir fuerte antes de sobrescribir (por si esta
+        // herramienta se corre una segunda vez sin querer).
+        const snapDestinoActual = await dbDestino.ref().once('value');
+        const destinoActual = snapDestinoActual.val() || {};
+        const yaTieneDatos = [...COLECCIONES_TABLA, ...COLECCIONES_LE].some(c => destinoActual[c] && contar(destinoActual[c]) > 0);
+        if (yaTieneDatos) {
+            const continuar = confirm('⚠️ La base de datos NUEVA ya tiene datos en alguna de estas colecciones. Si continúas, se van a SOBRESCRIBIR. ¿Seguro que quieres continuar?');
+            if (!continuar) return;
+        }
+
+        const confirmadoFinal = confirm('Esto va a escribir datos en la base de datos NUEVA de la app integrada. Esta acción no tiene un botón de deshacer. ¿Confirmas que quieres ejecutar la migración ahora?');
+        if (!confirmadoFinal) return;
+
+        const btn = document.getElementById('btnRun');
+        btn.disabled = true;
+        btn.textContent = 'Migrando...';
+        document.getElementById('logRun').textContent = '';
+        document.getElementById('logRun').style.display = 'block';
+
+        try {
+            const todas = {};
+            COLECCIONES_TABLA.forEach(c => {
+                if (datosLeidos.tabla[c] !== undefined) todas[c] = datosLeidos.tabla[c];
+            });
+            COLECCIONES_LE.forEach(c => {
+                if (datosLeidos.le[c] !== undefined) todas[c] = datosLeidos.le[c];
+            });
+
+            // Escribir COLECCIÓN POR COLECCIÓN (no todo en un solo update):
+            // Firebase rechaza una sola escritura si el paquete es muy
+            // grande ("Write too large") — con años de historial acumulado,
+            // todas las colecciones juntas fácilmente superan ese límite.
+            let huboError = false;
+            for (const nombreColeccion of Object.keys(todas)) {
+                const ok = await escribirColeccionEnLotes(nombreColeccion, todas[nombreColeccion]);
+                if (!ok) huboError = true;
+            }
+
+            log('logRun', '');
+            if (huboError) {
+                log('logRun', '⚠️ Migración terminada CON ERRORES — revisa arriba qué colección falló.');
+                btn.textContent = '⚠️ Terminó con errores';
+            } else {
+                log('logRun', '✅ Migración completa.');
+                log('logRun', 'Ya puedes cerrar esta página y abrir index.html de la app integrada.');
+                btn.textContent = '✅ Migración completa';
+            }
+        } catch (error) {
+            log('logRun', '❌ Error durante la migración: ' + (error.message || error));
+            btn.disabled = false;
+            btn.textContent = '⚠️ Ejecutar migración';
+        }
+    }
+</script>
+</body>
+</html>

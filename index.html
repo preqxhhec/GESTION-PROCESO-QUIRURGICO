@@ -1,0 +1,305 @@
+<!DOCTYPE html>
+<html lang="es">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>Tabla Quirúrgica · Registro</title>
+    
+    <!-- Favicon -->
+    <link rel="icon" type="image/png" href="favicon.png">
+    <link rel="apple-touch-icon" href="favicon.png">
+    
+    <link rel="stylesheet" href="styles.css">
+    <link rel="stylesheet" href="style-lista-espera.css">
+</head>
+<body>
+
+<!-- ========================================================= -->
+<!-- ✨ SPLASH DE ENTRADA (antes del login)                    -->
+<!-- Logo propio del sistema (no el logo.png/favicon.png de la -->
+<!-- institución, que cambia según el hospital donde se        -->
+<!-- despliegue la app). Se autodescarta solo, máx. ~4s, o al  -->
+<!-- hacer clic. Script inline y al inicio del body para que   -->
+<!-- arranque de inmediato, sin esperar los scripts del final. -->
+<!-- ========================================================= -->
+<div id="appSplash">
+    <div class="app-splash-grid"></div>
+    <div class="app-splash-glow"></div>
+    <div class="app-splash-content">
+        <svg class="app-splash-logo" width="168" height="168" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Sistema de Gestión Proceso Quirúrgico">
+            <defs>
+                <linearGradient id="appSplashGrad" x1="0" y1="0" x2="1" y2="1">
+                    <stop offset="0%" stop-color="#12406e"/>
+                    <stop offset="100%" stop-color="#1a8fa8"/>
+                </linearGradient>
+            </defs>
+            <rect x="4" y="4" width="112" height="112" rx="28" fill="url(#appSplashGrad)" stroke="#ffffff" stroke-opacity="0.18" stroke-width="2"/>
+            <polyline class="app-splash-badge-pulse" points="16,62 33,62 42,38 53,86 63,48 71,62 104,62" fill="none" stroke="#4fe8c9" stroke-width="6" stroke-linecap="round" stroke-linejoin="round"/>
+            <g stroke="#ffb84f" stroke-width="4.5" stroke-linecap="round">
+                <line x1="89" y1="23" x2="89" y2="37"/>
+                <line x1="82" y1="30" x2="96" y2="30"/>
+            </g>
+        </svg>
+        <h1 class="app-splash-title">Sistema de Gestión<br>Proceso Quirúrgico</h1>
+        <svg class="app-splash-ekg" viewBox="0 0 400 40" preserveAspectRatio="none" xmlns="http://www.w3.org/2000/svg" aria-hidden="true">
+            <polyline class="app-splash-ekg-line" fill="none" points="0,20 17,20 25,8 33,34 41,15 48,20 100,20 117,20 125,8 133,34 141,15 148,20 200,20 217,20 225,8 233,34 241,15 248,20 300,20 317,20 325,8 333,34 341,15 348,20 400,20"/>
+        </svg>
+        <div class="app-splash-dots"><span></span><span></span><span></span></div>
+    </div>
+</div>
+<script>
+(function() {
+    var splash = document.getElementById('appSplash');
+    if (!splash) return;
+    var dismissed = false;
+    function ocultarSplash() {
+        if (dismissed) return;
+        dismissed = true;
+        splash.classList.add('app-splash-hide');
+        setTimeout(function() { splash.remove(); }, 550);
+    }
+    splash.addEventListener('click', ocultarSplash);
+    setTimeout(ocultarSplash, 3400);
+})();
+</script>
+
+<!-- ========================================================= -->
+<!-- 🔐 PANTALLA DE LOGIN                                      -->
+<!-- ========================================================= -->
+<div id="loginContainer">
+    <div class="login-box">
+        <div class="login-logo">
+            <img src="favicon.png" alt="Hospital de Illapel" class="login-logo-img">
+        </div>
+        <h2>🔐 Iniciar Sesión</h2>
+        <p class="login-sub">Tabla Quirúrgica · Hospital Dr. Humberto Elorza Cortés</p>
+        <div id="loginStatus" class="login-status"></div>
+        <input type="email" id="loginEmail" placeholder="Correo electrónico" autocomplete="email">
+        <input type="password" id="loginPassword" placeholder="Contraseña" autocomplete="current-password">
+        <button id="loginBtn">Ingresar</button>
+        <div class="login-footer">
+            <span>¿No tienes cuenta? Contacta al administrador</span>
+        </div>
+    </div>
+</div>
+
+<!-- ========================================================= -->
+<!-- 🏥 APLICACIÓN PRINCIPAL                                   -->
+<!-- ========================================================= -->
+<div class="app" id="app">
+    <!-- Membrete: Menú a la izquierda, Logo y Títulos centrados -->
+    <div class="header-membrete">
+        <!-- 🍔 Menú hamburguesa a la izquierda (posicionado absoluto) -->
+        <div class="menu-hamburguesa">
+            <button class="menu-toggle" id="menuToggle" aria-label="Abrir menú">
+                <span class="menu-icon">☰</span>
+            </button>
+            <div class="menu-dropdown" id="menuDropdown">
+    <button class="menu-item active" data-section="registro" id="navRegistro">
+        📋 Tabla Quirúrgica
+    </button>
+    <button class="menu-item" data-section="diferidos" id="navDiferidos">
+        📤 Pacientes Diferidos
+    </button>
+    <button class="menu-item" data-section="libro" id="navLibro">
+        📘 Libro de Quirófano
+    </button>
+    <button class="menu-item" data-section="estadisticas" id="navEstadisticas">
+        📊 Estadísticas
+    </button>
+    <button class="menu-item" id="navReunionTabla">
+        🤝 Reunión de Tabla
+    </button>
+    <button class="menu-item" id="navAnalisisIA">
+        🧠 Análisis IA
+    </button>
+    <button class="menu-item" data-section="admin" id="navAdmin">
+        ⚙️ Administrador
+    </button>
+    <button class="menu-item" data-section="manual" id="navManual">
+    📖 Manual de Usuario
+</button>
+    <button class="menu-item" data-section="listaEspera" id="navListaEspera">
+        🩺 Lista de Espera
+    </button>
+</div>
+        </div>
+
+        <!-- ✨ Marca propia del sistema (arriba a la derecha del encabezado) -->
+        <!-- Versión chica del logo/splash de entrada, con la misma animación -->
+        <!-- de "EKG corriendo". Es la marca del SOFTWARE, no la del hospital -->
+        <!-- (esa sigue siendo favicon.png/logo.png, al centro). -->
+        <div class="app-brand-badge">
+            <svg class="app-brand-badge-logo" width="68" height="68" viewBox="0 0 120 120" xmlns="http://www.w3.org/2000/svg" role="img" aria-label="Sistema de Gestión Proceso Quirúrgico">
+                <defs>
+                    <linearGradient id="appBrandGrad" x1="0" y1="0" x2="1" y2="1">
+                        <stop offset="0%" stop-color="#12406e"/>
+                        <stop offset="100%" stop-color="#1a8fa8"/>
+                    </linearGradient>
+                </defs>
+                <rect x="4" y="4" width="112" height="112" rx="28" fill="url(#appBrandGrad)" stroke="#ffffff" stroke-opacity="0.25" stroke-width="3"/>
+                <polyline class="app-brand-badge-pulse" points="16,62 33,62 42,38 53,86 63,48 71,62 104,62" fill="none" stroke="#4fe8c9" stroke-width="8" stroke-linecap="round" stroke-linejoin="round"/>
+                <g stroke="#ffb84f" stroke-width="6" stroke-linecap="round">
+                    <line x1="89" y1="20" x2="89" y2="40"/>
+                    <line x1="79" y1="30" x2="99" y2="30"/>
+                </g>
+            </svg>
+            <span class="app-brand-badge-text">Sistema de Gestión<br>Proceso Quirúrgico</span>
+        </div>
+
+        <!-- Logo y Títulos centrados -->
+        <div class="header-center">
+            <div class="logo-container">
+                <img src="favicon.png" alt="Hospital de Illapel" class="logo-hospital">
+            </div>
+            <div class="header-text">
+                <h1>Tabla Quirúrgica · Registro</h1>
+                <span class="sub">Hospital Dr. Humberto Elorza Cortés</span>
+            </div>
+        </div>
+    </div>
+
+    <!-- ========================================================= -->
+    <!-- 🟢 BARRA DE NAVEGACIÓN (SEMANAS + USUARIO)                -->
+    <!-- ========================================================= -->
+    <div style="display: flex; justify-content: space-between; align-items: center; margin-bottom: 15px; padding: 0 10px; flex-wrap: wrap; gap: 10px;">
+        <!-- Tus pestañas de semanas a la izquierda -->
+        <div class="tabs" id="tabContainer"></div>
+        
+        <!-- Información del usuario y botón de logout a la derecha -->
+        <div id="userInfo" style="display: none; align-items: center; gap: 15px; font-size: 14px;">
+            <span id="userDisplayName" style="font-weight: bold; color: #2c3e50;">👤 </span>
+            <button id="logoutBtn" style="background: #e74c3c; color: white; border: none; padding: 6px 14px; border-radius: 4px; cursor: pointer; font-size: 13px; transition: background 0.2s; font-weight: bold;">🚪 Cerrar Sesión</button>
+        </div>
+    </div>
+
+        <!-- Contenido de la tabla principal -->
+    <div id="weekContent"></div>
+
+    <!-- Contenido de Pacientes Diferidos (inicialmente oculto) -->
+    <div id="diferidosContent" style="display: none;"></div>
+
+    <!-- Contenido de Libro de Quirófano (inicialmente oculto) -->
+    <div id="libroContent" style="display: none;">
+        <div id="libroFiltrosContainer">
+            <!-- Los filtros se generarán dinámicamente aquí -->
+        </div>
+        <div id="libroTablaContainer">
+            <!-- La tabla se renderizará aquí -->
+        </div>
+    </div>
+
+    <!-- Contenido de Estadísticas (inicialmente oculto) -->
+    <div id="estadisticasContent" style="display: none;"></div>
+
+    <!-- Contenido de Administrador (inicialmente oculto) -->
+    <div id="adminContent" style="display: none;"></div>
+
+    <!-- Contenido de Lista de Espera (inicialmente oculto). El HTML interno -->
+    <!-- (sub-navegación, dashboard, formulario, tabla, RDLL) lo construye  -->
+    <!-- js/30-le-navegacion.js en tiempo de ejecución, igual que hace       -->
+    <!-- js/18-estadisticas.js con estadisticasContent. -->
+    <div id="listaEsperaContent" style="display: none;"></div>
+
+<!-- Contenido de Manual de Usuario (inicialmente oculto) -->
+<div id="manualContent" style="display: none;">
+    <div id="manualContainer" style="display:flex; height:calc(100vh - 250px); min-height:500px; background:white; border-radius:16px; border:1px solid #e2e8f0; overflow:hidden;">
+        <!-- Índice (izquierda) -->
+        <div id="manualIndice" style="width:280px; min-width:280px; background:#f8fafc; border-right:1px solid #e2e8f0; overflow-y:auto; padding:16px 0;">
+            <div style="padding:0 16px 12px 16px; border-bottom:1px solid #e2e8f0; font-weight:700; font-size:1.1rem; color:#0b2a4f;">
+                📖 Índice
+            </div>
+            <div style="padding:12px 16px; border-bottom:1px solid #e2e8f0;">
+                <button id="btnDescargarManualPDF" style="width:100%; background:#0b2a4f; color:white; border:none; padding:8px 12px; border-radius:20px; cursor:pointer; font-size:0.78rem; font-weight:600;">⬇️ Descargar PDF</button>
+            </div>
+            <div id="manualIndiceLista"></div>
+        </div>
+        <!-- Contenido (derecha) -->
+        <div id="manualContenido" style="flex:1; overflow-y:auto; padding:24px 32px; background:white;">
+            <div id="manualContenidoInner">
+                <p style="color:#94a3b8; text-align:center; padding:60px 20px; font-size:1.1rem;">
+                    Selecciona una sección del índice para leer
+                </p>
+            </div>
+        </div>
+    </div>
+</div>
+
+
+
+
+    <div class="footer-note">
+        <div class="footer-left">
+            © Dr. Danilo A. Nava La C. · Jéfe del Proceso Quirúrgico<br>
+        </div>
+        <div class="footer-right">
+            ⏱️ Registro diario · Pabellón 1 y 2 · Hospital Dr. Humberto Elorza Cortés · Illapel, Chile
+        </div>
+    </div>
+
+<!-- ========================================================= -->
+<!-- 🔥 FIREBASE SDK                                           -->
+<!-- ========================================================= -->
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-app-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-database-compat.js"></script>
+<script src="https://www.gstatic.com/firebasejs/9.22.0/firebase-auth-compat.js"></script>
+
+<!-- Librería para exportar a Excel -->
+<script src="https://cdnjs.cloudflare.com/ajax/libs/xlsx/0.18.5/xlsx.full.min.js"></script>
+
+<!-- Librería para gráficos de Estadísticas -->
+<script src="https://cdn.jsdelivr.net/npm/chart.js@4.4.4/dist/chart.umd.min.js"></script>
+
+<!-- Librerías para Presentación / Exportar a PPT de Estadísticas -->
+<script src="https://cdn.jsdelivr.net/npm/html2canvas@1.4.1/dist/html2canvas.min.js"></script>
+<script src="https://cdn.jsdelivr.net/npm/pptxgenjs@4.0.1/dist/pptxgen.bundle.js"></script>
+
+<!-- 🔥 Configuración de Firebase -->
+<script src="firebase-config.js"></script>
+
+<!-- ========================================================= -->
+<!-- TU SCRIPT PRINCIPAL (dividido en módulos)                 -->
+<!-- IMPORTANTE: el orden de carga es el mismo orden en que    -->
+<!-- aparecía el código en el script.js original. No reordenar.-->
+<!-- ========================================================= -->
+<script src="js/01-utilidades-globales.js"></script>
+<script src="js/02-guardado-firebase.js"></script>
+<script src="js/03-registro-y-desplegables.js"></script>
+<script src="js/04-datos-intervenciones.js"></script>
+<script src="js/05-comboboxes-y-construccion-semana.js"></script>
+<script src="js/06-modales-y-color.js"></script>
+<script src="js/07-render-tabla-dia.js"></script>
+<script src="js/08-acciones-fila-paciente.js"></script>
+<script src="js/09-diferidos-libro-admin.js"></script>
+<script src="js/10-manual-usuario.js"></script>
+<script src="js/11-admin-usuarios.js"></script>
+<script src="js/12-admin-desplegables.js"></script>
+<script src="js/13-libro-quirofano-tabla.js"></script>
+<script src="js/14-render-principal.js"></script>
+<script src="js/15-navegacion-y-autenticacion.js"></script>
+<script src="js/16-libro-tabla-por-fecha.js"></script>
+<script src="js/17-libro-por-fecha-ui.js"></script>
+<script src="js/18-estadisticas.js"></script>
+<script src="js/19-tabla-presentacion-ppt.js"></script>
+<script src="js/20-permisos-usuario.js"></script>
+<script src="js/21-reunion-tabla.js"></script>
+<script src="js/22-analisis-ia.js"></script>
+
+<!-- ========================================================= -->
+<!-- 🩺 MÓDULO LISTA DE ESPERA (portado desde LISTA DE ESPERA APP) -->
+<!-- Comparte el login/roles de Tabla Quirúrgica (js/15, js/20). -->
+<!-- Mismo orden fijo, cargado después de todo lo anterior.      -->
+<!-- ========================================================= -->
+<script src="js/23-le-utilidades.js"></script>
+<script src="js/24-le-alta-paciente.js"></script>
+<script src="js/25-le-lista-pacientes.js"></script>
+<script src="js/26-le-dashboard.js"></script>
+<script src="js/27-le-historico-rdll.js"></script>
+<script src="js/28-le-exportacion-impresion.js"></script>
+<script src="js/29-le-admin-listas.js"></script>
+<script src="js/30-le-navegacion.js"></script>
+<script src="js/31-le-bridge-cargar-a-tabla.js"></script>
+<script src="js/32-whatsapp-plantillas.js"></script>
+
+</body>
+</html>
