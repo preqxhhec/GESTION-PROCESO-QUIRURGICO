@@ -359,6 +359,12 @@
             } else if (seccionInicial !== 'registro') {
                 cambiarSeccion(seccionInicial);
             } else {
+                // El aterrizaje directo en "registro" (el caso más común: es
+                // la sección por defecto) no pasa por cambiarSeccion(), así
+                // que hay que marcar el atributo acá también — si no, el
+                // aviso de girar pantalla (ver styles.css) nunca se activa
+                // para quien entra directo a la Tabla Quirúrgica.
+                document.body.setAttribute('data-seccion', 'registro');
                 render();
             }
 
