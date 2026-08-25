@@ -1827,6 +1827,18 @@ body.pptx-modo-captura #estadisticasAmbGrid .stats-grafico-especialidad {
     body[data-seccion="libro"] .rotate-overlay {
         display: flex;
     }
+
+    /* "Reunión de Tabla" y "Análisis IA" son modales que se abren desde el
+       menú SIN cambiar de sección (quedan flotando sobre lo que sea que
+       esté activo detrás, incluida la Tabla Quirúrgica) — ver
+       js/21-reunion-tabla.js y js/22-analisis-ia.js. Como esos modales ya
+       se adaptan bien en vertical (con scroll propio), el aviso de girar no
+       debe taparlos aunque la sección de atrás sea registro/libro. */
+    body:has(#reunionTablaOverlay) .rotate-overlay,
+    body:has(#analisisIaOverlay) .rotate-overlay,
+    body:has(#analisisIaPreviaOverlay) .rotate-overlay {
+        display: none !important;
+    }
 }
 
 .rotate-overlay-icon {
