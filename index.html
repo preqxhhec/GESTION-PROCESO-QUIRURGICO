@@ -4,11 +4,18 @@
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>Tabla Quirúrgica · Registro</title>
-    
+
     <!-- Favicon -->
     <link rel="icon" type="image/png" href="favicon.png">
-    <link rel="apple-touch-icon" href="favicon.png">
-    
+    <link rel="apple-touch-icon" href="apple-touch-icon.png">
+
+    <!-- 📱 Instalación como app (PWA) -->
+    <link rel="manifest" href="manifest.json">
+    <meta name="theme-color" content="#0b2a4f">
+    <meta name="apple-mobile-web-app-capable" content="yes">
+    <meta name="apple-mobile-web-app-status-bar-style" content="black-translucent">
+    <meta name="apple-mobile-web-app-title" content="Proceso Qx">
+
     <link rel="stylesheet" href="styles.css">
     <link rel="stylesheet" href="style-lista-espera.css">
 </head>
@@ -300,6 +307,16 @@
 <script src="js/30-le-navegacion.js"></script>
 <script src="js/31-le-bridge-cargar-a-tabla.js"></script>
 <script src="js/32-whatsapp-plantillas.js"></script>
+
+<!-- 📱 Registro del Service Worker (requisito para "Instalar" como app) -->
+<script>
+    if ('serviceWorker' in navigator) {
+        window.addEventListener('load', function() {
+            navigator.serviceWorker.register('service-worker.js')
+                .catch(function(err) { console.warn('⚠️ Service Worker no registrado:', err); });
+        });
+    }
+</script>
 
 </body>
 </html>
