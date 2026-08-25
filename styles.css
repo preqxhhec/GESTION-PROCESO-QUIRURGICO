@@ -1692,3 +1692,97 @@ body.pptx-modo-captura #estadisticasAmbGrid .stats-grafico-especialidad {
         animation: none !important;
     }
 }
+
+/* ============================================================= */
+/* 📱 OPTIMIZACIÓN GENERAL PARA CELULAR Y TABLET                  */
+/* Bloque aparte (no mezclado con los @media puntuales de arriba, */
+/* ya afinados) para no arriesgar esos ajustes ya probados. Cubre */
+/* lo que faltaba: aire del contenedor, blancos de las tablas al   */
+/* deslizar, tamaño de toque de botones/inputs, y un par de grillas */
+/* de 2 columnas fijas (Estadísticas) que en un celular angosto     */
+/* quedaban apretadas.                                              */
+/* ============================================================= */
+
+/* Scroll con inercia en iOS para las tablas con scroll horizontal/vertical */
+.table-wrap, .stats-table-wrap, #manualIndice, .intervencion-dropdown {
+    -webkit-overflow-scrolling: touch;
+}
+
+/* 🖥️➜📱 Tablet (apaisado/vertical grande): aire un poco más ajustado */
+@media (max-width: 1024px) {
+    body {
+        padding: 14px;
+    }
+    .app {
+        padding: 20px 16px 26px;
+        border-radius: 22px;
+    }
+}
+
+/* 📱 Celular: contenedor a ancho completo, casi sin desperdiciar pantalla */
+@media (max-width: 600px) {
+    body {
+        padding: 8px;
+    }
+    .app {
+        padding: 14px 10px 20px;
+        border-radius: 16px;
+    }
+
+    /* 7 días en una fila queda muy angosto en un celular chico —
+       4 columnas (2 filas de 4+3) da botones cómodos de tocar. */
+    .days-grid {
+        grid-template-columns: repeat(4, 1fr);
+        gap: 8px;
+    }
+    .day-btn {
+        padding: 10px 4px;
+        font-size: 0.9rem;
+    }
+
+    /* Botones de acción (Guardar/Limpiar/Registrar/Imprimir/Agregar Fila):
+       más altos y con más aire para no fallar el toque. */
+    .btn-sm {
+        padding: 9px 16px;
+        font-size: 0.78rem;
+    }
+    .btn-group {
+        gap: 8px;
+    }
+
+    /* Pestañas de semana y navegación del menú: mismo criterio. */
+    .tab-btn {
+        padding: 10px 16px;
+        font-size: 0.9rem;
+    }
+    .menu-item {
+        padding: 12px 14px;
+        font-size: 0.95rem;
+    }
+
+    /* Celdas de la tabla principal: siguen siendo compactas (así caben
+       las ~25 columnas), pero un poco más altas/legibles que en desktop
+       para que el dedo acierte el campo correcto al deslizar y tocar. */
+    .table-wrap .input-auto {
+        height: 30px;
+        font-size: 0.72rem;
+        padding: 4px 6px;
+    }
+    .table-wrap th, .table-wrap td {
+        padding: 6px 4px;
+    }
+    .table-wrap th {
+        font-size: 0.6rem;
+    }
+
+    /* Un par de grillas de 2 columnas fijas en Estadísticas (comparativas
+       lado a lado) que en un celular angosto quedan demasiado apretadas —
+       selector por contenido del style inline, sin tocar el JS que las
+       genera. En tablet/desktop se quedan como están (2 y 3 columnas). */
+    div[style*="grid-template-columns:1fr 1fr"],
+    div[style*="grid-template-columns: 1fr 1fr"],
+    div[style*="grid-template-columns:2fr 1fr"],
+    div[style*="grid-template-columns: 2fr 1fr"] {
+        grid-template-columns: 1fr !important;
+    }
+}
