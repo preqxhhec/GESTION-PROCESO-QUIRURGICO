@@ -1810,8 +1810,14 @@ body.pptx-modo-captura #estadisticasAmbGrid .stats-grafico-especialidad {
     padding: 32px;
 }
 
+/* Solo se exige horizontal en las secciones con tablas anchas: Tabla
+   Quirúrgica (registro) y Libro de Quirófano. El resto (Estadísticas,
+   Diferidos, Admin, Manual, Lista de Espera) y la pantalla de login (sin
+   data-seccion todavía) se pueden usar en vertical sin problema. El
+   atributo lo pone cambiarSeccion() en js/15-navegacion-y-autenticacion.js. */
 @media (max-width: 1024px) and (orientation: portrait) {
-    .rotate-overlay {
+    body[data-seccion="registro"] .rotate-overlay,
+    body[data-seccion="libro"] .rotate-overlay {
         display: flex;
     }
 }

@@ -18,6 +18,14 @@
             return;
         }
 
+        // 🔄 Solo la Tabla Quirúrgica y el Libro de Quirófano necesitan el
+        // ancho de la vista horizontal (son las tablas con muchas columnas).
+        // El resto de las secciones (Estadísticas, Diferidos, Admin, Manual,
+        // Lista de Espera) ya se adaptan bien en vertical, así que no se les
+        // exige girar — ver ".rotate-overlay" en styles.css, que solo se
+        // muestra cuando este atributo coincide.
+        document.body.setAttribute('data-seccion', seccion);
+
         weekContent.style.display = 'none';
         diferidosContent.style.display = 'none';
         libroContent.style.display = 'none';
