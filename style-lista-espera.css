@@ -263,6 +263,14 @@
     padding: 12px 10px;
     text-align: center;
     border: 1px solid #e2e8f0;
+    /* La hoja de estilos PRINCIPAL de la app (styles.css, no esta) trae una
+       regla genérica "th, td { background: white; }" sin ámbito — como
+       alcanza cualquier <td> de toda la página (incluida esta tabla), tapa
+       el color que se le pone a la fila (<tr>) desde JS, aunque sea con
+       !important: no es una pelea de especificidad, es que la celda hija
+       pinta su propio fondo encima del de la fila. Transparente acá deja
+       que se vea el color real de la fila (o el de abajo si no tiene). */
+    background: transparent;
 }
 
 .le-scope .cross-table th {

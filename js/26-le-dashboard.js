@@ -466,7 +466,11 @@ function actualizarTablaLlamadosPendientes() {
         }
 
         const tr = document.createElement('tr');
-        tr.style.backgroundColor = bgColor;
+        // setProperty(...,'important') en vez de tr.style.backgroundColor:
+        // por alguna regla de .cross-table que no se alcanza a ver bien de
+        // forma estática, el color de fondo no estaba quedando visible —
+        // forzarlo con !important garantiza que gane pase lo que pase.
+        tr.style.setProperty('background-color', bgColor, 'important');
         tr.innerHTML = `
             <td><strong>${patient.nombreApellido || '-'}</strong></td>
             <td>${patient.rut || '-'}</td>
