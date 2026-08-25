@@ -414,7 +414,12 @@ async function cargarDatosDesdeFirebase() {
                     const filaData = data[key];
                     const filaLocal = semanas[semanaIdx][diaIdx].pabs[PABS[pabIdx]][filaIdx];
                     const ultimoEditor = filaData.metadata?.ultimo_editor;
-                    if (ultimoEditor !== currentUserEmail) {
+                    // 🛟 Mientras haya cambios propios sin guardar (en CUALQUIER
+                    // fila), no se aplican actualizaciones remotas: de lo
+                    // contrario, el guardado de OTRO usuario en OTRA fila podía
+                    // pisar una edición local todavía no guardada (ver
+                    // hayCambiosSinGuardarPendientes en js/01).
+                    if (!hayCambiosSinGuardarPendientes && ultimoEditor !== currentUserEmail) {
                         Object.keys(filaData).forEach(campo => {
                             if (campo !== 'metadata') {
                                 if (campo === 'RUT' && filaData[campo] !== undefined && filaData[campo] !== null) {

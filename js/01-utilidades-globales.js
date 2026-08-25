@@ -5,6 +5,17 @@ let currentUser = null;
 let currentUserEmail = '';
 let currentUserRol = '';
 
+// 🛟 Protección contra pérdida de ediciones no guardadas: el listener de
+// sincronización en tiempo real (js/03, iniciarSincronizacionTiempoReal)
+// solo protege una fila si TÚ fuiste quien la guardó por última vez — pero
+// mientras estás escribiendo algo que todavía no se ha guardado (el
+// autoguardado espera inactividad), si otra persona guarda CUALQUIER OTRA
+// COSA en la tabla, ese listener puede pisar tu edición sin guardar con los
+// datos viejos de Firebase. Mientras esta bandera esté en true, el listener
+// no aplica actualizaciones remotas — se limpia apenas el guardado
+// pendiente termina (ver triggerAutoSave() en js/02).
+let hayCambiosSinGuardarPendientes = false;
+
 
 
 // =============================================================
