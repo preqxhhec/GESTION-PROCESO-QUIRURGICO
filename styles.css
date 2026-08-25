@@ -1786,3 +1786,62 @@ body.pptx-modo-captura #estadisticasAmbGrid .stats-grafico-especialidad {
         grid-template-columns: 1fr !important;
     }
 }
+
+/* ============================================================= */
+/* 🔄 AVISO "GIRA TU PANTALLA" — celular/tablet en vertical        */
+/* La tabla principal (~25 columnas) necesita el ancho del modo    */
+/* horizontal. Oculto por defecto; la media query de abajo lo      */
+/* muestra solo cuando el dispositivo está en vertical Y es        */
+/* angosto (cubre celulares y tablets, no una ventana de escritorio */
+/* achicada en horizontal). Es 100% CSS: al girar el dispositivo,   */
+/* el navegador reevalúa la orientación al instante, sin recargar.  */
+/* ============================================================= */
+.rotate-overlay {
+    display: none;
+    position: fixed;
+    inset: 0;
+    z-index: 999999;
+    background: linear-gradient(135deg, #0b2a4f 0%, #1a6d8a 100%);
+    color: #ffffff;
+    flex-direction: column;
+    align-items: center;
+    justify-content: center;
+    text-align: center;
+    padding: 32px;
+}
+
+@media (max-width: 1024px) and (orientation: portrait) {
+    .rotate-overlay {
+        display: flex;
+    }
+}
+
+.rotate-overlay-icon {
+    font-size: 3.4rem;
+    animation: rotateOverlaySpin 1.8s ease-in-out infinite;
+}
+
+.rotate-overlay-arrow {
+    font-size: 1.6rem;
+    margin-top: 4px;
+    opacity: 0.85;
+}
+
+@keyframes rotateOverlaySpin {
+    0%, 100% { transform: rotate(0deg); }
+    50% { transform: rotate(-90deg); }
+}
+
+.rotate-overlay-title {
+    font-size: 1.4rem;
+    font-weight: 700;
+    margin-top: 18px;
+}
+
+.rotate-overlay-sub {
+    font-size: 0.95rem;
+    color: rgba(255, 255, 255, 0.85);
+    margin-top: 10px;
+    max-width: 320px;
+    line-height: 1.6;
+}

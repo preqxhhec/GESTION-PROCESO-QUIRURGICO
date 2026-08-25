@@ -22,6 +22,20 @@
 <body>
 
 <!-- ========================================================= -->
+<!-- 🔄 AVISO DE GIRAR PANTALLA (celular/tablet en vertical)   -->
+<!-- Puramente CSS: la media query de abajo lo muestra/oculta  -->
+<!-- solo con la orientación real del dispositivo, sin JS ni   -->
+<!-- recarga. Cubre TODO (incluso el splash y el login) porque -->
+<!-- la tabla principal necesita el ancho de la vista horizontal.-->
+<!-- ========================================================= -->
+<div id="rotateOverlay" class="rotate-overlay">
+    <div class="rotate-overlay-icon">📱</div>
+    <div class="rotate-overlay-arrow">↻</div>
+    <div class="rotate-overlay-title">Gira tu pantalla</div>
+    <div class="rotate-overlay-sub">Esta app se usa en modo horizontal para que la tabla se vea completa y cómoda de tocar.</div>
+</div>
+
+<!-- ========================================================= -->
 <!-- ✨ SPLASH DE ENTRADA (antes del login)                    -->
 <!-- Logo propio del sistema (no el logo.png/favicon.png de la -->
 <!-- institución, que cambia según el hospital donde se        -->
