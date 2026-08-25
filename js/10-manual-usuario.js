@@ -21,8 +21,11 @@ const MANUAL_SECCIONES = [
     { id: 'analisis-ia', titulo: '6.6 Análisis IA', icono: '🧠' },
     { id: 'admin', titulo: '7. Panel de Administración', icono: '⚙️' },
     { id: 'avanzadas', titulo: '8. Funciones Avanzadas', icono: '🚀' },
-    { id: 'problemas', titulo: '9. Solución de Problemas', icono: '🔧' },
-    { id: 'faq', titulo: '10. Preguntas Frecuentes', icono: '❓' }
+    { id: 'lista-espera', titulo: '9. Lista de Espera', icono: '🩺' },
+    { id: 'cargar-a-tabla', titulo: '10. Cargar a la Tabla', icono: '📋' },
+    { id: 'whatsapp', titulo: '11. Mensajería WhatsApp', icono: '💬' },
+    { id: 'problemas', titulo: '12. Solución de Problemas', icono: '🔧' },
+    { id: 'faq', titulo: '13. Preguntas Frecuentes', icono: '❓' }
 ];
 
 // Se llena con TODO el contenido (todas las secciones) la primera vez que
@@ -270,13 +273,14 @@ function construirManualContenidos() {
                     <tr><td style="padding:8px 12px; border:1px solid #e2e8f0;">OPERADO (AGREGADO)</td><td style="padding:8px 12px; border:1px solid #e2e8f0;">Cirugía agregada realizada</td></tr>
                     <tr><td style="padding:8px 12px; border:1px solid #e2e8f0;">OPERADO (CONDICIONAL)</td><td style="padding:8px 12px; border:1px solid #e2e8f0;">Cirugía condicional realizada</td></tr>
                     <tr><td style="padding:8px 12px; border:1px solid #e2e8f0;">OPERADO (PAD)</td><td style="padding:8px 12px; border:1px solid #e2e8f0;">Cirugía PAD realizada</td></tr>
-                    <tr><td style="padding:8px 12px; border:1px solid #e2e8f0; background:#fef2f2;"><strong>SUSPENDIDO</strong></td><td style="padding:8px 12px; border:1px solid #e2e8f0; background:#fef2f2;">⚠️ Cirugía suspendida (bloquea el botón Diferir)</td></tr>
+                    <tr><td style="padding:8px 12px; border:1px solid #e2e8f0; background:#fef2f2;"><strong>SUSPENDIDO</strong></td><td style="padding:8px 12px; border:1px solid #e2e8f0; background:#fef2f2;">⚠️ Cirugía suspendida (excepción: SÍ permite Diferir/Reubicar, ver nota abajo)</td></tr>
                     <tr><td style="padding:8px 12px; border:1px solid #e2e8f0;">URGENCIA</td><td style="padding:8px 12px; border:1px solid #e2e8f0;">Cirugía de urgencia</td></tr>
-                    <tr><td style="padding:8px 12px; border:1px solid #e2e8f0;">CONDICIONAL (NO OPERADO)</td><td style="padding:8px 12px; border:1px solid #e2e8f0;">Condicional no operado</td></tr>
+                    <tr><td style="padding:8px 12px; border:1px solid #e2e8f0; background:#fef2f2;"><strong>CONDICIONAL (NO OPERADO)</strong></td><td style="padding:8px 12px; border:1px solid #e2e8f0; background:#fef2f2;">⚠️ Condicional no operado (excepción: SÍ permite Diferir/Reubicar, ver nota abajo)</td></tr>
                     <tr><td style="padding:8px 12px; border:1px solid #e2e8f0;">PERIANALGESIA (PARTO)</td><td style="padding:8px 12px; border:1px solid #e2e8f0;">Parto con analgesia</td></tr>
                 </tbody>
             </table>
-            <p style="color:#dc2626; font-weight:500; margin-top:8px;">⚠️ <strong>Importante:</strong> Cuando un paciente está SUSPENDIDO, el botón Diferir se deshabilita automáticamente.</p>
+            <p style="color:#dc2626; font-weight:500; margin-top:8px;">⚠️ <strong>Importante:</strong> Al elegir CUALQUIER estado en ESTADO_DE_IQx, los botones Diferir y Reubicar de esa fila se deshabilitan (solo quedan habilitados cuando el campo está vacío, "Seleccione").</p>
+            <p style="color:#dc2626; font-weight:500; margin-top:8px;">⚠️ <strong>Excepción:</strong> SUSPENDIDO y CONDICIONAL (NO OPERADO) sí permiten usar Diferir o Reubicar — el paciente permanece visible en su fila original (no desaparece), a diferencia del resto de los estados. Pero apenas se usa uno de los dos botones una vez, ambos quedan bloqueados para esa fila en particular, para evitar que el paciente termine duplicado.</p>
         `,
         
         'botones': `
@@ -609,7 +613,8 @@ function construirManualContenidos() {
                 <li><strong>Intervalo (10 minutos)</strong>: Cada 10 minutos se guarda automáticamente. Si hay filas con datos de paciente pero sin FECHA, muestra una alerta recordatorio (sin dejar de guardar)</li>
             </ol>
             <p style="color:#64748b; font-style:italic;">💡 Puedes ver los guardados automáticos en la consola del navegador (F12)</p>
-            
+            <p style="color:#475569; line-height:1.7; margin-top:8px;">Mientras tengas algo escrito sin guardar todavía, el sistema protege esa edición: ignora temporalmente los cambios que otras personas guarden en cualquier otra fila de la tabla, para que no te pisen lo que estás escribiendo. Apenas tu cambio se guarda (automático o manual), vuelve a mostrar los cambios de los demás con normalidad.</p>
+
             <h2 style="font-size:1.3rem; color:#0b2a4f; margin-top:24px; margin-bottom:12px;">8.2 Color de Filas</h2>
             <p style="color:#475569; line-height:1.7; margin-bottom:12px;">Puedes marcar filas con colores para organizar visualmente:</p>
             <ol style="color:#475569; line-height:1.8; padding-left:24px; margin-bottom:16px;">
@@ -650,11 +655,145 @@ function construirManualContenidos() {
                 <li>Puedes imprimir o guardar como PDF</li>
             </ol>
         `,
-        
+
+        'lista-espera': `
+            <h1 style="font-size:1.8rem; color:#0b2a4f; margin-bottom:16px;">🩺 Lista de Espera</h1>
+            <p style="color:#475569; line-height:1.7; margin-bottom:12px;">Es el módulo de gestión de pacientes preoperatorios: registra a cada paciente desde que se indica la cirugía hasta que se programa en la Tabla Quirúrgica, con sus datos clínicos y administrativos, prioridad, GES, indicaciones del anestesista y seguimiento de llamados.</p>
+
+            <h2 style="font-size:1.3rem; color:#0b2a4f; margin-top:24px; margin-bottom:12px;">9.1 Acceso a la Sección</h2>
+            <ol style="color:#475569; line-height:1.8; padding-left:24px; margin-bottom:16px;">
+                <li>Haz clic en el menú 🍔 (hamburguesa)</li>
+                <li>Selecciona <strong>"🩺 Lista de Espera"</strong></li>
+            </ol>
+            <p style="color:#dc2626; font-size:0.9rem; margin-top:8px;">⚠️ Solo aparece en el menú si tu cuenta tiene habilitado el acceso a esta sección (ver 7.4)</p>
+
+            <h2 style="font-size:1.3rem; color:#0b2a4f; margin-top:24px; margin-bottom:12px;">9.2 Pestañas del Módulo</h2>
+            <table style="width:100%; border-collapse:collapse; font-size:0.85rem; margin-bottom:16px;">
+                <thead>
+                    <tr style="background:#f1f5f9;">
+                        <th style="padding:8px 12px; text-align:left; border:1px solid #e2e8f0;">Pestaña</th>
+                        <th style="padding:8px 12px; text-align:left; border:1px solid #e2e8f0;">Contenido</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td style="padding:8px 12px; border:1px solid #e2e8f0;">🏠 Dashboard</td><td style="padding:8px 12px; border:1px solid #e2e8f0;">Indicadores generales y gráficos (ver 9.3)</td></tr>
+                    <tr><td style="padding:8px 12px; border:1px solid #e2e8f0;">➕ Nuevo Paciente</td><td style="padding:8px 12px; border:1px solid #e2e8f0;">Formulario de ingreso de un paciente nuevo (ver 9.4)</td></tr>
+                    <tr><td style="padding:8px 12px; border:1px solid #e2e8f0;">📋 Lista de Pacientes</td><td style="padding:8px 12px; border:1px solid #e2e8f0;">Tabla maestra con todos los pacientes, filtros y acciones (ver 9.5)</td></tr>
+                    <tr><td style="padding:8px 12px; border:1px solid #e2e8f0;">📜 Histórico RDLL</td><td style="padding:8px 12px; border:1px solid #e2e8f0;">Registro Diario de Lista de Espera y gestión de llamados (ver 9.6)</td></tr>
+                    <tr><td style="padding:8px 12px; border:1px solid #e2e8f0;">⚙️ Administrar Listas</td><td style="padding:8px 12px; border:1px solid #e2e8f0;">CRUD de especialidades, médicos, estatus, anestesiólogos y comunas <strong>(solo superadministrador)</strong></td></tr>
+                </tbody>
+            </table>
+
+            <h2 style="font-size:1.3rem; color:#0b2a4f; margin-top:24px; margin-bottom:12px;">9.3 Dashboard</h2>
+            <p style="color:#475569; line-height:1.7; margin-bottom:12px;">Muestra, sobre el total de pacientes gestionables:</p>
+            <ul style="color:#475569; line-height:1.8; padding-left:24px; margin-bottom:16px;">
+                <li>Mediana de espera general y de espera hasta programación</li>
+                <li>Percentiles 25 / 50 / 75 / 90 y "Mayor Espera", calculables desde <strong>Fecha Indicación Qx</strong> o desde <strong>Fecha Estatus Programable</strong></li>
+                <li>Pacientes por <strong>Prioridad</strong> (P1 / P2 / P3) y por <strong>GES</strong> (SI / NO)</li>
+                <li>Gráficos por especialidad y por estatus de tabla, ingresos por mes, medianas por especialidad</li>
+                <li>Listado de pacientes con mayor tiempo de espera y de los últimos 5 registrados</li>
+                <li><strong>📞 Pacientes para Llamar (Fecha Programada)</strong>: cada fila se colorea según cuántos días faltan para el llamado (o si ya está atrasado)</li>
+            </ul>
+
+            <h2 style="font-size:1.3rem; color:#0b2a4f; margin-top:24px; margin-bottom:12px;">9.4 Nuevo Paciente</h2>
+            <p style="color:#475569; line-height:1.7; margin-bottom:12px;">Formulario con los datos del paciente: identificación, fechas (indicación, nacimiento), diagnóstico, intervención, especialidad, médico tratante, GES, Prioridad, exámenes preoperatorios (TACO/ASA/EKG/RX/ECO), indicaciones del anestesista, teléfono, comuna y observaciones. Al guardar, el paciente queda con estatus inicial <strong>"En Lista de Espera"</strong>.</p>
+
+            <h2 style="font-size:1.3rem; color:#0b2a4f; margin-top:24px; margin-bottom:12px;">9.5 Lista de Pacientes</h2>
+            <p style="color:#475569; line-height:1.7; margin-bottom:12px;">Tabla con todos los pacientes registrados, con filtros por especialidad, estatus, prioridad, GES y búsqueda por nombre/RUT. Cada fila tiene dos acciones posibles:</p>
+            <table style="width:100%; border-collapse:collapse; font-size:0.85rem; margin-bottom:16px;">
+                <thead>
+                    <tr style="background:#f1f5f9;">
+                        <th style="padding:8px 12px; text-align:left; border:1px solid #e2e8f0;">Botón</th>
+                        <th style="padding:8px 12px; text-align:left; border:1px solid #e2e8f0;">Función</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td style="padding:8px 12px; border:1px solid #e2e8f0;">👁️ Ver</td><td style="padding:8px 12px; border:1px solid #e2e8f0;">Muestra la ficha completa del paciente y permite editarla</td></tr>
+                    <tr><td style="padding:8px 12px; border:1px solid #e2e8f0;">📋 Cargar a la Tabla</td><td style="padding:8px 12px; border:1px solid #e2e8f0;">Ver sección 10. Solo aparece si el paciente es gestionable y todavía no está cargado en la Tabla Quirúrgica</td></tr>
+                </tbody>
+            </table>
+
+            <h2 style="font-size:1.3rem; color:#0b2a4f; margin-top:24px; margin-bottom:12px;">9.6 Histórico RDLL</h2>
+            <p style="color:#475569; line-height:1.7; margin-bottom:12px;">Visor del Registro Diario de Lista de Espera: una colección separada de registros de llamados (migrados o ingresados manualmente), con edición, eliminación, importación desde Excel y exportación a Excel. Es distinto del historial de llamados de cada paciente individual, que se gestiona desde su propia ficha (👁️ Ver, en Lista de Pacientes).</p>
+
+            <h2 style="font-size:1.3rem; color:#0b2a4f; margin-top:24px; margin-bottom:12px;">9.7 Administrar Listas</h2>
+            <p style="color:#475569; line-height:1.7; margin-bottom:12px;">Pestaña exclusiva de superadministrador para gestionar las opciones de los desplegables propios de Lista de Espera: especialidades y médicos por especialidad, estatus tabla, estatus EPA, anestesiólogos y comunas — mismo patrón de agregar/eliminar que en 7.5.</p>
+        `,
+
+        'cargar-a-tabla': `
+            <h1 style="font-size:1.8rem; color:#0b2a4f; margin-bottom:16px;">📋 Cargar a la Tabla</h1>
+            <p style="color:#475569; line-height:1.7; margin-bottom:12px;">Es el puente entre Lista de Espera y Tabla Quirúrgica: copia los datos de un paciente en espera a una fila de la tabla, sin borrarlo de Lista de Espera — sigue apareciendo ahí, con su estatus actualizado, para el seguimiento clínico posterior.</p>
+
+            <h2 style="font-size:1.3rem; color:#0b2a4f; margin-top:24px; margin-bottom:12px;">10.1 Cómo Usarlo</h2>
+            <ol style="color:#475569; line-height:1.8; padding-left:24px; margin-bottom:16px;">
+                <li>En <strong>Lista de Espera → Lista de Pacientes</strong>, haz clic en <strong>📋</strong> ("Cargar a la Tabla") en el paciente deseado</li>
+                <li>Elige <strong>Semana</strong>, <strong>Día</strong>, <strong>Pabellón</strong> y <strong>Fila</strong> de destino</li>
+                <li>Confirma. Si la fila destino ya tiene datos, se te preguntará si deseas sobrescribirla</li>
+            </ol>
+
+            <h2 style="font-size:1.3rem; color:#0b2a4f; margin-top:24px; margin-bottom:12px;">10.2 Qué Datos se Copian</h2>
+            <p style="color:#475569; line-height:1.7; margin-bottom:12px;">Nombre, RUT, Edad, Diagnóstico, Intervención Propuesta, Especialidad y Cirujano (médico tratante). El campo <strong>FICHA</strong> queda vacío y <strong>Condición_LE</strong> se marca como "Ingresado desde Lista de Espera".</p>
+            <p style="color:#dc2626; font-size:0.9rem; margin-top:8px;">⚠️ El <strong>Anestesista</strong> NO se copia automáticamente — se asigna aparte, directamente en la fila de la tabla, al momento de programar.</p>
+
+            <h2 style="font-size:1.3rem; color:#0b2a4f; margin-top:24px; margin-bottom:12px;">10.3 Qué Pasa en Lista de Espera</h2>
+            <p style="color:#475569; line-height:1.7; margin-bottom:12px;">El registro del paciente permanece en Lista de Espera. Su estatus cambia a <strong>"Programado en Tabla"</strong> y queda vinculado a esa fila específica de la tabla, así que a partir de ahí se actualiza solo, sin que tengas que hacer nada más:</p>
+            <ul style="color:#475569; line-height:1.8; padding-left:24px; margin-bottom:16px;">
+                <li>Si en la tabla cambias el <strong>ESTADO_DE_IQx</strong> de esa fila (por ejemplo a OPERADO, SUSPENDIDO, CONDICIONAL, etc.), el estatus en Lista de Espera se actualiza automáticamente para reflejarlo</li>
+                <li>Si el paciente se <strong>difiere</strong> o se <strong>reubica</strong> (incluyendo el caso SUSPENDIDO/CONDICIONAL que preserva la fila, ver 3.2), el vínculo sigue al paciente</li>
+                <li>Si la fila se <strong>elimina</strong> o se <strong>limpia</strong> (Limpiar Pabellón/Día) sin transferir el paciente a otro lado, su estatus en Lista de Espera vuelve a <strong>"En Lista de Espera"</strong> — nunca se pierde el registro</li>
+                <li>Cada uno de estos cambios queda además registrado en el <strong>historial</strong> de la ficha del paciente</li>
+            </ul>
+            <p style="color:#64748b; font-style:italic; margin-top:8px;">💡 Mientras un paciente esté cargado en la tabla, el botón 📋 desaparece de su fila en Lista de Pacientes (para no cargarlo dos veces). Vuelve a aparecer si el vínculo se libera por alguno de los motivos de arriba.</p>
+        `,
+
+        'whatsapp': `
+            <h1 style="font-size:1.8rem; color:#0b2a4f; margin-bottom:16px;">💬 Mensajería WhatsApp</h1>
+            <p style="color:#475569; line-height:1.7; margin-bottom:12px;">Permite enviar a un paciente un mensaje de WhatsApp con datos precargados (nombre, fecha, hora, especialidad, cirujano, pabellón, indicaciones del anestesista), a partir de plantillas predefinidas, directamente desde su fila en la Tabla Quirúrgica.</p>
+
+            <h2 style="font-size:1.3rem; color:#0b2a4f; margin-top:24px; margin-bottom:12px;">11.1 Enviar un Mensaje</h2>
+            <ol style="color:#475569; line-height:1.8; padding-left:24px; margin-bottom:16px;">
+                <li>Haz clic en el botón <strong>💬</strong> de la fila del paciente</li>
+                <li>Si el paciente no tiene teléfono registrado en Lista de Espera, se te pedirá que lo ingreses</li>
+                <li>Elige, de la lista de títulos, qué plantilla quieres enviar</li>
+                <li>Se abre WhatsApp Web con el chat y el mensaje ya escritos — solo tienes que enviarlo ahí</li>
+                <li>Vuelve a la app y confirma <strong>"✅ Sí, se envió"</strong> para marcar la fila como contactada</li>
+            </ol>
+            <p style="color:#64748b; font-style:italic; margin-top:8px;">💡 Una vez confirmado el envío, el botón muestra un check ✅ junto al 💬. Si vuelves a enviar otro mensaje a la misma fila, la ventana de WhatsApp Web se reutiliza en vez de abrir una pestaña nueva.</p>
+
+            <h2 style="font-size:1.3rem; color:#0b2a4f; margin-top:24px; margin-bottom:12px;">11.2 Origen del Teléfono</h2>
+            <p style="color:#475569; line-height:1.7; margin-bottom:12px;">Si el paciente fue cargado a la tabla con <strong>"📋 Cargar a la Tabla"</strong> (sección 10), su teléfono se busca automáticamente en su ficha de Lista de Espera. Si no hay vínculo, se busca por coincidencia de RUT. Si de todas formas no se encuentra, la app pide ingresarlo manualmente para ese envío.</p>
+
+            <h2 style="font-size:1.3rem; color:#0b2a4f; margin-top:24px; margin-bottom:12px;">11.3 Variables Disponibles en las Plantillas</h2>
+            <table style="width:100%; border-collapse:collapse; font-size:0.85rem; margin-bottom:16px;">
+                <thead>
+                    <tr style="background:#f1f5f9;">
+                        <th style="padding:8px 12px; text-align:left; border:1px solid #e2e8f0;">Variable</th>
+                        <th style="padding:8px 12px; text-align:left; border:1px solid #e2e8f0;">Se reemplaza por</th>
+                    </tr>
+                </thead>
+                <tbody>
+                    <tr><td style="padding:8px 12px; border:1px solid #e2e8f0;"><code>{nombre}</code></td><td style="padding:8px 12px; border:1px solid #e2e8f0;">Nombre del paciente</td></tr>
+                    <tr><td style="padding:8px 12px; border:1px solid #e2e8f0;"><code>{fecha}</code></td><td style="padding:8px 12px; border:1px solid #e2e8f0;">Fecha de la cirugía</td></tr>
+                    <tr><td style="padding:8px 12px; border:1px solid #e2e8f0;"><code>{hora}</code></td><td style="padding:8px 12px; border:1px solid #e2e8f0;">Hora / T_Qx programado</td></tr>
+                    <tr><td style="padding:8px 12px; border:1px solid #e2e8f0;"><code>{especialidad}</code></td><td style="padding:8px 12px; border:1px solid #e2e8f0;">Especialidad de la fila</td></tr>
+                    <tr><td style="padding:8px 12px; border:1px solid #e2e8f0;"><code>{cirujano}</code></td><td style="padding:8px 12px; border:1px solid #e2e8f0;">Cirujano de la fila</td></tr>
+                    <tr><td style="padding:8px 12px; border:1px solid #e2e8f0;"><code>{pabellon}</code></td><td style="padding:8px 12px; border:1px solid #e2e8f0;">Pabellón (PAB 1 / PAB 2)</td></tr>
+                    <tr><td style="padding:8px 12px; border:1px solid #e2e8f0;"><code>{indicaciones_anestesiologo}</code></td><td style="padding:8px 12px; border:1px solid #e2e8f0;">Indicaciones del anestesista, tomadas de la ficha en Lista de Espera</td></tr>
+                </tbody>
+            </table>
+            <p style="color:#dc2626; font-size:0.9rem; margin-top:8px;">⚠️ Una variable solo se rellena si está escrita exactamente así, con llaves, dentro del texto de la plantilla. Si falta en una plantilla, no aparecerá en el mensaje enviado con ella.</p>
+
+            <h2 style="font-size:1.3rem; color:#0b2a4f; margin-top:24px; margin-bottom:12px;">11.4 Administrar Plantillas</h2>
+            <p style="color:#475569; line-height:1.7; margin-bottom:12px;">Desde <strong>Panel de Administración → 💬 Plantillas de WhatsApp</strong> (superadministrador) puedes agregar una plantilla nueva, editar el título/mensaje de una existente directamente en su tarjeta, o eliminarla.</p>
+
+            <h2 style="font-size:1.3rem; color:#0b2a4f; margin-top:24px; margin-bottom:12px;">11.5 Registro del Envío</h2>
+            <p style="color:#475569; line-height:1.7; margin-bottom:12px;">Al confirmar el envío, queda registrado en la fila (plantilla usada, fecha/hora y usuario) y, si el paciente está vinculado a Lista de Espera, se agrega también una entrada al historial de su ficha.</p>
+        `,
+
         'problemas': `
             <h1 style="font-size:1.8rem; color:#0b2a4f; margin-bottom:16px;">🔧 Solución de Problemas</h1>
             
-            <h2 style="font-size:1.3rem; color:#0b2a4f; margin-top:24px; margin-bottom:12px;">9.1 Problemas Comunes</h2>
+            <h2 style="font-size:1.3rem; color:#0b2a4f; margin-top:24px; margin-bottom:12px;">12.1 Problemas Comunes</h2>
             <table style="width:100%; border-collapse:collapse; font-size:0.85rem; margin-bottom:16px;">
                 <thead>
                     <tr style="background:#f1f5f9;">
@@ -685,9 +824,9 @@ function construirManualContenidos() {
                         <td style="padding:8px 12px; border:1px solid #e2e8f0;">Recarga la página (F5)</td>
                     </tr>
                     <tr>
-                        <td style="padding:8px 12px; border:1px solid #e2e8f0;">El botón Diferir está deshabilitado</td>
-                        <td style="padding:8px 12px; border:1px solid #e2e8f0;">Paciente SUSPENDIDO</td>
-                        <td style="padding:8px 12px; border:1px solid #e2e8f0;">Cambia el estado para habilitarlo</td>
+                        <td style="padding:8px 12px; border:1px solid #e2e8f0;">Los botones Diferir/Reubicar están deshabilitados</td>
+                        <td style="padding:8px 12px; border:1px solid #e2e8f0;">ESTADO_DE_IQx tiene un estado elegido (que no sea SUSPENDIDO o CONDICIONAL (NO OPERADO)), o esa fila ya fue diferida/reubicada antes</td>
+                        <td style="padding:8px 12px; border:1px solid #e2e8f0;">Es el comportamiento esperado (ver sección 3.2); vuelve el campo a "Seleccione" si corresponde</td>
                     </tr>
                     <tr>
                         <td style="padding:8px 12px; border:1px solid #e2e8f0;">No veo una sección en el menú (Estadísticas, Libro, etc.)</td>
@@ -702,18 +841,18 @@ function construirManualContenidos() {
                 </tbody>
             </table>
 
-            <h2 style="font-size:1.3rem; color:#0b2a4f; margin-top:24px; margin-bottom:12px;">9.2 Verificar Conexión a Firebase</h2>
+            <h2 style="font-size:1.3rem; color:#0b2a4f; margin-top:24px; margin-bottom:12px;">12.2 Verificar Conexión a Firebase</h2>
             <p style="color:#475569; line-height:1.7; margin-bottom:12px;">Abre la consola (F12) y escribe:</p>
             <pre style="background:#1e293b; color:#e2e8f0; padding:12px 16px; border-radius:8px; overflow-x:auto; font-size:0.85rem; margin-bottom:16px;">
 database.ref('.info/connected').on('value', function(snap) {
     console.log(snap.val() ? '✅ Conectado a Firebase' : '❌ Sin conexión');
 });</pre>
             
-            <h2 style="font-size:1.3rem; color:#0b2a4f; margin-top:24px; margin-bottom:12px;">9.3 Forzar Sincronización</h2>
+            <h2 style="font-size:1.3rem; color:#0b2a4f; margin-top:24px; margin-bottom:12px;">12.3 Forzar Sincronización</h2>
             <pre style="background:#1e293b; color:#e2e8f0; padding:12px 16px; border-radius:8px; overflow-x:auto; font-size:0.85rem; margin-bottom:16px;">
 cargarDatosDesdeFirebase();</pre>
 
-            <h2 style="font-size:1.3rem; color:#0b2a4f; margin-top:24px; margin-bottom:12px;">9.4 Recargar Datos</h2>
+            <h2 style="font-size:1.3rem; color:#0b2a4f; margin-top:24px; margin-bottom:12px;">12.4 Recargar Datos</h2>
             <pre style="background:#1e293b; color:#e2e8f0; padding:12px 16px; border-radius:8px; overflow-x:auto; font-size:0.85rem; margin-bottom:16px;">
 location.reload();</pre>
         `,
@@ -738,10 +877,11 @@ location.reload();</pre>
             
             <div style="margin-bottom:20px;">
                 <h3 style="color:#0b2a4f; font-size:1.1rem; margin-bottom:6px;">❓ ¿Qué significa "SUSPENDIDO" en ESTADO_DE_IQx?</h3>
-                <p style="color:#475569; line-height:1.7;">Un paciente SUSPENDIDO es aquel cuya cirugía fue suspendida. Características:</p>
+                <p style="color:#475569; line-height:1.7;">Un paciente SUSPENDIDO es aquel cuya cirugía fue suspendida. Junto con CONDICIONAL (NO OPERADO), es una excepción a la regla general de bloqueo:</p>
                 <ul style="color:#475569; line-height:1.8; padding-left:24px; margin-bottom:8px;">
-                    <li>El botón Diferir está deshabilitado</li>
-                    <li>Si se reubica, la fila original NO se elimina</li>
+                    <li>Los botones Diferir y Reubicar SÍ quedan habilitados (a diferencia de cualquier otro estado elegido)</li>
+                    <li>Si se difiere o reubica, la fila original NO se elimina — el paciente sigue visible ahí</li>
+                    <li>Una vez usado Diferir o Reubicar en esa fila, ambos botones se bloquean para no duplicar al paciente</li>
                 </ul>
             </div>
             
