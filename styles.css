@@ -572,6 +572,13 @@ td:has(input[data-col="Hora_de_salida"]) input, td:has(input[data-col="T_QX"]) i
     position: relative;
     animation: modalIn 0.4s cubic-bezier(0.16, 1, 0.3, 1);
     transform-origin: center;
+    /* Algunos modales (Análisis IA, Reunión de Tabla, etc.) tienen bastante
+       contenido — sin esto, en una pantalla baja (celular en horizontal
+       incluido) el contenido de más se recorta fuera de la vista, sin forma
+       de desplazarse hasta él. .modal-overlay ya centra con flex y tiene
+       padding:20px arriba/abajo, de ahí el cálculo. */
+    max-height: calc(100vh - 40px);
+    overflow-y: auto;
 }
 
 @keyframes modalIn {
