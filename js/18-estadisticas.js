@@ -2984,8 +2984,10 @@ function renderNavegacionPaginasEstadisticas() {
                 <span id="estadisticasPagContador" style="font-size:0.78rem; color:#64748b;"></span>
             </div>
             <div style="display:flex; gap:8px;">
+                ${usuarioTieneAccesoSeccion('estadisticas_presentacionPpt') ? `
                 <button id="estadisticasBtnPresentacion" style="background:#0b2a4f; color:white; border:none; padding:7px 16px; border-radius:20px; font-size:0.8rem; cursor:pointer; font-weight:600;">🎥 Presentación</button>
                 <button id="estadisticasBtnDescargarPpt" style="background:#c0392b; color:white; border:none; padding:7px 16px; border-radius:20px; font-size:0.8rem; cursor:pointer; font-weight:600;">⬇️ Descargar PPT</button>
+                ` : ''}
             </div>
         </div>
     `;

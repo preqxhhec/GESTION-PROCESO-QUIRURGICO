@@ -76,11 +76,13 @@ function leRenderListaPacientesHTML() {
             <button onclick="leToggleSinFolio()" id="btnSinFolio" class="btn-secondary">Sin Folio</button>
             <button onclick="leToggleSinProgramacion()" id="btnSinProgramacion" class="btn-secondary">📅 Sin Fecha Prog</button>
             <button onclick="leToggleNoGestionables()" id="btnNoGestionables" class="btn-secondary" style="background:#64748b; color:white;">🚫 Ocultar No Gestionables</button>
+            ${usuarioTieneAccesoSeccion('listaEspera_exportar') ? `
             <button onclick="downloadCSV()" class="btn-secondary" style="background:#10b981; color:white;">📥 Descargar CSV</button>
             <button onclick="downloadExcel()" class="btn-secondary" style="background:#2563eb; color:white;">📊 Descargar Excel</button>
             <button onclick="printPatientList()" class="btn-secondary" style="background:#f97316; color:white;">🖨️ Imprimir Lista</button>
             <button onclick="descargarRegistroLlamadas()" class="btn-secondary" style="background:#8b5cf6; color:white;">📞 Descargar Registro de Llamadas</button>
             <button onclick="imprimirRegistroLlamadas()" class="btn-secondary" style="background:#f59e0b; color:white;">🖨️ Imprimir Registro de Llamadas</button>
+            ` : ''}
         </div>
 
         <div id="resultadosContador"></div>
@@ -198,7 +200,7 @@ function leRenderPatientsTable(data) {
             <td>
                 <div style="display:flex; gap:6px; align-items:center;">
                     <button onclick="leShowPatientModal('${patient.firebaseKey}')" title="Ver" style="background:transparent; border:1px solid #3b82f6; border-radius:4px; padding:2px 8px; cursor:pointer; color:#3b82f6; font-size:1rem;">👁️</button>
-                    ${(esGestionable(patient) && !leYaEstaEnTabla(patient) && !currentUserSoloLecturaTabla) ? `<button onclick="leMostrarModalCargarATabla('${patient.firebaseKey}')" title="Cargar a la Tabla" style="background:transparent; border:1px solid #0b2a4f; border-radius:4px; padding:2px 8px; cursor:pointer; color:#0b2a4f; font-size:1rem;">📋</button>` : ''}
+                    ${(esGestionable(patient) && !leYaEstaEnTabla(patient) && !currentUserSoloLecturaTabla && usuarioTieneAccesoSeccion('listaEspera_cargarATabla')) ? `<button onclick="leMostrarModalCargarATabla('${patient.firebaseKey}')" title="Cargar a la Tabla" style="background:transparent; border:1px solid #0b2a4f; border-radius:4px; padding:2px 8px; cursor:pointer; color:#0b2a4f; font-size:1rem;">📋</button>` : ''}
                 </div>
             </td>
         `;
@@ -680,10 +682,10 @@ function leAbrirModalPaciente() {
                 <h2 id="leModalTitle">Detalle del Paciente</h2>
                 <div id="leModalBody" class="modal-body"></div>
                 <div class="modal-buttons">
-                    <button onclick="leEditarPacienteActual()" class="btn-primary">✏️ Editar Paciente</button>
-                    <button id="leBtnRegistrarLlamadaModal" class="btn-secondary" style="background:#10b981;">📞 Registrar Llamada</button>
-                    <button onclick="printPatient()" class="btn-secondary">🖨️ Imprimir Informe</button>
-                    <button onclick="leDeleteCurrentPatient()" class="btn-danger">🗑️ Eliminar</button>
+                    ${usuarioTieneAccesoSeccion('listaEspera_editarPaciente') ? '<button onclick="leEditarPacienteActual()" class="btn-primary">✏️ Editar Paciente</button>' : ''}
+                    ${usuarioTieneAccesoSeccion('listaEspera_registrarLlamada') ? '<button id="leBtnRegistrarLlamadaModal" class="btn-secondary" style="background:#10b981;">📞 Registrar Llamada</button>' : ''}
+                    ${usuarioTieneAccesoSeccion('listaEspera_exportar') ? '<button onclick="printPatient()" class="btn-secondary">🖨️ Imprimir Informe</button>' : ''}
+                    ${usuarioTieneAccesoSeccion('listaEspera_eliminarPaciente') ? '<button onclick="leDeleteCurrentPatient()" class="btn-danger">🗑️ Eliminar</button>' : ''}
                 </div>
             </div>
         `;
@@ -820,6 +822,11 @@ function leCerrarModalPaciente() {
 }
 
 function leDeleteCurrentPatient() {
+    // 🔘 Red de seguridad además de ocultar el botón (ver leAbrirModalPaciente()).
+    if (!usuarioTieneAccesoSeccion('listaEspera_eliminarPaciente')) {
+        alert('⛔ No tienes permiso para eliminar pacientes.');
+        return;
+    }
     if (!currentModalPatient || !confirm("¿Estás seguro de eliminar este paciente? Esta acción es irreversible.")) return;
 
     leGuardarFiltrosEnStorage();

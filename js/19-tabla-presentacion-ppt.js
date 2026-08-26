@@ -38,6 +38,11 @@ function filaTieneDatosParaPresentacion(fila) {
 // 🧰 TOOLBAR — inyectada dentro de renderWeekView() (js/14-render-principal.js)
 // -------------------------------------------------------------
 function renderToolbarPresentacionTabla() {
+    // 🔘 Permiso "registro_presentacionPpt" — sin él, no tiene sentido
+    // mostrar tampoco el selector de semanas (solo sirve para elegir qué
+    // incluye la Presentación/PPT).
+    if (!usuarioTieneAccesoSeccion('registro_presentacionPpt')) return '';
+
     if (tablaPresentacionSemanasSeleccionadas.size === 0 && typeof currentWeek === 'number') {
         tablaPresentacionSemanasSeleccionadas.add(currentWeek);
     }

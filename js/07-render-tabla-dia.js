@@ -76,14 +76,20 @@ async function renderDayTable(dayData, semanaIdx, diaIdx) {
 
     const mostrarRegistrar = esAdministrador() ?
         `<button class="btn-sm btn-registrar" data-action="registrarDay" data-daykey="${dayKey}">📋 Registrar Día</button>` : '';
+    const mostrarImprimirDia = usuarioTieneAccesoSeccion('registro_imprimir') ?
+        `<button class="btn-sm btn-print" data-action="printDay" data-daykey="${dayKey}" style="background:#4f46e5; color:white; border:none; padding:6px 16px; border-radius:30px; font-size:0.7rem; font-weight:500; cursor:pointer;">🖨️ Imprimir Día</button>` : '';
+    const mostrarGuardarDia = usuarioTieneAccesoSeccion('registro_guardar') ?
+        `<button class="btn-sm btn-save" data-action="saveDay" data-daykey="${dayKey}">💾 Guardar Día</button>` : '';
+    const mostrarLimpiarDia = usuarioTieneAccesoSeccion('registro_limpiar') ?
+        `<button class="btn-sm btn-clear" data-action="clearDay" data-daykey="${dayKey}">🗑️ Limpiar Día</button>` : '';
 
     html += `<div class="day-title">
         <span>📋 ${dia}</span>
         <div class="btn-group">
-            <button class="btn-sm btn-print" data-action="printDay" data-daykey="${dayKey}" style="background:#4f46e5; color:white; border:none; padding:6px 16px; border-radius:30px; font-size:0.7rem; font-weight:500; cursor:pointer;">🖨️ Imprimir Día</button>
-            <button class="btn-sm btn-save" data-action="saveDay" data-daykey="${dayKey}">💾 Guardar Día</button>
+            ${mostrarImprimirDia}
+            ${mostrarGuardarDia}
             ${mostrarRegistrar}
-            <button class="btn-sm btn-clear" data-action="clearDay" data-daykey="${dayKey}">🗑️ Limpiar Día</button>
+            ${mostrarLimpiarDia}
         </div>
     </div>`;
 
@@ -164,11 +170,15 @@ async function renderDayTable(dayData, semanaIdx, diaIdx) {
             }
 
             html += `<td class="small-cell col-diferir" style="text-align:center; vertical-align:middle; min-width:35px;">`;
-            html += `<button class="btn-diferir" data-action="diferir" data-rowkey="${rowKey}" title="Diferir paciente${diferirSufijo}" ${diferirBloqueado ? 'disabled' : ''} style="${diferirBloqueado ? 'opacity:0.5; cursor:not-allowed;' : ''}">⏩</button>`;
+            if (usuarioTieneAccesoSeccion('registro_diferir')) {
+                html += `<button class="btn-diferir" data-action="diferir" data-rowkey="${rowKey}" title="Diferir paciente${diferirSufijo}" ${diferirBloqueado ? 'disabled' : ''} style="${diferirBloqueado ? 'opacity:0.5; cursor:not-allowed;' : ''}">⏩</button>`;
+            }
             html += `</td>`;
 
             html += `<td class="small-cell col-reubicar" style="text-align:center; vertical-align:middle; min-width:35px;">`;
-            html += `<button class="btn-reubicar" data-action="reubicar" data-rowkey="${rowKey}" title="Reubicar paciente en otra fila${reubicarSufijo}" ${reubicarBloqueado ? 'disabled' : ''} style="${reubicarBloqueado ? 'opacity:0.5; cursor:not-allowed;' : ''}">🔄</button>`;
+            if (usuarioTieneAccesoSeccion('registro_reubicar')) {
+                html += `<button class="btn-reubicar" data-action="reubicar" data-rowkey="${rowKey}" title="Reubicar paciente en otra fila${reubicarSufijo}" ${reubicarBloqueado ? 'disabled' : ''} style="${reubicarBloqueado ? 'opacity:0.5; cursor:not-allowed;' : ''}">🔄</button>`;
+            }
             html += `</td>`;
 
             // 💬 Columna WhatsApp — ver js/32-whatsapp-plantillas.js. El
@@ -305,16 +315,25 @@ async function renderDayTable(dayData, semanaIdx, diaIdx) {
                 html += `<td class="small-cell ${colClass} ${isIntervencion ? 'col-intervencion' : ''}">${inputHtml}</td>`;
             }
 
-            html += `<td><button class="btn-sm btn-delete-row" data-action="deleteRow" data-rowkey="${rowKey}">🗑️</button></td>`;
+            const mostrarEliminarFila = usuarioTieneAccesoSeccion('registro_eliminarFila') ?
+                `<button class="btn-sm btn-delete-row" data-action="deleteRow" data-rowkey="${rowKey}">🗑️</button>` : '';
+            html += `<td>${mostrarEliminarFila}</td>`;
             html += `</tr>`;
         }
 
         html += `</tbody></table>`;
 
+        const mostrarAgregarFila = usuarioTieneAccesoSeccion('registro_agregarFila') ?
+            `<button class="btn-sm btn-add" data-action="addRow" data-pabkey="${pabKey}">➕ Agregar Fila</button>` : '';
+        const mostrarGuardarPab = usuarioTieneAccesoSeccion('registro_guardar') ?
+            `<button class="btn-sm btn-save" data-action="savePab" data-pabkey="${pabKey}">💾 Guardar Pabellón</button>` : '';
+        const mostrarLimpiarPab = usuarioTieneAccesoSeccion('registro_limpiar') ?
+            `<button class="btn-sm btn-clear" data-action="clearPab" data-pabkey="${pabKey}">🗑️ Limpiar Pabellón</button>` : '';
+
         html += `<div class="btn-group">
-            <button class="btn-sm btn-add" data-action="addRow" data-pabkey="${pabKey}">➕ Agregar Fila</button>
-            <button class="btn-sm btn-save" data-action="savePab" data-pabkey="${pabKey}">💾 Guardar Pabellón</button>
-            <button class="btn-sm btn-clear" data-action="clearPab" data-pabkey="${pabKey}">🗑️ Limpiar Pabellón</button>
+            ${mostrarAgregarFila}
+            ${mostrarGuardarPab}
+            ${mostrarLimpiarPab}
         </div>`;
 
         html += `</div>`; // cierre pab-block

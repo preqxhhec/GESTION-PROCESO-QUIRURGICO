@@ -37,7 +37,7 @@ function leRenderHistoricoRdllHTML() {
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:20px; flex-wrap:wrap; gap:10px;">
             <h2>📜 Visor Histórico - Registro Diario de Lista de Espera (RDLL)</h2>
             <div>
-                <button id="btnNuevoRegistroRdll" class="btn-primary" style="background:#10b981;">✏️ Nuevo Registro</button>
+                ${usuarioTieneAccesoSeccion('listaEspera_rdll') ? '<button id="btnNuevoRegistroRdll" class="btn-primary" style="background:#10b981;">✏️ Nuevo Registro</button>' : ''}
                 <button id="btnCargarExcelRdll" class="btn-primary" style="background:#8b5cf6;">📂 Cargar Excel</button>
             </div>
         </div>
@@ -58,7 +58,7 @@ function leRenderHistoricoRdllHTML() {
                 </select>
             </div>
             <button onclick="limpiarFiltrosRdll()" class="btn-secondary">Limpiar</button>
-            <button onclick="exportarRdllExcel()" class="btn-secondary" style="background:#2563eb;">📥 Exportar</button>
+            ${usuarioTieneAccesoSeccion('listaEspera_rdll') ? '<button onclick="exportarRdllExcel()" class="btn-secondary" style="background:#2563eb;">📥 Exportar</button>' : ''}
         </div>
 
         <div id="contadorRdll" style="margin:10px 0; padding:8px 15px; background:#eff6ff; border-radius:8px;"></div>
@@ -75,7 +75,7 @@ function leRenderHistoricoRdllHTML() {
 function leInicializarSeccionHistoricoRdll(container) {
     container.innerHTML = leRenderHistoricoRdllHTML();
 
-    document.getElementById('btnNuevoRegistroRdll').addEventListener('click', abrirNuevoRdll);
+    document.getElementById('btnNuevoRegistroRdll')?.addEventListener('click', abrirNuevoRdll);
     document.getElementById('btnCargarExcelRdll').addEventListener('click', leCargarExcelRdll);
 
     cargarRdll();
@@ -364,6 +364,14 @@ async function eliminarRdll(key) {
 
 async function leGuardarRdll(e) {
     e.preventDefault();
+    // 🔘 Red de seguridad además de ocultar "✏️ Nuevo Registro" (ver
+    // leRenderHistoricoRdllHTML()) — un <form> puede enviarse con Enter
+    // aunque el botón no esté. La edición (solo-admin) nunca llega acá
+    // porque solo se puede abrir siendo administrador, que ya pasa siempre.
+    if (!usuarioTieneAccesoSeccion('listaEspera_rdll')) {
+        alert('⛔ No tienes permiso para esta acción.');
+        return;
+    }
     if (isSubmittingRdll) return;
     isSubmittingRdll = true;
 

@@ -184,7 +184,7 @@ function leRenderNuevoPacienteHTML() {
             </div>
 
             <div style="display:flex; gap:15px; justify-content:center; margin-top:15px;">
-                <button type="submit" class="btn-primary" style="padding:10px 24px;">💾 Guardar Paciente</button>
+                ${usuarioTieneAccesoSeccion('listaEspera_guardarPaciente') ? '<button type="submit" class="btn-primary" style="padding:10px 24px;">💾 Guardar Paciente</button>' : ''}
                 <button type="button" id="btnCancelarEdicion" class="btn-secondary" style="padding:10px 24px; background:#64748b; display:none;">❌ Cancelar</button>
             </div>
         </form>
@@ -319,6 +319,19 @@ function leSetupAutoFolioGES() {
 
 async function leGuardarPaciente(e) {
     e.preventDefault();
+
+    // 🔘 Red de seguridad además de ocultar el botón (ver
+    // leRenderNuevoPacienteHTML()): un <form> con un solo campo de texto
+    // puede enviarse implícitamente con Enter aunque el botón no esté.
+    if (!usuarioTieneAccesoSeccion('listaEspera_guardarPaciente')) {
+        showModal({
+            title: '⛔ Sin permiso',
+            message: 'No tienes permiso para guardar pacientes en Lista de Espera.',
+            icon: '⛔',
+            confirmText: 'Aceptar'
+        });
+        return;
+    }
 
     if (isSubmittingPaciente) return;
 

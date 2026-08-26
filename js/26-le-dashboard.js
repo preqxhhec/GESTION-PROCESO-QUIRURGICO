@@ -20,7 +20,7 @@ function leRenderDashboardHTML() {
     return `
         <div style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:12px; margin-bottom:20px;">
             <h2>Dashboard General</h2>
-            <button onclick="printDashboard()" class="btn-print-dashboard">🖨️ Imprimir Dashboard Completo</button>
+            ${usuarioTieneAccesoSeccion('listaEspera_exportar') ? '<button onclick="printDashboard()" class="btn-print-dashboard">🖨️ Imprimir Dashboard Completo</button>' : ''}
         </div>
 
         <div class="filters" style="align-items:center;">

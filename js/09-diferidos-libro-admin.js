@@ -113,12 +113,12 @@
                         <td style="font-size:0.7rem;">${metadata.diferido_por || ''}</td>
                         <td style="font-size:0.7rem;">${fechaDiferido}</td>
                         <td style="text-align:center; white-space:nowrap;">
-                            <button class="btn-reintegrar" data-key="${key}" title="Reintegrar a la tabla" style="background:transparent; border:1px solid #10b981; border-radius:4px; padding:2px 6px; cursor:pointer; color:#10b981; font-size:1rem; margin-right:4px;">
+                            ${usuarioTieneAccesoSeccion('diferidos_reintegrar') ? `<button class="btn-reintegrar" data-key="${key}" title="Reintegrar a la tabla" style="background:transparent; border:1px solid #10b981; border-radius:4px; padding:2px 6px; cursor:pointer; color:#10b981; font-size:1rem; margin-right:4px;">
                                 ↩️
-                            </button>
-                            <button class="btn-eliminar-diferido" data-key="${key}" title="Eliminar registro" style="background:transparent; border:1px solid #ef4444; border-radius:4px; padding:2px 6px; cursor:pointer; color:#ef4444; font-size:1rem;">
+                            </button>` : ''}
+                            ${usuarioTieneAccesoSeccion('diferidos_eliminar') ? `<button class="btn-eliminar-diferido" data-key="${key}" title="Eliminar registro" style="background:transparent; border:1px solid #ef4444; border-radius:4px; padding:2px 6px; cursor:pointer; color:#ef4444; font-size:1rem;">
                                 🗑️
-                            </button>
+                            </button>` : ''}
                         </td>
                     </tr>
                 `;
@@ -446,15 +446,18 @@
             const filtrosHTML = generarPanelFiltros(registros);
             const tablaHTML = renderizarTablaLibro(registros, {});
 
+            const mostrarExportarExcelLibro = usuarioTieneAccesoSeccion('libro_exportarExcel') ?
+                `<button class="btn-sm btn-excel" id="exportarExcelBtn" style="background:#1e7e34; color:white; border:none; padding:6px 16px; border-radius:30px; font-size:0.7rem; font-weight:500; cursor:pointer; display:flex; align-items:center; gap:6px;">
+                    📊 Exportar a Excel
+                </button>` : '';
+
             libroContent.innerHTML = `
                 ${renderLibroFechaUI()}
 
                 <div style="background:#fafcff; border-radius:20px; border:1px solid #e2e8f0; padding:16px; margin-top:16px;">
                     <div style="font-size:1.3rem; font-weight:700; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center; flex-wrap:wrap; gap:10px;">
                         <span>📘 Libro de Quirófano (${registros.length} registros)</span>
-                        <button class="btn-sm btn-excel" id="exportarExcelBtn" style="background:#1e7e34; color:white; border:none; padding:6px 16px; border-radius:30px; font-size:0.7rem; font-weight:500; cursor:pointer; display:flex; align-items:center; gap:6px;">
-                            📊 Exportar a Excel
-                        </button>
+                        ${mostrarExportarExcelLibro}
                     </div>
                     <div id="libroFiltrosContainer">
                         ${filtrosHTML}
