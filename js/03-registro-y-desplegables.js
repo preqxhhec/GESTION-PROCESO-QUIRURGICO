@@ -449,6 +449,8 @@ async function cargarDatosDesdeFirebase() {
         console.error('❌ Error en sincronización:', error);
     });
 
+    iniciarEscuchaEdicionEnCurso();
+
     database.ref('pacientes_diferidos').on('value', function(snapshot) {
         if (seccionActiva === 'diferidos') {
             console.log('🔄 Actualizando lista de pacientes diferidos...');
@@ -497,10 +499,50 @@ async function cargarDatosDesdeFirebase() {
     });
 }
 
+// =============================================================
+// 👥 AVISO DE EDICIÓN SIMULTÁNEA (misma fila, dos usuarios a la vez)
+// =============================================================
+// Ver marcarEdicionEnCurso()/limpiarEdicionEnCurso() en js/02 — escriben
+// en edicion_en_curso/{docId} cuando alguien empieza a editar una fila y
+// la limpian al guardar (o al desconectarse). Esto solo LEE esa colección
+// y pinta un aviso visual sobre la fila en pantalla; no bloquea nada.
+function iniciarEscuchaEdicionEnCurso() {
+    database.ref('edicion_en_curso').on('value', function(snapshot) {
+        edicionEnCursoRemota = snapshot.val() || {};
+        aplicarAvisosEdicionEnCurso();
+    }, function(error) {
+        console.error('❌ Error en sincronización de edición en curso:', error);
+    });
+}
+
+// Antigüedad máxima de una marca antes de ignorarla — red de seguridad por
+// si algún caso raro (ej. el navegador se cierra de golpe sin alcanzar a
+// disparar onDisconnect) deja una marca pegada más de la cuenta.
+const EDICION_EN_CURSO_MAX_ANTIGUEDAD_MS = 5 * 60 * 1000;
+
+function aplicarAvisosEdicionEnCurso() {
+    const ahora = Date.now();
+    document.querySelectorAll('#weekContent tr[data-rowkey]').forEach(tr => {
+        const rowKey = tr.dataset.rowkey;
+        const docId = getFirebaseKey(rowKey);
+        const info = docId ? edicionEnCursoRemota[docId] : null;
+        const esOtroUsuarioEditando = !!(info && info.usuario && info.usuario !== currentUserEmail &&
+            (!info.ts || (ahora - info.ts) < EDICION_EN_CURSO_MAX_ANTIGUEDAD_MS));
+
+        tr.classList.toggle('fila-en-edicion-por-otro', esOtroUsuarioEditando);
+        if (esOtroUsuarioEditando) {
+            tr.title = `⚠️ ${info.usuario} también está editando esta fila ahora mismo`;
+        } else if (tr.title && tr.title.startsWith('⚠️')) {
+            tr.removeAttribute('title');
+        }
+    });
+}
+
     function detenerSincronizacionTiempoReal() {
     database.ref('registros_quirurgicos').off();
     database.ref('pacientes_diferidos').off();
     database.ref('registros_definitivos').off();
+    database.ref('edicion_en_curso').off();
 
     // ✅ DETENER SINCRONIZACIÓN DE DESPLEGABLES
     const keysDesplegables = ['Jornada', 'ESTADO_DE_IQx', 'DESTINO', 'Especialidad', 'Anestesista'];

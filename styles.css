@@ -1701,6 +1701,20 @@ body.pptx-modo-captura #estadisticasAmbGrid .stats-grafico-especialidad {
 }
 
 /* ============================================================= */
+/* 👥 AVISO: OTRA PERSONA ESTÁ EDITANDO ESTA FILA AHORA MISMO      */
+/* No es un bloqueo, solo un aviso — ver marcarEdicionEnCurso()/   */
+/* aplicarAvisosEdicionEnCurso() en js/02 y js/03. Se usa outline  */
+/* (no border/box-shadow) a propósito: las celdas de la tabla ya   */
+/* tienen su propio fondo de color POR COLUMNA con !important, que */
+/* taparía cualquier color puesto en el <tr> — el outline se pinta */
+/* por FUERA del borde de la fila, así que no lo tapa ninguna celda.*/
+/* ============================================================= */
+tr.fila-en-edicion-por-otro {
+    outline: 3px solid #f59e0b;
+    outline-offset: -1px;
+}
+
+/* ============================================================= */
 /* 📱 OPTIMIZACIÓN GENERAL PARA CELULAR Y TABLET                  */
 /* Bloque aparte (no mezclado con los @media puntuales de arriba, */
 /* ya afinados) para no arriesgar esos ajustes ya probados. Cubre */

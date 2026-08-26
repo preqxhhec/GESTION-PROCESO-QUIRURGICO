@@ -390,4 +390,8 @@ async function renderWeekView(esAutoSave = false) {
         }
     }, 150);
 
+    // 👥 Volver a pintar el aviso de "otra persona está editando esta fila"
+    // sobre las filas recién renderizadas (el HTML se reemplazó entero,
+    // así que la marca anterior se perdió con los <tr> viejos).
+    if (typeof aplicarAvisosEdicionEnCurso === 'function') aplicarAvisosEdicionEnCurso();
 }

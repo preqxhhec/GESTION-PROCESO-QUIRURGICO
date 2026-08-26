@@ -132,7 +132,10 @@ async function guardarDiaEnFirebaseOptimizadoConModal(dayKey, mostrarModal = tru
         // a salvo — el listener en tiempo real vuelve a poder actualizarlas
         // con normalidad (las de otros días, si las hubiera, no se tocan).
         for (const rk of [...filasConCambiosSinGuardar]) {
-            if (rk.startsWith(`${semanaIdx}-${diaIdx}-`)) filasConCambiosSinGuardar.delete(rk);
+            if (rk.startsWith(`${semanaIdx}-${diaIdx}-`)) {
+                filasConCambiosSinGuardar.delete(rk);
+                limpiarEdicionEnCurso(rk);
+            }
         }
 
         if (mostrarModal) {
@@ -275,7 +278,10 @@ async function guardarPabellonEnFirebaseOptimizadoConModal(pabKey, mostrarModal 
         // actualizarlas con normalidad (las del otro pabellón, si las
         // hubiera, no se tocan).
         for (const rk of [...filasConCambiosSinGuardar]) {
-            if (rk.startsWith(`${semanaIdx}-${diaIdx}-${pabIdx}-`)) filasConCambiosSinGuardar.delete(rk);
+            if (rk.startsWith(`${semanaIdx}-${diaIdx}-${pabIdx}-`)) {
+                filasConCambiosSinGuardar.delete(rk);
+                limpiarEdicionEnCurso(rk);
+            }
         }
 
         if (mostrarModal) {
@@ -323,6 +329,11 @@ function triggerAutoSave(rowKey) {
     // 🛟 Esta fila tiene un cambio sin guardar desde ahora — ver el Set en
     // js/01 para el detalle de qué protege exactamente (solo esta fila, no
     // toda la tabla).
+    if (rowKey && !filasConCambiosSinGuardar.has(rowKey)) {
+        // 👥 Recién empieza a editarse esta fila (no en cada tecla) — avisa
+        // a los demás por si alguien más la está editando también.
+        marcarEdicionEnCurso(rowKey);
+    }
     if (rowKey) filasConCambiosSinGuardar.add(rowKey);
 
     if (autoSaveTimeout) {
@@ -351,9 +362,38 @@ function triggerAutoSave(rowKey) {
             // sabe con certeza qué filas quedaron pendientes de esta tanda
             // en particular, así que se limpia todo el Set (mismo criterio
             // que ya se usaba con la bandera global anterior).
+            filasConCambiosSinGuardar.forEach(limpiarEdicionEnCurso);
             filasConCambiosSinGuardar.clear();
         }
     }, DEBOUNCE_DELAY);
+}
+
+// =============================================================
+// 👥 AVISO DE EDICIÓN SIMULTÁNEA (misma fila, dos usuarios a la vez)
+// =============================================================
+// NO es un bloqueo real — dos personas SÍ pueden seguir editando la misma
+// fila al mismo tiempo, y el guardado sigue siendo "toda la fila", así que
+// quien guarda último se queda con los cambios de la otra persona en esa
+// fila (ver la conversación sobre este límite). Esto solo avisa para que
+// se den cuenta y se coordinen. Ver iniciarEscuchaEdicionEnCurso() y
+// aplicarAvisosEdicionEnCurso() en js/03, que leen esta marca y pintan el
+// aviso sobre la fila en las pantallas de los demás usuarios.
+function marcarEdicionEnCurso(rowKey) {
+    if (!currentUser) return;
+    const docId = getFirebaseKey(rowKey);
+    if (!docId) return;
+    const ref = database.ref(`edicion_en_curso/${docId}`);
+    ref.set({ usuario: currentUserEmail, ts: firebase.database.ServerValue.TIMESTAMP }).catch(() => {});
+    // Si se cierra la pestaña o se corta la conexión sin guardar (y por lo
+    // tanto sin pasar por limpiarEdicionEnCurso), esto evita que el aviso
+    // quede pegado para siempre en las pantallas de los demás.
+    ref.onDisconnect().remove().catch(() => {});
+}
+
+function limpiarEdicionEnCurso(rowKey) {
+    const docId = getFirebaseKey(rowKey);
+    if (!docId) return;
+    database.ref(`edicion_en_curso/${docId}`).remove().catch(() => {});
 }
 
 function verificarSiHayDatos(dayKey) {
