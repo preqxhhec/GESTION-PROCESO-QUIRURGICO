@@ -96,6 +96,9 @@ function buscarPacienteListaEsperaParaFila(fila) {
 // 🪟 MODAL 1: resolver el teléfono (buscado o pedido a mano)
 // -------------------------------------------------------------
 async function mostrarModalWhatsApp(rowKey) {
+    // 🔘 Red de seguridad además de ocultar el botón 💬 (ver js/07-render-tabla-dia.js).
+    if (!usuarioTieneAccesoSeccion('registro_whatsapp')) return;
+
     const parts = rowKey.split('-').map(Number);
     if (parts.length !== 4) return;
     const [s, d, p, f] = parts;

@@ -200,7 +200,9 @@ async function renderDayTable(dayData, semanaIdx, diaIdx) {
                     ? `Enviar WhatsApp (último: "${escaparAtributo(meta.plantillaTitulo) || '—'}" el ${escaparAtributo(meta.fecha) || '—'})`
                     : 'Enviar WhatsApp';
                 html += `<td class="small-cell col-whatsapp" style="text-align:center; vertical-align:middle; min-width:35px;">`;
-                html += `<button class="btn-whatsapp" data-action="whatsapp" data-rowkey="${rowKey}" title="${tituloTooltip}" style="position:relative;">💬${yaEnviado ? '<span style="position:absolute; top:-4px; right:-4px; font-size:0.7rem;">✅</span>' : ''}</button>`;
+                if (usuarioTieneAccesoSeccion('registro_whatsapp')) {
+                    html += `<button class="btn-whatsapp" data-action="whatsapp" data-rowkey="${rowKey}" title="${tituloTooltip}" style="position:relative;">💬${yaEnviado ? '<span style="position:absolute; top:-4px; right:-4px; font-size:0.7rem;">✅</span>' : ''}</button>`;
+                }
                 html += `</td>`;
             }
 

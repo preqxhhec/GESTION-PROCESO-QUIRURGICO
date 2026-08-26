@@ -42,7 +42,8 @@ const ACCIONES_POR_SECCION = {
         { key: 'registro_presentacionPpt', label: '🎥 Presentación / ⬇️ Descargar PPT' },
         { key: 'registro_diferir', label: '⏩ Diferir' },
         { key: 'registro_reubicar', label: '🔄 Reubicar' },
-        { key: 'registro_eliminarFila', label: '🗑️ Eliminar Fila' }
+        { key: 'registro_eliminarFila', label: '🗑️ Eliminar Fila' },
+        { key: 'registro_whatsapp', label: '💬 Enviar WhatsApp' }
     ],
     libro: [
         { key: 'libro_exportarExcel', label: '📊 Exportar a Excel' }
