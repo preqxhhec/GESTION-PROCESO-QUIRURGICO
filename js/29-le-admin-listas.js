@@ -141,6 +141,18 @@ async function leCargarConfiguracionFiltros() {
         if (especialidadesLista.length === 0) especialidadesLista = Object.keys(LE_ESPECIALISTAS_DEFECTO);
         if (Object.keys(medicosPorEspecialidad).length === 0) medicosPorEspecialidad = JSON.parse(JSON.stringify(LE_ESPECIALISTAS_DEFECTO));
         if (estatusTablaLista.length === 0) estatusTablaLista = ['PROGRAMABLE', 'PENDIENTE EPA', 'NO PROGRAMABLE', 'ACTUALIZAR', 'CARTA CERTIFICADA', 'OPERADO', 'EGRESO', 'TRASLADO INTERNO', 'RECHAZO', 'EXCEPTUADO TRANSITORIO', 'EXCEPTUADO POR RECHAZO', 'EXCEPTUADO INUBICABLE'];
+
+        // 🩺 "Programado en Tabla" y "En Lista de Espera" los pone el sistema
+        // solo, con esta capitalización EXACTA (ver leCargarPacienteATabla()/
+        // leResetearVinculosAntesDeLimpiar() en js/31) — nunca pasan por
+        // adminAgregarEstatus(), que fuerza MAYÚSCULAS. Si no están acá tal
+        // cual, el filtro "Estatus Tabla" de Lista de Pacientes nunca
+        // encuentra a esos pacientes aunque sí tengan ese estatus. Se
+        // agregan siempre (no solo cuando la lista estaba vacía) para que
+        // una lista ya personalizada por el hospital también los tenga.
+        ['Programado en Tabla', 'En Lista de Espera'].forEach(estatusFijo => {
+            if (!estatusTablaLista.includes(estatusFijo)) estatusTablaLista.push(estatusFijo);
+        });
         if (estatusEpaLista.length === 0) estatusEpaLista = ['PENDIENTE', 'AGENDADO', 'REALIZADO', 'NO APLICA'];
         if (anestesiologosLista.length === 0) anestesiologosLista = ['DR. DANILO NAVA', 'DR. PEDRO GOLES', 'DRA. MARIANGEL YANES', 'DRA. RAQUEL VALERO', 'DRA. MARINELA RICCOBONO', 'DR. ROBERTO OROZCO', 'DR. DANIEL RIQUELME', 'DR. ANGEL MONTIEL'];
         if (comunasLista.length === 0) comunasLista = ['ILLAPEL', 'CANELA', 'LOS VILOS', 'SALAMANCA'];
