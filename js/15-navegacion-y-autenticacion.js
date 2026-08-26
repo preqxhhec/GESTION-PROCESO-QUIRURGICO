@@ -247,6 +247,38 @@
         }
     });
 
+    // 🔑 "¿Olvidaste tu contraseña?" — usa el correo ya escrito en el campo
+    // de email si hay uno; si no, pide que lo escriba primero ahí mismo.
+    const linkOlvideContrasena = document.getElementById('linkOlvideContrasena');
+    if (linkOlvideContrasena) {
+        linkOlvideContrasena.addEventListener('click', function(e) {
+            e.preventDefault();
+            const email = loginEmail.value.trim();
+            if (!email) {
+                mostrarLoginStatus('❌ Escribe tu correo electrónico arriba y vuelve a hacer clic en "¿Olvidaste tu contraseña?"', 'error');
+                loginEmail.focus();
+                return;
+            }
+            mostrarLoginStatus('⏳ Enviando correo de recuperación...', '');
+            auth.sendPasswordResetEmail(email)
+                .then(function() {
+                    mostrarLoginStatus(`✅ Te enviamos un correo a ${email} con instrucciones para recuperar tu contraseña.`, 'success');
+                })
+                .catch(function(error) {
+                    console.error('❌ Error al enviar correo de recuperación:', error);
+                    let mensaje = '❌ No se pudo enviar el correo de recuperación';
+                    if (error.code === 'auth/user-not-found') {
+                        mensaje = '❌ No hay ninguna cuenta con ese correo';
+                    } else if (error.code === 'auth/invalid-email') {
+                        mensaje = '❌ Correo electrónico inválido';
+                    } else if (error.code === 'auth/too-many-requests') {
+                        mensaje = '❌ Demasiados intentos. Espera un momento.';
+                    }
+                    mostrarLoginStatus(mensaje, 'error');
+                });
+        });
+    }
+
     // =============================================================
     // 🕐 BITÁCORA DE ACCESOS — un registro por cada inicio de sesión exitoso,
     // guardado en bitacora_accesos/{uid}. Se consulta desde Administrador

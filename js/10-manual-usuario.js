@@ -151,8 +151,15 @@ function construirManualContenidos() {
                     </tr>
                 </tbody>
             </table>
-            
-            <h2 style="font-size:1.3rem; color:#0b2a4f; margin-top:24px; margin-bottom:12px;">2.3 Cerrar Sesión</h2>
+
+            <h2 style="font-size:1.3rem; color:#0b2a4f; margin-top:24px; margin-bottom:12px;">2.3 Recuperar Contraseña</h2>
+            <ol style="color:#475569; line-height:1.8; padding-left:24px; margin-bottom:16px;">
+                <li>Escribe tu correo en el campo <strong>"Correo electrónico"</strong> de la pantalla de inicio de sesión</li>
+                <li>Haz clic en <strong>"¿Olvidaste tu contraseña?"</strong></li>
+                <li>Revisa tu correo y sigue las instrucciones del mensaje que te llega para elegir una contraseña nueva</li>
+            </ol>
+
+            <h2 style="font-size:1.3rem; color:#0b2a4f; margin-top:24px; margin-bottom:12px;">2.4 Cerrar Sesión</h2>
             <ol style="color:#475569; line-height:1.8; padding-left:24px; margin-bottom:16px;">
                 <li>Haz clic en <strong>"🚪 Cerrar Sesión"</strong> en la esquina superior derecha</li>
                 <li>Confirma la acción en el mensaje de advertencia</li>

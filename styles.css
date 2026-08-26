@@ -962,6 +962,19 @@ td.col-color {
     padding-top: 16px;
 }
 
+.login-footer a {
+    display: block;
+    color: #1e6fd9;
+    text-decoration: none;
+    font-weight: 600;
+    margin-bottom: 10px;
+    cursor: pointer;
+}
+
+.login-footer a:hover {
+    text-decoration: underline;
+}
+
 #app {
     display: none;
 }

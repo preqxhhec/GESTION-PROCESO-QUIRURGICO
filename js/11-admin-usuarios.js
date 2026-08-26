@@ -5,6 +5,29 @@
     // =============================================================
     let usuariosCache = {};
 
+    // -------------------------------------------------------------
+    // 🆕 CREAR USUARIO SIN CERRAR LA SESIÓN DEL ADMINISTRADOR
+    // -------------------------------------------------------------
+    // auth.createUserWithEmailAndPassword() en la instancia PRINCIPAL de
+    // Firebase Auth inicia sesión automáticamente como el usuario recién
+    // creado — eso cerraba (reemplazaba) la sesión del administrador que
+    // lo estaba creando, dejándolo "afuera" de su propia cuenta. La forma
+    // estándar de evitarlo sin backend propio es crear el usuario en una
+    // instancia SECUNDARIA de Firebase (mismo proyecto, apenas un nombre
+    // distinto): el login automático pasa ahí, sin tocar auth.currentUser
+    // de la instancia principal donde sigue conectado el administrador.
+    let appSecundariaCrearUsuario = null;
+    async function crearUsuarioSinCerrarSesion(email, password) {
+        if (!appSecundariaCrearUsuario) {
+            appSecundariaCrearUsuario = firebase.initializeApp(firebaseConfig, 'CrearUsuarioSecundaria');
+        }
+        const authSecundaria = appSecundariaCrearUsuario.auth();
+        const userCredential = await authSecundaria.createUserWithEmailAndPassword(email, password);
+        const user = userCredential.user;
+        await authSecundaria.signOut();
+        return user;
+    }
+
     async function cargarUsuarios() {
         const contenedor = document.getElementById('usuariosLista');
         if (!contenedor) return;
@@ -395,8 +418,7 @@
             confirmarBtn.disabled = true;
 
             try {
-                const userCredential = await auth.createUserWithEmailAndPassword(email, password);
-                const user = userCredential.user;
+                const user = await crearUsuarioSinCerrarSesion(email, password);
 
                 const datosUsuario = {
                     email: email,
