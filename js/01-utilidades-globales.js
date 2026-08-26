@@ -11,10 +11,22 @@ let currentUserRol = '';
 // mientras estás escribiendo algo que todavía no se ha guardado (el
 // autoguardado espera inactividad), si otra persona guarda CUALQUIER OTRA
 // COSA en la tabla, ese listener puede pisar tu edición sin guardar con los
-// datos viejos de Firebase. Mientras esta bandera esté en true, el listener
-// no aplica actualizaciones remotas — se limpia apenas el guardado
-// pendiente termina (ver triggerAutoSave() en js/02).
-let hayCambiosSinGuardarPendientes = false;
+// datos viejos de Firebase.
+//
+// Set de rowKeys ("semanaIdx-diaIdx-pabIdx-filaIdx") con una edición local
+// todavía sin guardar — NO es una sola bandera global: proteger TODA la
+// tabla mientras cualquier fila tiene algo pendiente causaba una pérdida de
+// datos distinta y ya vista en producción — si mientras tanto llegaba un
+// cambio remoto legítimo a OTRA fila (un paciente cargado desde Lista de
+// Espera, o borrado/editado por otra persona), ese cambio quedaba
+// bloqueado igual; si luego se disparaba CUALQUIER guardado (aunque fuera
+// de una fila distinta), ese guardado serializaba el pabellón/día ENTERO
+// desde la copia local ya desactualizada, resucitando pacientes borrados
+// o borrando pacientes agregados por otros (incluido el bridge "Cargar a
+// la Tabla" de Lista de Espera). Ahora el listener solo protege las filas
+// realmente en edición (ver triggerAutoSave() en js/02); el resto de
+// filas sigue sincronizándose en tiempo real con normalidad.
+let filasConCambiosSinGuardar = new Set();
 
 
 

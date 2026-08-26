@@ -414,12 +414,16 @@ async function cargarDatosDesdeFirebase() {
                     const filaData = data[key];
                     const filaLocal = semanas[semanaIdx][diaIdx].pabs[PABS[pabIdx]][filaIdx];
                     const ultimoEditor = filaData.metadata?.ultimo_editor;
-                    // 🛟 Mientras haya cambios propios sin guardar (en CUALQUIER
-                    // fila), no se aplican actualizaciones remotas: de lo
-                    // contrario, el guardado de OTRO usuario en OTRA fila podía
-                    // pisar una edición local todavía no guardada (ver
-                    // hayCambiosSinGuardarPendientes en js/01).
-                    if (!hayCambiosSinGuardarPendientes && ultimoEditor !== currentUserEmail) {
+                    const rowKeyLocal = `${semanaIdx}-${diaIdx}-${pabIdx}-${filaIdx}`;
+                    // 🛟 Mientras ESTA fila en particular tenga una edición
+                    // propia sin guardar, no se le aplican actualizaciones
+                    // remotas — de lo contrario, el guardado de OTRO usuario
+                    // en esta misma fila podía pisar una edición local
+                    // todavía no guardada. A propósito NO se bloquea la
+                    // tabla entera por esto: bloquear todo mientras cualquier
+                    // OTRA fila tenía algo pendiente causaba una pérdida de
+                    // datos distinta (ver filasConCambiosSinGuardar en js/01).
+                    if (!filasConCambiosSinGuardar.has(rowKeyLocal) && ultimoEditor !== currentUserEmail) {
                         Object.keys(filaData).forEach(campo => {
                             if (campo !== 'metadata') {
                                 if (campo === 'RUT' && filaData[campo] !== undefined && filaData[campo] !== null) {
