@@ -378,11 +378,20 @@ function triggerAutoSave(rowKey) {
 // se den cuenta y se coordinen. Ver iniciarEscuchaEdicionEnCurso() y
 // aplicarAvisosEdicionEnCurso() en js/03, que leen esta marca y pintan el
 // aviso sobre la fila en las pantallas de los demás usuarios.
+// Cada usuario escribe en SU PROPIA clave dentro de edicion_en_curso/{docId}
+// (no en el docId directamente) — con un solo valor por fila, el segundo
+// usuario en escribir SOBRESCRIBÍA al primero: solo quedaba registrado el
+// último, así que el otro nunca veía el aviso y, si el que quedó registrado
+// guardaba (borrando esa única marca), el aviso desaparecía para todos
+// aunque la otra persona siguiera editando. Con una clave por usuario,
+// ambos quedan registrados a la vez y cada uno borra solo la suya al
+// guardar, sin afectar la marca de la otra persona.
 function marcarEdicionEnCurso(rowKey) {
-    if (!currentUser) return;
+    if (!currentUser || !currentUserEmail) return;
     const docId = getFirebaseKey(rowKey);
     if (!docId) return;
-    const ref = database.ref(`edicion_en_curso/${docId}`);
+    const miClave = claveEdicionEnCurso(currentUserEmail);
+    const ref = database.ref(`edicion_en_curso/${docId}/${miClave}`);
     ref.set({ usuario: currentUserEmail, ts: firebase.database.ServerValue.TIMESTAMP }).catch(() => {});
     // Si se cierra la pestaña o se corta la conexión sin guardar (y por lo
     // tanto sin pasar por limpiarEdicionEnCurso), esto evita que el aviso
@@ -390,10 +399,20 @@ function marcarEdicionEnCurso(rowKey) {
     ref.onDisconnect().remove().catch(() => {});
 }
 
+// Firebase no permite '.', '#', '$', '[' ni ']' en las claves — un correo
+// como "juan.perez@hospital.cl" necesita reemplazarlos para poder usarse
+// como clave. El correo real igual queda guardado en el VALOR (campo
+// "usuario"), así que esto no necesita revertirse para mostrarlo.
+function claveEdicionEnCurso(email) {
+    return (email || 'anonimo').replace(/[.#$\[\]]/g, ',');
+}
+
 function limpiarEdicionEnCurso(rowKey) {
+    if (!currentUserEmail) return;
     const docId = getFirebaseKey(rowKey);
     if (!docId) return;
-    database.ref(`edicion_en_curso/${docId}`).remove().catch(() => {});
+    const miClave = claveEdicionEnCurso(currentUserEmail);
+    database.ref(`edicion_en_curso/${docId}/${miClave}`).remove().catch(() => {});
 }
 
 function verificarSiHayDatos(dayKey) {

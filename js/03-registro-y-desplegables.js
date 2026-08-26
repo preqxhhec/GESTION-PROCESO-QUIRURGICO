@@ -525,13 +525,26 @@ function aplicarAvisosEdicionEnCurso() {
     document.querySelectorAll('#weekContent tr[data-rowkey]').forEach(tr => {
         const rowKey = tr.dataset.rowkey;
         const docId = getFirebaseKey(rowKey);
-        const info = docId ? edicionEnCursoRemota[docId] : null;
-        const esOtroUsuarioEditando = !!(info && info.usuario && info.usuario !== currentUserEmail &&
-            (!info.ts || (ahora - info.ts) < EDICION_EN_CURSO_MAX_ANTIGUEDAD_MS));
+        // edicionEnCursoRemota[docId] es un objeto con UNA clave por cada
+        // usuario editando esa fila (ver marcarEdicionEnCurso() en js/02),
+        // así que puede haber varias personas a la vez — se busca a la
+        // primera que no sea uno mismo y no esté vencida.
+        const editores = docId ? edicionEnCursoRemota[docId] : null;
+        let otroUsuario = null;
+        if (editores) {
+            for (const clave in editores) {
+                const info = editores[clave];
+                if (info && info.usuario && info.usuario !== currentUserEmail &&
+                    (!info.ts || (ahora - info.ts) < EDICION_EN_CURSO_MAX_ANTIGUEDAD_MS)) {
+                    otroUsuario = info.usuario;
+                    break;
+                }
+            }
+        }
 
-        tr.classList.toggle('fila-en-edicion-por-otro', esOtroUsuarioEditando);
-        if (esOtroUsuarioEditando) {
-            tr.title = `⚠️ ${info.usuario} también está editando esta fila ahora mismo`;
+        tr.classList.toggle('fila-en-edicion-por-otro', !!otroUsuario);
+        if (otroUsuario) {
+            tr.title = `⚠️ ${otroUsuario} también está editando esta fila ahora mismo`;
         } else if (tr.title && tr.title.startsWith('⚠️')) {
             tr.removeAttribute('title');
         }
