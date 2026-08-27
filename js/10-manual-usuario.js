@@ -706,16 +706,15 @@ function construirManualContenidos() {
             </ul>
 
             <h2 style="font-size:1.3rem; color:#0b2a4f; margin-top:24px; margin-bottom:12px;">9.4 Presentación y Descargar PPT del Dashboard</h2>
-            <p style="color:#475569; line-height:1.7; margin-bottom:12px;">Junto al botón <strong>"🖨️ Imprimir Dashboard Completo"</strong> hay dos más: <strong>"🎥 Presentación"</strong> y <strong>"⬇️ Descargar PPT"</strong>, mismo mecanismo que ya usan Tabla Quirúrgica (3.4) y Estadísticas (6.3). El Dashboard se segmenta en 6 láminas, una por sección:</p>
+            <p style="color:#475569; line-height:1.7; margin-bottom:12px;">Junto al botón <strong>"🖨️ Imprimir Dashboard Completo"</strong> hay dos más: <strong>"🎥 Presentación"</strong> y <strong>"⬇️ Descargar PPT"</strong>, mismo mecanismo que ya usan Tabla Quirúrgica (3.4) y Estadísticas (6.3). El Dashboard se segmenta en 5 láminas, una por sección:</p>
             <ol style="color:#475569; line-height:1.8; padding-left:24px; margin-bottom:16px;">
                 <li>📊 Resumen General (KPIs, medianas, percentiles, Prioridad/GES)</li>
                 <li>📈 Gráficos (Especialidad, Estatus Tabla, Ingresos por Mes)</li>
-                <li>📋 Tablas por Especialidad (medianas, Especialidad vs Estatus)</li>
-                <li>⚠️ Pacientes Destacados (mayor tiempo de espera, últimos 5 registrados)</li>
-                <li>📞 Pacientes para Llamar</li>
-                <li>⏳ Pacientes entre 6 Meses y 1 Año de Espera</li>
+                <li>📊 Medianas de Espera por Especialidad</li>
+                <li>📊 Pacientes por Especialidad vs Estatus</li>
+                <li>⚠️ Pacientes con Mayor Tiempo de Espera</li>
             </ol>
-            <p style="color:#64748b; font-style:italic; margin-top:8px;">💡 Las láminas de "Pacientes para Llamar" y "Pacientes entre 6 Meses y 1 Año" muestran la lista completa (no solo la página que se esté viendo en pantalla en ese momento).</p>
+            <p style="color:#64748b; font-style:italic; margin-top:8px;">💡 "📞 Pacientes para Llamar", "⏳ Pacientes entre 6 Meses y 1 Año de Espera" y "🆕 Últimos 5 Pacientes Registrados" no forman parte de la Presentación ni del PPT — siguen viéndose normalmente en el Dashboard, pero por ser tablas paginadas quedan fuera de estas láminas.</p>
             <p style="color:#dc2626; font-size:0.9rem; margin-top:8px;">⚠️ Estos dos botones nuevos comparten el mismo permiso que "🖨️ Imprimir Dashboard Completo" (ver 7.4).</p>
 
             <h2 style="font-size:1.3rem; color:#0b2a4f; margin-top:24px; margin-bottom:12px;">9.5 Nuevo Paciente</h2>

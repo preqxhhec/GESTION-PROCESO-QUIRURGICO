@@ -10,20 +10,20 @@
 // obtenerLogoDataUrl()/ajustarImagenAlaCaja() de js/18-estadisticas.js
 // (cargado antes que este archivo, ver index.html).
 //
-// El Dashboard queda "segmentado" en 6 láminas — una por sección — en vez
-// de una sola captura gigante de toda la página.
+// El Dashboard queda "segmentado" en 5 láminas — una por sección — en vez
+// de una sola captura gigante de toda la página. "Pacientes para Llamar" y
+// "Pacientes entre 6 Meses y 1 Año" (las dos tablas paginadas) y "Últimos 5
+// Pacientes Registrados" quedan fuera de la Presentación/PPT a propósito —
+// siguen viéndose normal en el Dashboard, solo no forman parte de las
+// láminas.
 // =============================================================
 
 const LE_DASHBOARD_LAMINAS = [
     { titulo: '📊 Resumen General', elementoId: 'dashboardSeccionResumen' },
     { titulo: '📈 Gráficos', elementoId: 'dashboardSeccionGraficos' },
-    { titulo: '📋 Tablas por Especialidad', elementoId: 'dashboardSeccionTablasEspecialidad' },
-    { titulo: '⚠️ Pacientes Destacados', elementoId: 'dashboardSeccionDestacados' },
-    // Estas dos secciones se ven paginadas en pantalla (10 por página) —
-    // para la foto/lámina se necesita la lista COMPLETA, no solo la
-    // página visible en ese momento (ver capturarLaminaDashboard()).
-    { titulo: '📞 Pacientes para Llamar', elementoId: 'dashboardSeccionLlamados', esListaPaginada: 'llamados' },
-    { titulo: '⏳ Pacientes entre 6 Meses y 1 Año', elementoId: 'dashboardSeccionPlazo', esListaPaginada: 'plazo' }
+    { titulo: '📊 Medianas de Espera por Especialidad', elementoId: 'dashboardSeccionMedianas' },
+    { titulo: '📊 Pacientes por Especialidad vs Estatus', elementoId: 'dashboardSeccionCrossTable' },
+    { titulo: '⚠️ Pacientes con Mayor Tiempo de Espera', elementoId: 'dashboardSeccionTopEspera' }
 ];
 
 let dashboardPresentacionCache = {};
@@ -46,24 +46,10 @@ async function capturarLaminaDashboard(lamina) {
     return dashboardPresentacionEncolar(async () => {
         if (dashboardPresentacionCache[lamina.elementoId]) return dashboardPresentacionCache[lamina.elementoId];
 
-        // modoCaptura=true: renderiza la lista COMPLETA (no solo la página
-        // visible) justo antes de la foto; el finally la deja como estaba
-        // pase lo que pase (incluso si la captura falla).
-        if (lamina.esListaPaginada === 'llamados') actualizarTablaLlamadosPendientes(true);
-        if (lamina.esListaPaginada === 'plazo') actualizarTablaPlazoEsperaDashboard(true);
-
-        await new Promise(resolve => setTimeout(resolve, 60));
-
-        let captura;
-        try {
-            const elemento = document.getElementById(lamina.elementoId);
-            if (!elemento) throw new Error(`No se encontró el elemento ${lamina.elementoId}`);
-            const canvas = await html2canvas(elemento, { backgroundColor: '#ffffff', scale: 2, useCORS: true });
-            captura = { dataUrl: canvas.toDataURL('image/png'), width: canvas.width, height: canvas.height };
-        } finally {
-            if (lamina.esListaPaginada === 'llamados') actualizarTablaLlamadosPendientes();
-            if (lamina.esListaPaginada === 'plazo') actualizarTablaPlazoEsperaDashboard();
-        }
+        const elemento = document.getElementById(lamina.elementoId);
+        if (!elemento) throw new Error(`No se encontró el elemento ${lamina.elementoId}`);
+        const canvas = await html2canvas(elemento, { backgroundColor: '#ffffff', scale: 2, useCORS: true });
+        const captura = { dataUrl: canvas.toDataURL('image/png'), width: canvas.width, height: canvas.height };
 
         dashboardPresentacionCache[lamina.elementoId] = captura;
         return captura;

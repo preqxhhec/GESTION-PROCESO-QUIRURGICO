@@ -37,7 +37,7 @@ function leRenderDashboardHTML() {
             <button onclick="leLimpiarFiltroDashboard()" class="btn-secondary">Limpiar Filtro</button>
         </div>
 
-        <div id="dashboardSeccionResumen">
+        <div id="dashboardSeccionResumen" style="border:1px solid #e2e8f0; border-radius:16px; padding:20px; background:#ffffff;">
         <div class="stats-grid">
             <div class="stat-card total-card">
                 <h3>Total Pacientes Gestionables</h3>
@@ -119,7 +119,7 @@ function leRenderDashboardHTML() {
         </div>
         </div>
 
-        <div id="dashboardSeccionTablasEspecialidad">
+        <div id="dashboardSeccionMedianas">
         <h3 style="margin:30px 0 15px 0;">📊 Medianas de Espera por Especialidad</h3>
         <div class="table-container">
             <table id="medianasTable" class="cross-table">
@@ -127,14 +127,16 @@ function leRenderDashboardHTML() {
                 <tbody id="medianasTableBody"></tbody>
             </table>
         </div>
+        </div>
 
+        <div id="dashboardSeccionCrossTable">
         <h3 style="margin:30px 0 15px 0;">📊 Pacientes por Especialidad vs Estatus</h3>
         <div class="table-container">
             <table id="crossTable" class="cross-table"><thead id="crossTableHead"></thead><tbody id="crossTableBody"></tbody></table>
         </div>
         </div>
 
-        <div id="dashboardSeccionDestacados">
+        <div id="dashboardSeccionTopEspera">
         <h3 style="margin:30px 0 15px 0;">⚠️ Pacientes con Mayor Tiempo de Espera</h3>
         <div class="table-container">
             <table id="topEsperaTable" class="cross-table">
@@ -142,7 +144,9 @@ function leRenderDashboardHTML() {
                 <tbody id="topEsperaBody"></tbody>
             </table>
         </div>
+        </div>
 
+        <div id="dashboardSeccionUltimosPacientes">
         <h3 style="margin:30px 0 15px 0;">🆕 Últimos 5 Pacientes Registrados</h3>
         <div class="table-container">
             <table id="ultimosPacientesTable" class="cross-table">
@@ -457,11 +461,7 @@ function leCambiarPaginaLlamadosPendientes(delta) {
     actualizarTablaLlamadosPendientes();
 }
 
-// modoCaptura=true: usado por la Presentación/PPT del Dashboard (ver más
-// abajo) para fotografiar la lista COMPLETA en vez de solo la página
-// visible — no toca la paginación en pantalla, el próximo llamado normal
-// de esta función (sin el parámetro) la deja como estaba.
-function actualizarTablaLlamadosPendientes(modoCaptura = false) {
+function actualizarTablaLlamadosPendientes() {
     const tbody = document.getElementById('llamadosPendientesBody');
     const contador = document.getElementById('llamadosPendientesContador');
     const paginacion = document.getElementById('llamadosPendientesPaginacion');
@@ -489,20 +489,16 @@ function actualizarTablaLlamadosPendientes(modoCaptura = false) {
 
     if (pendientes.length === 0) {
         tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">No hay pacientes pendientes de llamado en los próximos 10 días</td></tr>';
-        if (paginacion && !modoCaptura) paginacion.innerHTML = '';
+        if (paginacion) paginacion.innerHTML = '';
         return;
     }
 
-    let paginaActual = pendientes;
-    let totalPaginas = 1;
-    if (!modoCaptura) {
-        totalPaginas = Math.max(1, Math.ceil(pendientes.length / LE_DASHBOARD_LLAMADOS_POR_PAGINA));
-        if (dashboardLlamadosPendientesPagina >= totalPaginas) dashboardLlamadosPendientesPagina = totalPaginas - 1;
-        if (dashboardLlamadosPendientesPagina < 0) dashboardLlamadosPendientesPagina = 0;
+    const totalPaginas = Math.max(1, Math.ceil(pendientes.length / LE_DASHBOARD_LLAMADOS_POR_PAGINA));
+    if (dashboardLlamadosPendientesPagina >= totalPaginas) dashboardLlamadosPendientesPagina = totalPaginas - 1;
+    if (dashboardLlamadosPendientesPagina < 0) dashboardLlamadosPendientesPagina = 0;
 
-        const inicio = dashboardLlamadosPendientesPagina * LE_DASHBOARD_LLAMADOS_POR_PAGINA;
-        paginaActual = pendientes.slice(inicio, inicio + LE_DASHBOARD_LLAMADOS_POR_PAGINA);
-    }
+    const inicio = dashboardLlamadosPendientesPagina * LE_DASHBOARD_LLAMADOS_POR_PAGINA;
+    const paginaActual = pendientes.slice(inicio, inicio + LE_DASHBOARD_LLAMADOS_POR_PAGINA);
 
     paginaActual.forEach(patient => {
         const fechaProgramada = new Date(patient.fechaProximoLlamado);
@@ -545,7 +541,7 @@ function actualizarTablaLlamadosPendientes(modoCaptura = false) {
         tbody.appendChild(tr);
     });
 
-    if (paginacion && !modoCaptura) {
+    if (paginacion) {
         paginacion.innerHTML = `
             <button onclick="leCambiarPaginaLlamadosPendientes(-1)" class="btn-secondary" style="padding:6px 14px;" ${dashboardLlamadosPendientesPagina === 0 ? 'disabled' : ''}>‹ Anterior</button>
             <span style="font-size:0.85rem; color:#475569;">Página ${dashboardLlamadosPendientesPagina + 1} de ${totalPaginas}</span>
@@ -587,9 +583,7 @@ function obtenerPacientesPlazoEsperaDashboard() {
     return lista;
 }
 
-// modoCaptura=true: usado por la Presentación/PPT del Dashboard para
-// fotografiar la lista COMPLETA en vez de solo la página visible.
-function actualizarTablaPlazoEsperaDashboard(modoCaptura = false) {
+function actualizarTablaPlazoEsperaDashboard() {
     const tbody = document.getElementById('plazoEsperaBody');
     const contador = document.getElementById('plazoEsperaContador');
     const paginacion = document.getElementById('plazoEsperaPaginacion');
@@ -601,16 +595,12 @@ function actualizarTablaPlazoEsperaDashboard(modoCaptura = false) {
         contador.textContent = `${lista.length} paciente${lista.length === 1 ? '' : 's'} en total`;
     }
 
-    let paginaActual = lista;
-    let totalPaginas = 1;
-    if (!modoCaptura) {
-        totalPaginas = Math.max(1, Math.ceil(lista.length / LE_DASHBOARD_PLAZO_POR_PAGINA));
-        if (dashboardPlazoEsperaPagina >= totalPaginas) dashboardPlazoEsperaPagina = totalPaginas - 1;
-        if (dashboardPlazoEsperaPagina < 0) dashboardPlazoEsperaPagina = 0;
+    const totalPaginas = Math.max(1, Math.ceil(lista.length / LE_DASHBOARD_PLAZO_POR_PAGINA));
+    if (dashboardPlazoEsperaPagina >= totalPaginas) dashboardPlazoEsperaPagina = totalPaginas - 1;
+    if (dashboardPlazoEsperaPagina < 0) dashboardPlazoEsperaPagina = 0;
 
-        const inicio = dashboardPlazoEsperaPagina * LE_DASHBOARD_PLAZO_POR_PAGINA;
-        paginaActual = lista.slice(inicio, inicio + LE_DASHBOARD_PLAZO_POR_PAGINA);
-    }
+    const inicio = dashboardPlazoEsperaPagina * LE_DASHBOARD_PLAZO_POR_PAGINA;
+    const paginaActual = lista.slice(inicio, inicio + LE_DASHBOARD_PLAZO_POR_PAGINA);
 
     if (paginaActual.length === 0) {
         tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">No hay pacientes entre 6 meses y 1 año de espera</td></tr>';
@@ -630,7 +620,7 @@ function actualizarTablaPlazoEsperaDashboard(modoCaptura = false) {
         }).join('');
     }
 
-    if (paginacion && !modoCaptura) {
+    if (paginacion) {
         paginacion.innerHTML = `
             <button onclick="leCambiarPaginaPlazoEspera(-1)" class="btn-secondary" style="padding:6px 14px;" ${dashboardPlazoEsperaPagina === 0 ? 'disabled' : ''}>‹ Anterior</button>
             <span style="font-size:0.85rem; color:#475569;">Página ${dashboardPlazoEsperaPagina + 1} de ${totalPaginas}</span>
