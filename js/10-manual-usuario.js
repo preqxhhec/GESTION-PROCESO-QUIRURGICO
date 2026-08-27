@@ -685,10 +685,10 @@ function construirManualContenidos() {
                     </tr>
                 </thead>
                 <tbody>
-                    <tr><td style="padding:8px 12px; border:1px solid #e2e8f0;">🏠 Dashboard</td><td style="padding:8px 12px; border:1px solid #e2e8f0;">Indicadores generales y gráficos (ver 9.3)</td></tr>
-                    <tr><td style="padding:8px 12px; border:1px solid #e2e8f0;">➕ Nuevo Paciente</td><td style="padding:8px 12px; border:1px solid #e2e8f0;">Formulario de ingreso de un paciente nuevo (ver 9.4)</td></tr>
-                    <tr><td style="padding:8px 12px; border:1px solid #e2e8f0;">📋 Lista de Pacientes</td><td style="padding:8px 12px; border:1px solid #e2e8f0;">Tabla maestra con todos los pacientes, filtros y acciones (ver 9.5)</td></tr>
-                    <tr><td style="padding:8px 12px; border:1px solid #e2e8f0;">📜 Histórico RDLL</td><td style="padding:8px 12px; border:1px solid #e2e8f0;">Registro Diario de Lista de Espera y gestión de llamados (ver 9.6)</td></tr>
+                    <tr><td style="padding:8px 12px; border:1px solid #e2e8f0;">🏠 Dashboard</td><td style="padding:8px 12px; border:1px solid #e2e8f0;">Indicadores generales y gráficos (ver 9.3-9.4)</td></tr>
+                    <tr><td style="padding:8px 12px; border:1px solid #e2e8f0;">➕ Nuevo Paciente</td><td style="padding:8px 12px; border:1px solid #e2e8f0;">Formulario de ingreso de un paciente nuevo (ver 9.5)</td></tr>
+                    <tr><td style="padding:8px 12px; border:1px solid #e2e8f0;">📋 Lista de Pacientes</td><td style="padding:8px 12px; border:1px solid #e2e8f0;">Tabla maestra con todos los pacientes, filtros y acciones (ver 9.6)</td></tr>
+                    <tr><td style="padding:8px 12px; border:1px solid #e2e8f0;">📜 Histórico RDLL</td><td style="padding:8px 12px; border:1px solid #e2e8f0;">Registro Diario de Lista de Espera y gestión de llamados (ver 9.7)</td></tr>
                     <tr><td style="padding:8px 12px; border:1px solid #e2e8f0;">⚙️ Administrar Listas</td><td style="padding:8px 12px; border:1px solid #e2e8f0;">CRUD de especialidades, médicos, estatus, anestesiólogos y comunas <strong>(solo superadministrador)</strong></td></tr>
                 </tbody>
             </table>
@@ -701,14 +701,27 @@ function construirManualContenidos() {
                 <li>Pacientes por <strong>Prioridad</strong> (P1 / P2 / P3) y por <strong>GES</strong> (SI / NO)</li>
                 <li>Gráficos por especialidad y por estatus de tabla, ingresos por mes, medianas por especialidad</li>
                 <li>Listado de pacientes con mayor tiempo de espera y de los últimos 5 registrados</li>
-                <li><strong>📞 Pacientes para Llamar (Fecha Programada)</strong>: cada fila se colorea según cuántos días faltan para el llamado (o si ya está atrasado), muestra el total de pacientes encontrados, y se pagina de a 15 registros</li>
-                <li><strong>⏳ Pacientes que Superaron el Plazo de Espera</strong>: pacientes gestionables cuya <strong>Fecha Estatus Programable</strong> ya superó los 6 meses. Tiene un filtro para ver solo "entre 6 meses y 1 año" o solo "más de 1 año", muestra el total de pacientes encontrados, cada fila tiene su botón 👁️ Ver, y la lista se pagina de a 15 registros. Los pacientes con estatus <strong>ACTUALIZAR</strong> no aparecen acá — un paciente pasa a ACTUALIZAR automáticamente en cuanto cumple 1 año sin actualizarse (con una entrada en su historial dejando constancia), así que en la práctica esta tabla termina mostrando solo el rango de 6 meses a 1 año</li>
+                <li><strong>📞 Pacientes para Llamar (Fecha Programada)</strong>: cada fila se colorea según cuántos días faltan para el llamado (o si ya está atrasado), muestra el total de pacientes encontrados, y se pagina de a 10 registros</li>
+                <li><strong>⏳ Pacientes entre 6 Meses y 1 Año de Espera</strong>: pacientes gestionables cuya <strong>Fecha Estatus Programable</strong> está entre esos dos plazos, con el total de pacientes encontrados, botón 👁️ Ver por fila, y paginado de a 10 registros. Los pacientes con estatus <strong>ACTUALIZAR</strong> no aparecen acá — un paciente pasa a ACTUALIZAR automáticamente en cuanto cumple 1 año desde esa fecha sin actualizarse (con una entrada en su historial dejando constancia), así que esta tabla queda siempre acotada al rango 6 meses-1 año</li>
             </ul>
 
-            <h2 style="font-size:1.3rem; color:#0b2a4f; margin-top:24px; margin-bottom:12px;">9.4 Nuevo Paciente</h2>
+            <h2 style="font-size:1.3rem; color:#0b2a4f; margin-top:24px; margin-bottom:12px;">9.4 Presentación y Descargar PPT del Dashboard</h2>
+            <p style="color:#475569; line-height:1.7; margin-bottom:12px;">Junto al botón <strong>"🖨️ Imprimir Dashboard Completo"</strong> hay dos más: <strong>"🎥 Presentación"</strong> y <strong>"⬇️ Descargar PPT"</strong>, mismo mecanismo que ya usan Tabla Quirúrgica (3.4) y Estadísticas (6.3). El Dashboard se segmenta en 6 láminas, una por sección:</p>
+            <ol style="color:#475569; line-height:1.8; padding-left:24px; margin-bottom:16px;">
+                <li>📊 Resumen General (KPIs, medianas, percentiles, Prioridad/GES)</li>
+                <li>📈 Gráficos (Especialidad, Estatus Tabla, Ingresos por Mes)</li>
+                <li>📋 Tablas por Especialidad (medianas, Especialidad vs Estatus)</li>
+                <li>⚠️ Pacientes Destacados (mayor tiempo de espera, últimos 5 registrados)</li>
+                <li>📞 Pacientes para Llamar</li>
+                <li>⏳ Pacientes entre 6 Meses y 1 Año de Espera</li>
+            </ol>
+            <p style="color:#64748b; font-style:italic; margin-top:8px;">💡 Las láminas de "Pacientes para Llamar" y "Pacientes entre 6 Meses y 1 Año" muestran la lista completa (no solo la página que se esté viendo en pantalla en ese momento).</p>
+            <p style="color:#dc2626; font-size:0.9rem; margin-top:8px;">⚠️ Estos dos botones nuevos comparten el mismo permiso que "🖨️ Imprimir Dashboard Completo" (ver 7.4).</p>
+
+            <h2 style="font-size:1.3rem; color:#0b2a4f; margin-top:24px; margin-bottom:12px;">9.5 Nuevo Paciente</h2>
             <p style="color:#475569; line-height:1.7; margin-bottom:12px;">Formulario con los datos del paciente: identificación, fechas (indicación, nacimiento), diagnóstico, intervención, especialidad, médico tratante, GES, Prioridad, exámenes preoperatorios (TACO/ASA/EKG/RX/ECO), indicaciones del anestesista, teléfono, comuna y observaciones. Al guardar, el paciente queda con estatus inicial <strong>"En Lista de Espera"</strong>.</p>
 
-            <h2 style="font-size:1.3rem; color:#0b2a4f; margin-top:24px; margin-bottom:12px;">9.5 Lista de Pacientes</h2>
+            <h2 style="font-size:1.3rem; color:#0b2a4f; margin-top:24px; margin-bottom:12px;">9.6 Lista de Pacientes</h2>
             <p style="color:#475569; line-height:1.7; margin-bottom:12px;">Tabla con todos los pacientes registrados, con filtros por especialidad, estatus, prioridad, GES y búsqueda por nombre/RUT. Cada fila tiene dos acciones posibles:</p>
             <table style="width:100%; border-collapse:collapse; font-size:0.85rem; margin-bottom:16px;">
                 <thead>
@@ -723,10 +736,10 @@ function construirManualContenidos() {
                 </tbody>
             </table>
 
-            <h2 style="font-size:1.3rem; color:#0b2a4f; margin-top:24px; margin-bottom:12px;">9.6 Histórico RDLL</h2>
+            <h2 style="font-size:1.3rem; color:#0b2a4f; margin-top:24px; margin-bottom:12px;">9.7 Histórico RDLL</h2>
             <p style="color:#475569; line-height:1.7; margin-bottom:12px;">Visor del Registro Diario de Lista de Espera: una colección separada de registros de llamados (migrados o ingresados manualmente), con edición, eliminación, importación desde Excel y exportación a Excel. Es distinto del historial de llamados de cada paciente individual, que se gestiona desde su propia ficha (👁️ Ver, en Lista de Pacientes).</p>
 
-            <h2 style="font-size:1.3rem; color:#0b2a4f; margin-top:24px; margin-bottom:12px;">9.7 Administrar Listas</h2>
+            <h2 style="font-size:1.3rem; color:#0b2a4f; margin-top:24px; margin-bottom:12px;">9.8 Administrar Listas</h2>
             <p style="color:#475569; line-height:1.7; margin-bottom:12px;">Pestaña exclusiva de superadministrador para gestionar las opciones de los desplegables propios de Lista de Espera: especialidades y médicos por especialidad, estatus tabla, estatus EPA, anestesiólogos y comunas — mismo patrón de agregar/eliminar que en 7.5.</p>
         `,
 

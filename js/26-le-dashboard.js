@@ -20,7 +20,13 @@ function leRenderDashboardHTML() {
     return `
         <div style="display:flex; flex-wrap:wrap; justify-content:space-between; align-items:center; gap:12px; margin-bottom:20px;">
             <h2>Dashboard General</h2>
-            ${usuarioTieneAccesoSeccion('listaEspera_exportar') ? '<button onclick="printDashboard()" class="btn-print-dashboard">🖨️ Imprimir Dashboard Completo</button>' : ''}
+            ${usuarioTieneAccesoSeccion('listaEspera_exportar') ? `
+            <div style="display:flex; gap:8px; flex-wrap:wrap;">
+                <button onclick="printDashboard()" class="btn-print-dashboard">🖨️ Imprimir Dashboard Completo</button>
+                <button id="dashboardBtnPresentacion" onclick="abrirPresentacionDashboard()" class="btn-print-dashboard" style="background:linear-gradient(135deg, #0b2a4f, #1a6d8a);">🎥 Presentación</button>
+                <button id="dashboardBtnDescargarPpt" onclick="descargarPresentacionPptDashboard()" class="btn-print-dashboard" style="background:linear-gradient(135deg, #c0392b, #e74c3c);">⬇️ Descargar PPT</button>
+            </div>
+            ` : ''}
         </div>
 
         <div class="filters" style="align-items:center;">
@@ -31,6 +37,7 @@ function leRenderDashboardHTML() {
             <button onclick="leLimpiarFiltroDashboard()" class="btn-secondary">Limpiar Filtro</button>
         </div>
 
+        <div id="dashboardSeccionResumen">
         <div class="stats-grid">
             <div class="stat-card total-card">
                 <h3>Total Pacientes Gestionables</h3>
@@ -98,7 +105,9 @@ function leRenderDashboardHTML() {
                 </div>
             </div>
         </div>
+        </div>
 
+        <div id="dashboardSeccionGraficos">
         <div class="charts-row">
             <div class="chart-card"><h3>Pacientes por Especialidad</h3><canvas id="especialidadChart"></canvas></div>
             <div class="chart-card"><h3>Pacientes por Estatus Tabla</h3><canvas id="estatusChart"></canvas></div>
@@ -108,7 +117,9 @@ function leRenderDashboardHTML() {
             <h3>📈 Ingresos por Mes (Fecha Indicación Qx)</h3>
             <canvas id="tendenciaChart" style="max-height:300px;"></canvas>
         </div>
+        </div>
 
+        <div id="dashboardSeccionTablasEspecialidad">
         <h3 style="margin:30px 0 15px 0;">📊 Medianas de Espera por Especialidad</h3>
         <div class="table-container">
             <table id="medianasTable" class="cross-table">
@@ -121,7 +132,9 @@ function leRenderDashboardHTML() {
         <div class="table-container">
             <table id="crossTable" class="cross-table"><thead id="crossTableHead"></thead><tbody id="crossTableBody"></tbody></table>
         </div>
+        </div>
 
+        <div id="dashboardSeccionDestacados">
         <h3 style="margin:30px 0 15px 0;">⚠️ Pacientes con Mayor Tiempo de Espera</h3>
         <div class="table-container">
             <table id="topEsperaTable" class="cross-table">
@@ -137,7 +150,9 @@ function leRenderDashboardHTML() {
                 <tbody id="ultimosPacientesBody"></tbody>
             </table>
         </div>
+        </div>
 
+        <div id="dashboardSeccionLlamados">
         <h3 style="margin:30px 0 15px 0;">📞 Pacientes para Llamar (Fecha Programada)</h3>
         <div id="llamadosPendientesContador" style="font-weight:600; color:#1e40af; margin-bottom:8px;"></div>
         <div class="table-container">
@@ -147,19 +162,11 @@ function leRenderDashboardHTML() {
             </table>
         </div>
         <div id="llamadosPendientesPaginacion" style="display:flex; justify-content:center; align-items:center; gap:12px; margin:15px 0;"></div>
-
-        <h3 style="margin:30px 0 15px 0;">⏳ Pacientes que Superaron el Plazo de Espera (desde Fecha Estatus Programable)</h3>
-        <div style="display:flex; flex-wrap:wrap; gap:16px; align-items:center; margin-bottom:12px;">
-            <div class="filter-group" style="min-width:240px;">
-                <label>Filtrar por plazo superado</label>
-                <select id="filtroPlazoEsperaDashboard" onchange="leFiltrarPlazoEsperaDashboard()">
-                    <option value="todos">Todos (más de 6 meses)</option>
-                    <option value="6meses">Solo entre 6 meses y 1 año</option>
-                    <option value="1anio">Solo más de 1 año</option>
-                </select>
-            </div>
-            <div id="plazoEsperaContador" style="font-weight:600; color:#1e40af;"></div>
         </div>
+
+        <div id="dashboardSeccionPlazo">
+        <h3 style="margin:30px 0 15px 0;">⏳ Pacientes entre 6 Meses y 1 Año de Espera (desde Fecha Estatus Programable)</h3>
+        <div id="plazoEsperaContador" style="font-weight:600; color:#1e40af; margin-bottom:8px;"></div>
         <div class="table-container">
             <table id="plazoEsperaTable" class="cross-table">
                 <thead><tr><th>Paciente</th><th>RUT</th><th>Especialidad</th><th>Fecha Estatus Programable</th><th>Tiempo Transcurrido</th><th>Acción</th></tr></thead>
@@ -167,6 +174,7 @@ function leRenderDashboardHTML() {
             </table>
         </div>
         <div id="plazoEsperaPaginacion" style="display:flex; justify-content:center; align-items:center; gap:12px; margin:15px 0;"></div>
+        </div>
     `;
 }
 
@@ -441,7 +449,7 @@ function leCambiarFuenteDashboard(fuente) {
 
 // Widget "Pacientes para Llamar": pacientes con fechaProximoLlamado dentro
 // de los próximos 10 días (o ya atrasados).
-const LE_DASHBOARD_LLAMADOS_POR_PAGINA = 15;
+const LE_DASHBOARD_LLAMADOS_POR_PAGINA = 10;
 let dashboardLlamadosPendientesPagina = 0; // 0-indexado
 
 function leCambiarPaginaLlamadosPendientes(delta) {
@@ -449,7 +457,11 @@ function leCambiarPaginaLlamadosPendientes(delta) {
     actualizarTablaLlamadosPendientes();
 }
 
-function actualizarTablaLlamadosPendientes() {
+// modoCaptura=true: usado por la Presentación/PPT del Dashboard (ver más
+// abajo) para fotografiar la lista COMPLETA en vez de solo la página
+// visible — no toca la paginación en pantalla, el próximo llamado normal
+// de esta función (sin el parámetro) la deja como estaba.
+function actualizarTablaLlamadosPendientes(modoCaptura = false) {
     const tbody = document.getElementById('llamadosPendientesBody');
     const contador = document.getElementById('llamadosPendientesContador');
     const paginacion = document.getElementById('llamadosPendientesPaginacion');
@@ -477,16 +489,20 @@ function actualizarTablaLlamadosPendientes() {
 
     if (pendientes.length === 0) {
         tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">No hay pacientes pendientes de llamado en los próximos 10 días</td></tr>';
-        if (paginacion) paginacion.innerHTML = '';
+        if (paginacion && !modoCaptura) paginacion.innerHTML = '';
         return;
     }
 
-    const totalPaginas = Math.max(1, Math.ceil(pendientes.length / LE_DASHBOARD_LLAMADOS_POR_PAGINA));
-    if (dashboardLlamadosPendientesPagina >= totalPaginas) dashboardLlamadosPendientesPagina = totalPaginas - 1;
-    if (dashboardLlamadosPendientesPagina < 0) dashboardLlamadosPendientesPagina = 0;
+    let paginaActual = pendientes;
+    let totalPaginas = 1;
+    if (!modoCaptura) {
+        totalPaginas = Math.max(1, Math.ceil(pendientes.length / LE_DASHBOARD_LLAMADOS_POR_PAGINA));
+        if (dashboardLlamadosPendientesPagina >= totalPaginas) dashboardLlamadosPendientesPagina = totalPaginas - 1;
+        if (dashboardLlamadosPendientesPagina < 0) dashboardLlamadosPendientesPagina = 0;
 
-    const inicio = dashboardLlamadosPendientesPagina * LE_DASHBOARD_LLAMADOS_POR_PAGINA;
-    const paginaActual = pendientes.slice(inicio, inicio + LE_DASHBOARD_LLAMADOS_POR_PAGINA);
+        const inicio = dashboardLlamadosPendientesPagina * LE_DASHBOARD_LLAMADOS_POR_PAGINA;
+        paginaActual = pendientes.slice(inicio, inicio + LE_DASHBOARD_LLAMADOS_POR_PAGINA);
+    }
 
     paginaActual.forEach(patient => {
         const fechaProgramada = new Date(patient.fechaProximoLlamado);
@@ -529,7 +545,7 @@ function actualizarTablaLlamadosPendientes() {
         tbody.appendChild(tr);
     });
 
-    if (paginacion) {
+    if (paginacion && !modoCaptura) {
         paginacion.innerHTML = `
             <button onclick="leCambiarPaginaLlamadosPendientes(-1)" class="btn-secondary" style="padding:6px 14px;" ${dashboardLlamadosPendientesPagina === 0 ? 'disabled' : ''}>‹ Anterior</button>
             <span style="font-size:0.85rem; color:#475569;">Página ${dashboardLlamadosPendientesPagina + 1} de ${totalPaginas}</span>
@@ -546,38 +562,34 @@ function actualizarTablaLlamadosPendientes() {
 // =============================================================
 const LE_DASHBOARD_PLAZO_6_MESES_DIAS = 182; // ~6 meses
 const LE_DASHBOARD_PLAZO_1_ANIO_DIAS = 365;
-const LE_DASHBOARD_PLAZO_POR_PAGINA = 15;
+const LE_DASHBOARD_PLAZO_POR_PAGINA = 10;
 
-let dashboardPlazoEsperaFiltro = 'todos'; // 'todos' | '6meses' | '1anio'
 let dashboardPlazoEsperaPagina = 0; // 0-indexado
 
 function obtenerPacientesPlazoEsperaDashboard() {
-    let lista = patients
+    // 🔄 Los que ya están en ACTUALIZAR no van en este listado — es
+    // justamente el estatus al que este mismo widget los "gradúa"
+    // automáticamente al cumplir 1 año (ver
+    // leVerificarActualizacionAutomaticaPorPlazo() en js/30). Con eso, en
+    // régimen normal esta tabla siempre queda acotada al rango 6 meses-1
+    // año — ya no hace falta filtro ni color distinto por fila; si algún
+    // paciente quedara pegado en el borde de 1 año (ej. la actualización
+    // automática falló por permisos), simplemente sigue apareciendo acá
+    // sin distinción especial hasta que se resuelva.
+    const lista = patients
         .filter(esGestionable)
-        // 🔄 Los que ya están en ACTUALIZAR no van en este listado — es
-        // justamente el estatus al que este mismo widget los "gradúa"
-        // automáticamente al cumplir 1 año (ver
-        // leVerificarActualizacionAutomaticaPorPlazo() en js/30). En
-        // régimen normal, eso deja esta tabla mostrando solo el rango
-        // 6 meses-1 año; el resto de los filtros/colores quedan como red
-        // de seguridad por si algún paciente queda pegado en el borde de
-        // 1 año (ej. la actualización automática falló por permisos).
         .filter(p => (p.estatusTabla || '').toString().trim().toUpperCase() !== 'ACTUALIZAR')
         .filter(p => p.fechaEstatusProgram)
         .map(p => ({ ...p, _diasTranscurridos: calculateWaitingDays(p.fechaEstatusProgram) }))
         .filter(p => p._diasTranscurridos >= LE_DASHBOARD_PLAZO_6_MESES_DIAS);
 
-    if (dashboardPlazoEsperaFiltro === '6meses') {
-        lista = lista.filter(p => p._diasTranscurridos < LE_DASHBOARD_PLAZO_1_ANIO_DIAS);
-    } else if (dashboardPlazoEsperaFiltro === '1anio') {
-        lista = lista.filter(p => p._diasTranscurridos >= LE_DASHBOARD_PLAZO_1_ANIO_DIAS);
-    }
-
     lista.sort((a, b) => b._diasTranscurridos - a._diasTranscurridos);
     return lista;
 }
 
-function actualizarTablaPlazoEsperaDashboard() {
+// modoCaptura=true: usado por la Presentación/PPT del Dashboard para
+// fotografiar la lista COMPLETA en vez de solo la página visible.
+function actualizarTablaPlazoEsperaDashboard(modoCaptura = false) {
     const tbody = document.getElementById('plazoEsperaBody');
     const contador = document.getElementById('plazoEsperaContador');
     const paginacion = document.getElementById('plazoEsperaPaginacion');
@@ -589,42 +601,36 @@ function actualizarTablaPlazoEsperaDashboard() {
         contador.textContent = `${lista.length} paciente${lista.length === 1 ? '' : 's'} en total`;
     }
 
-    const totalPaginas = Math.max(1, Math.ceil(lista.length / LE_DASHBOARD_PLAZO_POR_PAGINA));
-    if (dashboardPlazoEsperaPagina >= totalPaginas) dashboardPlazoEsperaPagina = totalPaginas - 1;
-    if (dashboardPlazoEsperaPagina < 0) dashboardPlazoEsperaPagina = 0;
+    let paginaActual = lista;
+    let totalPaginas = 1;
+    if (!modoCaptura) {
+        totalPaginas = Math.max(1, Math.ceil(lista.length / LE_DASHBOARD_PLAZO_POR_PAGINA));
+        if (dashboardPlazoEsperaPagina >= totalPaginas) dashboardPlazoEsperaPagina = totalPaginas - 1;
+        if (dashboardPlazoEsperaPagina < 0) dashboardPlazoEsperaPagina = 0;
 
-    const inicio = dashboardPlazoEsperaPagina * LE_DASHBOARD_PLAZO_POR_PAGINA;
-    const paginaActual = lista.slice(inicio, inicio + LE_DASHBOARD_PLAZO_POR_PAGINA);
-
-    tbody.innerHTML = '';
-    if (paginaActual.length === 0) {
-        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">No hay pacientes que hayan superado los 6 meses de espera</td></tr>';
-    } else {
-        paginaActual.forEach(p => {
-            const esMasDeUnAnio = p._diasTranscurridos >= LE_DASHBOARD_PLAZO_1_ANIO_DIAS;
-            const bgColor = esMasDeUnAnio ? '#fee2e2' : '#fef3c7';
-            const textColor = esMasDeUnAnio ? '#dc2626' : '#b45309';
-            const etiquetaTiempo = esMasDeUnAnio
-                ? `${(p._diasTranscurridos / 365).toFixed(1)} años`
-                : `${Math.floor(p._diasTranscurridos / 30.44)} meses`;
-
-            const tr = document.createElement('tr');
-            // setProperty(...,'important'): mismo motivo que en
-            // actualizarTablaLlamadosPendientes() más arriba.
-            tr.style.setProperty('background-color', bgColor, 'important');
-            tr.innerHTML = `
-                <td><strong>${p.nombreApellido || '-'}</strong></td>
-                <td>${p.rut || '-'}</td>
-                <td>${p.especialidad || '-'}</td>
-                <td>${formatDate(p.fechaEstatusProgram)}</td>
-                <td><strong style="color:${textColor};">${etiquetaTiempo} (${p._diasTranscurridos} días)</strong></td>
-                <td><button onclick="leShowPatientModal('${p.firebaseKey}')" title="Ver" style="background:transparent; border:1px solid #3b82f6; border-radius:4px; padding:4px 10px; cursor:pointer; color:#3b82f6; font-size:0.9rem;">👁️ Ver</button></td>
-            `;
-            tbody.appendChild(tr);
-        });
+        const inicio = dashboardPlazoEsperaPagina * LE_DASHBOARD_PLAZO_POR_PAGINA;
+        paginaActual = lista.slice(inicio, inicio + LE_DASHBOARD_PLAZO_POR_PAGINA);
     }
 
-    if (paginacion) {
+    if (paginaActual.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">No hay pacientes entre 6 meses y 1 año de espera</td></tr>';
+    } else {
+        tbody.innerHTML = paginaActual.map(p => {
+            const etiquetaTiempo = `${Math.floor(p._diasTranscurridos / 30.44)} meses`;
+            return `
+                <tr>
+                    <td><strong>${p.nombreApellido || '-'}</strong></td>
+                    <td>${p.rut || '-'}</td>
+                    <td>${p.especialidad || '-'}</td>
+                    <td>${formatDate(p.fechaEstatusProgram)}</td>
+                    <td>${etiquetaTiempo} (${p._diasTranscurridos} días)</td>
+                    <td><button onclick="leShowPatientModal('${p.firebaseKey}')" title="Ver" style="background:transparent; border:1px solid #3b82f6; border-radius:4px; padding:4px 10px; cursor:pointer; color:#3b82f6; font-size:0.9rem;">👁️ Ver</button></td>
+                </tr>
+            `;
+        }).join('');
+    }
+
+    if (paginacion && !modoCaptura) {
         paginacion.innerHTML = `
             <button onclick="leCambiarPaginaPlazoEspera(-1)" class="btn-secondary" style="padding:6px 14px;" ${dashboardPlazoEsperaPagina === 0 ? 'disabled' : ''}>‹ Anterior</button>
             <span style="font-size:0.85rem; color:#475569;">Página ${dashboardPlazoEsperaPagina + 1} de ${totalPaginas}</span>
@@ -635,12 +641,5 @@ function actualizarTablaPlazoEsperaDashboard() {
 
 function leCambiarPaginaPlazoEspera(delta) {
     dashboardPlazoEsperaPagina += delta;
-    actualizarTablaPlazoEsperaDashboard();
-}
-
-function leFiltrarPlazoEsperaDashboard() {
-    const sel = document.getElementById('filtroPlazoEsperaDashboard');
-    dashboardPlazoEsperaFiltro = sel ? sel.value : 'todos';
-    dashboardPlazoEsperaPagina = 0;
     actualizarTablaPlazoEsperaDashboard();
 }
