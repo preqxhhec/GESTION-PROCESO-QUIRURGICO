@@ -522,6 +522,15 @@ let dashboardPlazoEsperaPagina = 0; // 0-indexado
 function obtenerPacientesPlazoEsperaDashboard() {
     let lista = patients
         .filter(esGestionable)
+        // 🔄 Los que ya están en ACTUALIZAR no van en este listado — es
+        // justamente el estatus al que este mismo widget los "gradúa"
+        // automáticamente al cumplir 1 año (ver
+        // leVerificarActualizacionAutomaticaPorPlazo() en js/30). En
+        // régimen normal, eso deja esta tabla mostrando solo el rango
+        // 6 meses-1 año; el resto de los filtros/colores quedan como red
+        // de seguridad por si algún paciente queda pegado en el borde de
+        // 1 año (ej. la actualización automática falló por permisos).
+        .filter(p => (p.estatusTabla || '').toString().trim().toUpperCase() !== 'ACTUALIZAR')
         .filter(p => p.fechaEstatusProgram)
         .map(p => ({ ...p, _diasTranscurridos: calculateWaitingDays(p.fechaEstatusProgram) }))
         .filter(p => p._diasTranscurridos >= LE_DASHBOARD_PLAZO_6_MESES_DIAS);

@@ -702,7 +702,7 @@ function construirManualContenidos() {
                 <li>Gráficos por especialidad y por estatus de tabla, ingresos por mes, medianas por especialidad</li>
                 <li>Listado de pacientes con mayor tiempo de espera y de los últimos 5 registrados</li>
                 <li><strong>📞 Pacientes para Llamar (Fecha Programada)</strong>: cada fila se colorea según cuántos días faltan para el llamado (o si ya está atrasado)</li>
-                <li><strong>⏳ Pacientes que Superaron el Plazo de Espera</strong>: pacientes gestionables cuya <strong>Fecha Estatus Programable</strong> ya superó los 6 meses (fila amarilla) o el año (fila roja). Tiene un filtro para ver solo "entre 6 meses y 1 año" o solo "más de 1 año", muestra el total de pacientes encontrados, cada fila tiene su botón 👁️ Ver, y la lista se pagina de a 15 registros</li>
+                <li><strong>⏳ Pacientes que Superaron el Plazo de Espera</strong>: pacientes gestionables cuya <strong>Fecha Estatus Programable</strong> ya superó los 6 meses. Tiene un filtro para ver solo "entre 6 meses y 1 año" o solo "más de 1 año", muestra el total de pacientes encontrados, cada fila tiene su botón 👁️ Ver, y la lista se pagina de a 15 registros. Los pacientes con estatus <strong>ACTUALIZAR</strong> no aparecen acá — un paciente pasa a ACTUALIZAR automáticamente en cuanto cumple 1 año sin actualizarse (con una entrada en su historial dejando constancia), así que en la práctica esta tabla termina mostrando solo el rango de 6 meses a 1 año</li>
             </ul>
 
             <h2 style="font-size:1.3rem; color:#0b2a4f; margin-top:24px; margin-bottom:12px;">9.4 Nuevo Paciente</h2>

@@ -52,7 +52,61 @@ function leCargarPacientes() {
         currentSortColumn = 'fechaIndQx';
         currentSortOrder = 'desc';
 
+        leVerificarActualizacionAutomaticaPorPlazo();
         leRefrescarVistaActual();
+    });
+}
+
+// =============================================================
+// 🔄 CAMBIO AUTOMÁTICO A "ACTUALIZAR" AL CUMPLIR 1 AÑO
+// =============================================================
+// Esta app no tiene backend propio (sin Cloud Functions), así que no hay
+// un lugar central que "revise" a todos los pacientes por su cuenta — el
+// único momento en que se puede chequear esto es cuando alguien con acceso
+// a Lista de Espera tiene la app abierta y llega este listener (arriba).
+// Por eso se ejecuta acá, en cada snapshot de patients/, no solo cuando se
+// mira el Dashboard: cualquier usuario conectado dispara la revisión.
+//
+// Usa una transaction() (no un update() directo) sobre el estatus: si dos
+// o más usuarios están conectados a la vez y ambos detectan al mismo
+// paciente vencido en el mismo instante, solo UNO gana la carrera y hace
+// el cambio de verdad — evita duplicar la entrada de historial una vez por
+// cada cliente conectado.
+function leVerificarActualizacionAutomaticaPorPlazo() {
+    const UMBRAL_1_ANIO_DIAS = 365;
+
+    patients.forEach(paciente => {
+        if (!esGestionable(paciente)) return;
+        if (!paciente.fechaEstatusProgram) return;
+
+        const estatusActual = (paciente.estatusTabla || '').toString().trim().toUpperCase();
+        if (estatusActual === 'ACTUALIZAR') return;
+
+        const dias = calculateWaitingDays(paciente.fechaEstatusProgram);
+        if (dias < UMBRAL_1_ANIO_DIAS) return;
+
+        const estatusAnterior = paciente.estatusTabla || '(sin estatus)';
+        database.ref('patients/' + paciente.firebaseKey + '/estatusTabla').transaction(
+            (valorActual) => {
+                const actualNormalizado = (valorActual || '').toString().trim().toUpperCase();
+                if (actualNormalizado === 'ACTUALIZAR') return; // otro cliente ya lo cambió, abortar
+                return 'ACTUALIZAR';
+            },
+            (error, committed) => {
+                if (error) {
+                    console.error('❌ Error al actualizar estatus automático a ACTUALIZAR:', error);
+                    return;
+                }
+                if (!committed) return; // otro cliente conectado ganó la carrera
+                database.ref('patients/' + paciente.firebaseKey + '/historial').push({
+                    fecha: new Date().toISOString(),
+                    usuario: 'Sistema (automático)',
+                    accion: 'Estatus actualizado automáticamente',
+                    descripcion: 'Cumplió 1 año desde la Fecha Estatus Programable sin actualizarse — estatus cambiado automáticamente a ACTUALIZAR.',
+                    cambios: [`Estatus: ${estatusAnterior} → ACTUALIZAR`]
+                }).catch(() => {});
+            }
+        );
     });
 }
 
