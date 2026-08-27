@@ -139,12 +139,14 @@ function leRenderDashboardHTML() {
         </div>
 
         <h3 style="margin:30px 0 15px 0;">📞 Pacientes para Llamar (Fecha Programada)</h3>
+        <div id="llamadosPendientesContador" style="font-weight:600; color:#1e40af; margin-bottom:8px;"></div>
         <div class="table-container">
             <table id="llamadosPendientesTable" class="cross-table">
                 <thead><tr><th>Paciente</th><th>RUT</th><th>Teléfono</th><th>Especialidad</th><th>Fecha Programada</th><th>Días de Aviso</th><th>Última Observación</th><th>Acción</th></tr></thead>
                 <tbody id="llamadosPendientesBody"></tbody>
             </table>
         </div>
+        <div id="llamadosPendientesPaginacion" style="display:flex; justify-content:center; align-items:center; gap:12px; margin:15px 0;"></div>
 
         <h3 style="margin:30px 0 15px 0;">⏳ Pacientes que Superaron el Plazo de Espera (desde Fecha Estatus Programable)</h3>
         <div style="display:flex; flex-wrap:wrap; gap:16px; align-items:center; margin-bottom:12px;">
@@ -439,8 +441,18 @@ function leCambiarFuenteDashboard(fuente) {
 
 // Widget "Pacientes para Llamar": pacientes con fechaProximoLlamado dentro
 // de los próximos 10 días (o ya atrasados).
+const LE_DASHBOARD_LLAMADOS_POR_PAGINA = 15;
+let dashboardLlamadosPendientesPagina = 0; // 0-indexado
+
+function leCambiarPaginaLlamadosPendientes(delta) {
+    dashboardLlamadosPendientesPagina += delta;
+    actualizarTablaLlamadosPendientes();
+}
+
 function actualizarTablaLlamadosPendientes() {
     const tbody = document.getElementById('llamadosPendientesBody');
+    const contador = document.getElementById('llamadosPendientesContador');
+    const paginacion = document.getElementById('llamadosPendientesPaginacion');
     if (!tbody) return;
     tbody.innerHTML = '';
 
@@ -459,12 +471,24 @@ function actualizarTablaLlamadosPendientes() {
 
     pendientes.sort((a, b) => new Date(a.fechaProximoLlamado) - new Date(b.fechaProximoLlamado));
 
+    if (contador) {
+        contador.textContent = `${pendientes.length} paciente${pendientes.length === 1 ? '' : 's'} en total`;
+    }
+
     if (pendientes.length === 0) {
         tbody.innerHTML = '<tr><td colspan="8" style="text-align:center;">No hay pacientes pendientes de llamado en los próximos 10 días</td></tr>';
+        if (paginacion) paginacion.innerHTML = '';
         return;
     }
 
-    pendientes.forEach(patient => {
+    const totalPaginas = Math.max(1, Math.ceil(pendientes.length / LE_DASHBOARD_LLAMADOS_POR_PAGINA));
+    if (dashboardLlamadosPendientesPagina >= totalPaginas) dashboardLlamadosPendientesPagina = totalPaginas - 1;
+    if (dashboardLlamadosPendientesPagina < 0) dashboardLlamadosPendientesPagina = 0;
+
+    const inicio = dashboardLlamadosPendientesPagina * LE_DASHBOARD_LLAMADOS_POR_PAGINA;
+    const paginaActual = pendientes.slice(inicio, inicio + LE_DASHBOARD_LLAMADOS_POR_PAGINA);
+
+    paginaActual.forEach(patient => {
         const fechaProgramada = new Date(patient.fechaProximoLlamado);
         const diasDiferencia = Math.ceil((fechaProgramada - hoy) / (1000 * 60 * 60 * 24));
 
@@ -504,6 +528,14 @@ function actualizarTablaLlamadosPendientes() {
         `;
         tbody.appendChild(tr);
     });
+
+    if (paginacion) {
+        paginacion.innerHTML = `
+            <button onclick="leCambiarPaginaLlamadosPendientes(-1)" class="btn-secondary" style="padding:6px 14px;" ${dashboardLlamadosPendientesPagina === 0 ? 'disabled' : ''}>‹ Anterior</button>
+            <span style="font-size:0.85rem; color:#475569;">Página ${dashboardLlamadosPendientesPagina + 1} de ${totalPaginas}</span>
+            <button onclick="leCambiarPaginaLlamadosPendientes(1)" class="btn-secondary" style="padding:6px 14px;" ${dashboardLlamadosPendientesPagina >= totalPaginas - 1 ? 'disabled' : ''}>Siguiente ›</button>
+        `;
+    }
 }
 
 // =============================================================
