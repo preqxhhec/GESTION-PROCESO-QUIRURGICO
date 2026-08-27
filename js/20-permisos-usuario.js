@@ -23,7 +23,8 @@ const SECCIONES_APP = [
 // a Estadísticas.
 const ACCESOS_ADICIONALES_APP = [
     { key: 'reunionTabla', label: '🤝 Reunión de Tabla' },
-    { key: 'analisisIa', label: '🧠 Análisis IA' }
+    { key: 'analisisIa', label: '🧠 Análisis IA' },
+    { key: 'generadorPpt', label: '🗂️ Generador de PPT' }
 ];
 
 // 🔘 Permisos por BOTÓN dentro de una sección (no toda-o-nada como
@@ -96,6 +97,7 @@ function aplicarPermisosNavegacion() {
     };
     const navReunionTabla = document.getElementById('navReunionTabla');
     const navAnalisisIA = document.getElementById('navAnalisisIA');
+    const navGeneradorPpt = document.getElementById('navGeneradorPpt');
     if (esAdministrador()) {
         Object.values(botonesPorSeccion).forEach(id => {
             const btn = document.getElementById(id);
@@ -103,6 +105,7 @@ function aplicarPermisosNavegacion() {
         });
         if (navReunionTabla) navReunionTabla.style.display = '';
         if (navAnalisisIA) navAnalisisIA.style.display = '';
+        if (navGeneradorPpt) navGeneradorPpt.style.display = '';
         return;
     }
     SECCIONES_APP.forEach(sec => {
@@ -113,6 +116,7 @@ function aplicarPermisosNavegacion() {
     // checkbox en "Editar Permisos" (ver ACCESOS_ADICIONALES_APP).
     if (navReunionTabla) navReunionTabla.style.display = usuarioTieneAccesoSeccion('reunionTabla') ? '' : 'none';
     if (navAnalisisIA) navAnalisisIA.style.display = usuarioTieneAccesoSeccion('analisisIa') ? '' : 'none';
+    if (navGeneradorPpt) navGeneradorPpt.style.display = usuarioTieneAccesoSeccion('generadorPpt') ? '' : 'none';
 }
 
 function mostrarSinAccesoSecciones() {

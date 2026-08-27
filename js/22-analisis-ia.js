@@ -994,6 +994,103 @@ function construirCuerpoInformeHtmlAnalisisIA(informe) {
 // -------------------------------------------------------------
 // 🚀 ORQUESTADOR: genera el informe completo y abre la vista previa
 // -------------------------------------------------------------
+// -------------------------------------------------------------
+// 🧮 CONSTRUCCIÓN DEL INFORME — extraída de generarAnalisisIA() para
+// reusarse también desde js/34-generador-ppt-combinado.js: recibe sus
+// parámetros en vez de leer los globals analisisIaFechaInicio/
+// analisisIaBloquesSeleccionados directamente, informa el progreso vía
+// callback (en vez de escribir en un overlay fijo) y guarda/restaura el
+// estado de Estadísticas en un try/finally, para ser segura ante
+// cualquier llamador (no solo el propio modal de Análisis IA).
+// -------------------------------------------------------------
+async function construirInformeAnalisisIA(fechaInicio, fechaFin, bloquesSeleccionados, onProgreso) {
+    onProgreso = onProgreso || function() {};
+
+    if (!estadisticasRegistros || estadisticasRegistros.length === 0) {
+        onProgreso('⏳ Cargando datos...');
+        await cargarEstadisticas();
+    }
+
+    const anios = new Set();
+    estadisticasAniosEnRango(fechaInicio, fechaFin).forEach(a => anios.add(a));
+    anios.add(estadisticasPerianalgesiaAnio || new Date().getFullYear());
+    Object.values(estadisticasMetas).forEach(m => { if (m && m.anio) anios.add(m.anio); });
+    await obtenerFeriados(Array.from(anios));
+
+    const hallazgos = [];
+    const secciones = [];
+
+    // Período inmediatamente anterior, de la misma duración — permite
+    // que cada bloque compare "este período vs. el anterior" en vez de
+    // mostrar solo el número suelto del rango elegido.
+    const periodoAnterior = calcularPeriodoAnteriorEquivalente(fechaInicio, fechaFin);
+
+    // El rango elegido gobierna tanto el Libro de Quirófano (siempre se
+    // analiza) como los bloques de Estadísticas (opcionales).
+    onProgreso('⏳ Analizando Libro de Quirófano...');
+    const seccionLibro = await analizarLibroQuirofano(fechaInicio, fechaFin, hallazgos, periodoAnterior);
+    secciones.push(seccionLibro);
+
+    if (bloquesSeleccionados.size > 0) {
+        const fechaInicioOriginalEstadisticas = estadisticasFiltroFechaInicio;
+        const fechaFinOriginalEstadisticas = estadisticasFiltroFechaFin;
+        const displayEstadisticasOriginal = estadisticasContent.style.display;
+
+        try {
+            estadisticasFiltroFechaInicio = fechaInicio;
+            estadisticasFiltroFechaFin = fechaFin;
+            // html2canvas no puede fotografiar contenido con display:none, así
+            // que la sección debe quedar visible mientras dura la captura (el
+            // overlay de espera, arriba en z-index, la tapa por completo).
+            estadisticasContent.style.display = 'block';
+            renderEstadisticas();
+
+            const laminasResueltas = estadisticasResolverLaminas();
+            const bloquesOrdenados = ANALISIS_IA_BLOQUES_ESTADISTICAS.filter(b => bloquesSeleccionados.has(b.pagina));
+            for (const bloque of bloquesOrdenados) {
+                onProgreso(`⏳ Analizando ${bloque.label}...`);
+                const narrativa = analizarBloqueEstadisticas(bloque.pagina, hallazgos, periodoAnterior);
+                const laminas = laminasResueltas.filter(l => l.pagina === bloque.pagina);
+                const imagenes = [];
+                for (const l of laminas) {
+                    const captura = await capturarElementoComoImagen(l.pagina, l.elementoId, { modoCaptura: laminaNecesitaModoCaptura(l), gridId: l.gridId, chunkIndex: l.chunkIndex });
+                    imagenes.push({ titulo: l.titulo, dataUrl: captura.dataUrl, width: captura.width, height: captura.height });
+                }
+                secciones.push({ titulo: narrativa.titulo, bullets: narrativa.bullets, imagenes });
+            }
+        } finally {
+            estadisticasFiltroFechaInicio = fechaInicioOriginalEstadisticas;
+            estadisticasFiltroFechaFin = fechaFinOriginalEstadisticas;
+            estadisticasContent.style.display = displayEstadisticasOriginal;
+            renderEstadisticas();
+        }
+    }
+
+    const periodoTexto = `Periodo analizado: ${formatearFechaLegibleAnalisisIA(fechaInicio)} – ${formatearFechaLegibleAnalisisIA(fechaFin)}`;
+    const fuentes = [
+        `el Libro de Quirófano${bloquesSeleccionados.size > 0 ? ` y ${bloquesSeleccionados.size} bloque(s) de Estadísticas` : ''} (${formatearFechaLegibleAnalisisIA(fechaInicio)} – ${formatearFechaLegibleAnalisisIA(fechaFin)})`
+    ];
+
+    const resumenEjecutivo = construirResumenEjecutivoAnalisisIA(fuentes, hallazgos);
+    const sintesis = sintetizarInformeAnalisisIA(hallazgos);
+    const logoDataUrl = await obtenerLogoDataUrl();
+
+    analisisIaUltimoInforme = {
+        generadoEn: new Date().toLocaleString('es-CL'),
+        rango: { inicio: fechaInicio, fin: fechaFin },
+        periodoTexto,
+        logoDataUrl,
+        resumenEjecutivo,
+        secciones,
+        conclusiones: sintesis.conclusiones,
+        recomendaciones: sintesis.recomendaciones,
+        planDeMejora: sintesis.planDeMejora,
+        metas: sintesis.metas
+    };
+
+    return analisisIaUltimoInforme;
+}
+
 async function generarAnalisisIA() {
     if (!analisisIaFechaInicio || !analisisIaFechaFin) {
         showModal({
@@ -1014,101 +1111,16 @@ async function generarAnalisisIA() {
     overlayEspera.textContent = '⏳ Preparando el análisis...';
     document.body.appendChild(overlayEspera);
 
-    let displayEstadisticasOriginal = null;
-    let fechaInicioOriginalEstadisticas = null;
-    let fechaFinOriginalEstadisticas = null;
-
     try {
-        if (!estadisticasRegistros || estadisticasRegistros.length === 0) {
-            overlayEspera.textContent = '⏳ Cargando datos...';
-            await cargarEstadisticas();
-        }
-
-        const anios = new Set();
-        estadisticasAniosEnRango(analisisIaFechaInicio, analisisIaFechaFin).forEach(a => anios.add(a));
-        anios.add(estadisticasPerianalgesiaAnio || new Date().getFullYear());
-        Object.values(estadisticasMetas).forEach(m => { if (m && m.anio) anios.add(m.anio); });
-        await obtenerFeriados(Array.from(anios));
-
-        const hallazgos = [];
-        const secciones = [];
-
-        // Período inmediatamente anterior, de la misma duración — permite
-        // que cada bloque compare "este período vs. el anterior" en vez de
-        // mostrar solo el número suelto del rango elegido.
-        const periodoAnterior = calcularPeriodoAnteriorEquivalente(analisisIaFechaInicio, analisisIaFechaFin);
-
-        // El rango elegido gobierna tanto el Libro de Quirófano (siempre se
-        // analiza) como los bloques de Estadísticas (opcionales).
-        overlayEspera.textContent = '⏳ Analizando Libro de Quirófano...';
-        const seccionLibro = await analizarLibroQuirofano(analisisIaFechaInicio, analisisIaFechaFin, hallazgos, periodoAnterior);
-        secciones.push(seccionLibro);
-
-        if (analisisIaBloquesSeleccionados.size > 0) {
-            fechaInicioOriginalEstadisticas = estadisticasFiltroFechaInicio;
-            fechaFinOriginalEstadisticas = estadisticasFiltroFechaFin;
-            displayEstadisticasOriginal = estadisticasContent.style.display;
-
-            estadisticasFiltroFechaInicio = analisisIaFechaInicio;
-            estadisticasFiltroFechaFin = analisisIaFechaFin;
-            // html2canvas no puede fotografiar contenido con display:none, así
-            // que la sección debe quedar visible mientras dura la captura (el
-            // overlay de espera, arriba en z-index, la tapa por completo).
-            estadisticasContent.style.display = 'block';
-            renderEstadisticas();
-
-            const laminasResueltas = estadisticasResolverLaminas();
-            const bloquesOrdenados = ANALISIS_IA_BLOQUES_ESTADISTICAS.filter(b => analisisIaBloquesSeleccionados.has(b.pagina));
-            for (const bloque of bloquesOrdenados) {
-                overlayEspera.textContent = `⏳ Analizando ${bloque.label}...`;
-                const narrativa = analizarBloqueEstadisticas(bloque.pagina, hallazgos, periodoAnterior);
-                const laminas = laminasResueltas.filter(l => l.pagina === bloque.pagina);
-                const imagenes = [];
-                for (const l of laminas) {
-                    const captura = await capturarElementoComoImagen(l.pagina, l.elementoId, { modoCaptura: laminaNecesitaModoCaptura(l), gridId: l.gridId, chunkIndex: l.chunkIndex });
-                    imagenes.push({ titulo: l.titulo, dataUrl: captura.dataUrl, width: captura.width, height: captura.height });
-                }
-                secciones.push({ titulo: narrativa.titulo, bullets: narrativa.bullets, imagenes });
-            }
-
-            estadisticasFiltroFechaInicio = fechaInicioOriginalEstadisticas;
-            estadisticasFiltroFechaFin = fechaFinOriginalEstadisticas;
-            estadisticasContent.style.display = displayEstadisticasOriginal;
-            renderEstadisticas();
-        }
-
-        const periodoTexto = `Periodo analizado: ${formatearFechaLegibleAnalisisIA(analisisIaFechaInicio)} – ${formatearFechaLegibleAnalisisIA(analisisIaFechaFin)}`;
-        const fuentes = [
-            `el Libro de Quirófano${analisisIaBloquesSeleccionados.size > 0 ? ` y ${analisisIaBloquesSeleccionados.size} bloque(s) de Estadísticas` : ''} (${formatearFechaLegibleAnalisisIA(analisisIaFechaInicio)} – ${formatearFechaLegibleAnalisisIA(analisisIaFechaFin)})`
-        ];
-
-        const resumenEjecutivo = construirResumenEjecutivoAnalisisIA(fuentes, hallazgos);
-        const sintesis = sintetizarInformeAnalisisIA(hallazgos);
-        const logoDataUrl = await obtenerLogoDataUrl();
-
-        analisisIaUltimoInforme = {
-            generadoEn: new Date().toLocaleString('es-CL'),
-            rango: { inicio: analisisIaFechaInicio, fin: analisisIaFechaFin },
-            periodoTexto,
-            logoDataUrl,
-            resumenEjecutivo,
-            secciones,
-            conclusiones: sintesis.conclusiones,
-            recomendaciones: sintesis.recomendaciones,
-            planDeMejora: sintesis.planDeMejora,
-            metas: sintesis.metas
-        };
+        await construirInformeAnalisisIA(analisisIaFechaInicio, analisisIaFechaFin, analisisIaBloquesSeleccionados, function(texto) {
+            overlayEspera.textContent = texto;
+        });
 
         overlayEspera.remove();
         abrirVistaPreviaAnalisisIA();
 
     } catch (error) {
         console.error('❌ Error al generar el Análisis IA:', error);
-        if (fechaInicioOriginalEstadisticas !== null) {
-            estadisticasFiltroFechaInicio = fechaInicioOriginalEstadisticas;
-            estadisticasFiltroFechaFin = fechaFinOriginalEstadisticas;
-        }
-        if (displayEstadisticasOriginal !== null) estadisticasContent.style.display = displayEstadisticasOriginal;
         overlayEspera.remove();
         showModal({
             title: '❌ Error',
@@ -1371,18 +1383,15 @@ function descargarInformeWordAnalisisIA() {
 // ⬇️ DESCARGA: PPT — toda diapositiva (incluida portada y cierre) incluye
 // el período analizado.
 // -------------------------------------------------------------
-async function descargarPptAnalisisIA() {
-    const informe = analisisIaUltimoInforme;
-    if (!informe) return;
-
-    try {
-        if (typeof PptxGenJS === 'undefined') throw new Error('PptxGenJS no está disponible');
-
-        const pptx = new PptxGenJS();
-        pptx.defineLayout({ name: 'ANALISIS_IA', width: 13.33, height: 7.5 });
-        pptx.layout = 'ANALISIS_IA';
-
-        const portada = pptx.addSlide();
+// -------------------------------------------------------------
+// 🖼️ ARMADO DE LÁMINAS — extraído de descargarPptAnalisisIA() para
+// reusarse también desde js/34-generador-ppt-combinado.js: recibe un
+// `pptx` YA CREADO (con su layout ya definido) en vez de crear el suyo
+// propio, así sus láminas se agregan a una presentación combinada con
+// otras fuentes en vez de generar siempre un archivo aparte.
+// -------------------------------------------------------------
+function agregarLaminasInformeAnalisisIA(pptx, informe) {
+    const portada = pptx.addSlide();
         portada.background = { color: '0B2A4F' };
         if (informe.logoDataUrl) {
             const cajaLogo = ajustarImagenAlaCaja(informe.logoDataUrl.width, informe.logoDataUrl.height, 5.66, 1.2, 2, 1.4);
@@ -1448,6 +1457,20 @@ async function descargarPptAnalisisIA() {
         if (informe.metas.length) {
             slideTextoFinalAnalisisIA('🎯 Metas Sugeridas', informe.metas.map(m => `${m.metrica}: actual ${m.actual} → meta sugerida ${m.metaSugerida}`));
         }
+}
+
+async function descargarPptAnalisisIA() {
+    const informe = analisisIaUltimoInforme;
+    if (!informe) return;
+
+    try {
+        if (typeof PptxGenJS === 'undefined') throw new Error('PptxGenJS no está disponible');
+
+        const pptx = new PptxGenJS();
+        pptx.defineLayout({ name: 'ANALISIS_IA', width: 13.33, height: 7.5 });
+        pptx.layout = 'ANALISIS_IA';
+
+        agregarLaminasInformeAnalisisIA(pptx, informe);
 
         const fechaStr = new Date().toISOString().slice(0, 10);
         await pptx.writeFile({ fileName: `Informe_Ejecutivo_Analisis_IA_Hospital_Illapel_${fechaStr}.pptx` });

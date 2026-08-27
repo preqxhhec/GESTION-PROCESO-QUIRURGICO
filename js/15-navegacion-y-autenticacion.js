@@ -498,3 +498,17 @@
             abrirModalAnalisisIA();
         });
     }
+
+    // "Generador de PPT" tampoco cambia de sección: abre un modal para
+    // elegir qué fuentes combinar en un solo PPT (ver
+    // js/34-generador-ppt-combinado.js).
+    const navGeneradorPpt = document.getElementById('navGeneradorPpt');
+    if (navGeneradorPpt) {
+        navGeneradorPpt.addEventListener('click', function() {
+            if (menuDropdown && menuToggle) {
+                menuDropdown.classList.remove('open');
+                menuToggle.classList.remove('active');
+            }
+            abrirModalGeneradorPpt();
+        });
+    }

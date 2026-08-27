@@ -19,6 +19,7 @@ const MANUAL_SECCIONES = [
     { id: 'estadisticas-manual', titulo: '6. Estadísticas', icono: '📊' },
     { id: 'reunion-tabla', titulo: '6.5 Reunión de Tabla', icono: '🤝' },
     { id: 'analisis-ia', titulo: '6.6 Análisis IA', icono: '🧠' },
+    { id: 'generador-ppt', titulo: '6.7 Generador de PPT', icono: '🗂️' },
     { id: 'admin', titulo: '7. Panel de Administración', icono: '⚙️' },
     { id: 'avanzadas', titulo: '8. Funciones Avanzadas', icono: '🚀' },
     { id: 'lista-espera', titulo: '9. Lista de Espera', icono: '🩺' },
@@ -532,6 +533,20 @@ function construirManualContenidos() {
             <p style="color:#dc2626; font-size:0.9rem; margin-top:8px;">⚠️ Solo aparece en el menú si tu cuenta tiene habilitado el acceso a "Análisis IA" (ver 7.4)</p>
         `,
 
+        'generador-ppt': `
+            <h1 style="font-size:1.8rem; color:#0b2a4f; margin-bottom:16px;">🗂️ Generador de PPT Combinado</h1>
+            <p style="color:#475569; line-height:1.7; margin-bottom:16px;">A diferencia de "Reunión de Tabla" (que siempre combina Tabla Quirúrgica + Estadísticas juntas), acá puedes elegir libremente cuáles de las secciones con PPT propio incluir — cada una con sus propias opciones — y arma un solo archivo <strong>.pptx</strong> con todo junto.</p>
+
+            <h2 style="font-size:1.3rem; color:#0b2a4f; margin-top:24px; margin-bottom:12px;">6.7.1 Cómo generarlo</h2>
+            <ol style="color:#475569; line-height:1.8; padding-left:24px; margin-bottom:16px;">
+                <li>Abre el menú 🍔 (hamburguesa) y selecciona <strong>"🗂️ Generador de PPT"</strong></li>
+                <li>Marca las secciones a incluir: <strong>📋 Tabla Quirúrgica</strong> (elige semanas), <strong>📊 Estadísticas</strong> (elige rango de fechas, vacío = sin filtro), <strong>🧠 Análisis IA</strong> (elige rango de fechas y, opcionalmente, bloques de Estadísticas) y <strong>🩺 Dashboard de Lista de Espera</strong> (sin opciones adicionales)</li>
+                <li>Haz clic en <strong>"⬇️ Generar PPT Combinado"</strong> — se descarga un solo archivo con las láminas de cada sección marcada, en ese orden</li>
+            </ol>
+            <p style="color:#64748b; font-style:italic;">💡 Usa la misma lógica de captura ya existente de cada sección — no crea datos nuevos, solo los combina en un archivo. Solo genera el PPT descargable (no tiene modo "Presentación" en pantalla completa).</p>
+            <p style="color:#dc2626; font-size:0.9rem; margin-top:8px;">⚠️ Cada sección solo aparece en el modal si tu cuenta tiene habilitado su permiso individual (Presentación/PPT de Tabla Quirúrgica, de Estadísticas, acceso a Análisis IA, o Exportar/Imprimir de Lista de Espera — ver 7.4), y el modal completo solo aparece en el menú si tu cuenta tiene habilitado el acceso a "Generador de PPT" (ver 7.4)</p>
+        `,
+
         'admin': `
             <h1 style="font-size:1.8rem; color:#0b2a4f; margin-bottom:16px;">⚙️ Panel de Administración</h1>
 
@@ -574,7 +589,7 @@ function construirManualContenidos() {
             <p style="color:#475569; line-height:1.7; margin-bottom:12px;">Los administradores y superadministradores siempre tienen acceso completo a toda la aplicación — esto no se puede restringir. Para usuarios con rol <strong>Usuario</strong> se puede configurar, al crearlos o después desde el botón <strong>"🔐 Permisos"</strong> en la lista de usuarios:</p>
             <ul style="color:#475569; line-height:1.8; padding-left:24px; margin-bottom:12px;">
                 <li><strong>Secciones accesibles</strong>: Tabla Quirúrgica, Pacientes Diferidos, Libro de Quirófano, Estadísticas y Manual de Usuario. Las secciones no marcadas desaparecen del menú de ese usuario; si intenta entrar igual, se le deniega el acceso</li>
-                <li><strong>Accesos adicionales</strong>: "Reunión de Tabla" y "Análisis IA" (ver 6.5 y 6.6) se habilitan por separado, de forma independiente al acceso a Estadísticas — un usuario puede tener Estadísticas sin estas funciones, o al revés</li>
+                <li><strong>Accesos adicionales</strong>: "Reunión de Tabla", "Análisis IA" y "Generador de PPT" (ver 6.5, 6.6 y 6.7) se habilitan por separado, de forma independiente al acceso a Estadísticas — un usuario puede tener Estadísticas sin estas funciones, o al revés</li>
                 <li><strong>Solo lectura en Tabla Quirúrgica</strong>: el usuario puede navegar semanas y días e Imprimir Día, pero no puede editar campos, agregar/eliminar filas, guardar, limpiar, registrar día, diferir, reubicar, cambiar colores, ni usar Presentación/Descargar PPT de esa sección</li>
                 <li><strong>Botones dentro de cada sección</strong>: debajo del checkbox de cada sección aparece una lista más chica con sus botones (ej. en Tabla Quirúrgica: Guardar, Limpiar, Agregar Fila, Imprimir, Presentación/PPT, Diferir, Reubicar, Eliminar Fila, Enviar WhatsApp; en Libro de Quirófano: Exportar a Excel; en Pacientes Diferidos: Reintegrar y Eliminar; en Estadísticas: Presentación/PPT; en Lista de Espera: Guardar/Editar/Eliminar Paciente, Exportar/Imprimir, Registrar Llamada, Cargar a la Tabla e Histórico RDLL). Se pueden destildar por separado sin quitarle el acceso a toda la sección — los filtros de cada sección nunca se restringen, siempre quedan disponibles. "Ver Detalle" (👁️, en Libro y Lista de Espera) es de solo lectura y nunca se restringe</li>
             </ul>
