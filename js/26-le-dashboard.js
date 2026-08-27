@@ -145,6 +145,26 @@ function leRenderDashboardHTML() {
                 <tbody id="llamadosPendientesBody"></tbody>
             </table>
         </div>
+
+        <h3 style="margin:30px 0 15px 0;">⏳ Pacientes que Superaron el Plazo de Espera (desde Fecha Estatus Programable)</h3>
+        <div style="display:flex; flex-wrap:wrap; gap:16px; align-items:center; margin-bottom:12px;">
+            <div class="filter-group" style="min-width:240px;">
+                <label>Filtrar por plazo superado</label>
+                <select id="filtroPlazoEsperaDashboard" onchange="leFiltrarPlazoEsperaDashboard()">
+                    <option value="todos">Todos (más de 6 meses)</option>
+                    <option value="6meses">Solo entre 6 meses y 1 año</option>
+                    <option value="1anio">Solo más de 1 año</option>
+                </select>
+            </div>
+            <div id="plazoEsperaContador" style="font-weight:600; color:#1e40af;"></div>
+        </div>
+        <div class="table-container">
+            <table id="plazoEsperaTable" class="cross-table">
+                <thead><tr><th>Paciente</th><th>RUT</th><th>Especialidad</th><th>Fecha Estatus Programable</th><th>Tiempo Transcurrido</th><th>Acción</th></tr></thead>
+                <tbody id="plazoEsperaBody"></tbody>
+            </table>
+        </div>
+        <div id="plazoEsperaPaginacion" style="display:flex; justify-content:center; align-items:center; gap:12px; margin:15px 0;"></div>
     `;
 }
 
@@ -153,6 +173,7 @@ function leInicializarSeccionDashboard(container) {
     leCargarEspecialidadesEnFiltroDashboard();
     updateDashboard();
     actualizarTablaLlamadosPendientes();
+    actualizarTablaPlazoEsperaDashboard();
 }
 
 function updateDashboard() {
@@ -483,4 +504,102 @@ function actualizarTablaLlamadosPendientes() {
         `;
         tbody.appendChild(tr);
     });
+}
+
+// =============================================================
+// ⏳ WIDGET "Pacientes que Superaron el Plazo de Espera" — pacientes
+// gestionables cuya Fecha Estatus Programable pasó los 6 meses (ámbar) o
+// el año (rojo), paginado de a 15. Ver botón reutiliza leShowPatientModal()
+// (mismo modal que usa el 👁️ de Lista de Pacientes).
+// =============================================================
+const LE_DASHBOARD_PLAZO_6_MESES_DIAS = 182; // ~6 meses
+const LE_DASHBOARD_PLAZO_1_ANIO_DIAS = 365;
+const LE_DASHBOARD_PLAZO_POR_PAGINA = 15;
+
+let dashboardPlazoEsperaFiltro = 'todos'; // 'todos' | '6meses' | '1anio'
+let dashboardPlazoEsperaPagina = 0; // 0-indexado
+
+function obtenerPacientesPlazoEsperaDashboard() {
+    let lista = patients
+        .filter(esGestionable)
+        .filter(p => p.fechaEstatusProgram)
+        .map(p => ({ ...p, _diasTranscurridos: calculateWaitingDays(p.fechaEstatusProgram) }))
+        .filter(p => p._diasTranscurridos >= LE_DASHBOARD_PLAZO_6_MESES_DIAS);
+
+    if (dashboardPlazoEsperaFiltro === '6meses') {
+        lista = lista.filter(p => p._diasTranscurridos < LE_DASHBOARD_PLAZO_1_ANIO_DIAS);
+    } else if (dashboardPlazoEsperaFiltro === '1anio') {
+        lista = lista.filter(p => p._diasTranscurridos >= LE_DASHBOARD_PLAZO_1_ANIO_DIAS);
+    }
+
+    lista.sort((a, b) => b._diasTranscurridos - a._diasTranscurridos);
+    return lista;
+}
+
+function actualizarTablaPlazoEsperaDashboard() {
+    const tbody = document.getElementById('plazoEsperaBody');
+    const contador = document.getElementById('plazoEsperaContador');
+    const paginacion = document.getElementById('plazoEsperaPaginacion');
+    if (!tbody) return;
+
+    const lista = obtenerPacientesPlazoEsperaDashboard();
+
+    if (contador) {
+        contador.textContent = `${lista.length} paciente${lista.length === 1 ? '' : 's'} en total`;
+    }
+
+    const totalPaginas = Math.max(1, Math.ceil(lista.length / LE_DASHBOARD_PLAZO_POR_PAGINA));
+    if (dashboardPlazoEsperaPagina >= totalPaginas) dashboardPlazoEsperaPagina = totalPaginas - 1;
+    if (dashboardPlazoEsperaPagina < 0) dashboardPlazoEsperaPagina = 0;
+
+    const inicio = dashboardPlazoEsperaPagina * LE_DASHBOARD_PLAZO_POR_PAGINA;
+    const paginaActual = lista.slice(inicio, inicio + LE_DASHBOARD_PLAZO_POR_PAGINA);
+
+    tbody.innerHTML = '';
+    if (paginaActual.length === 0) {
+        tbody.innerHTML = '<tr><td colspan="6" style="text-align:center;">No hay pacientes que hayan superado los 6 meses de espera</td></tr>';
+    } else {
+        paginaActual.forEach(p => {
+            const esMasDeUnAnio = p._diasTranscurridos >= LE_DASHBOARD_PLAZO_1_ANIO_DIAS;
+            const bgColor = esMasDeUnAnio ? '#fee2e2' : '#fef3c7';
+            const textColor = esMasDeUnAnio ? '#dc2626' : '#b45309';
+            const etiquetaTiempo = esMasDeUnAnio
+                ? `${(p._diasTranscurridos / 365).toFixed(1)} años`
+                : `${Math.floor(p._diasTranscurridos / 30.44)} meses`;
+
+            const tr = document.createElement('tr');
+            // setProperty(...,'important'): mismo motivo que en
+            // actualizarTablaLlamadosPendientes() más arriba.
+            tr.style.setProperty('background-color', bgColor, 'important');
+            tr.innerHTML = `
+                <td><strong>${p.nombreApellido || '-'}</strong></td>
+                <td>${p.rut || '-'}</td>
+                <td>${p.especialidad || '-'}</td>
+                <td>${formatDate(p.fechaEstatusProgram)}</td>
+                <td><strong style="color:${textColor};">${etiquetaTiempo} (${p._diasTranscurridos} días)</strong></td>
+                <td><button onclick="leShowPatientModal('${p.firebaseKey}')" title="Ver" style="background:transparent; border:1px solid #3b82f6; border-radius:4px; padding:4px 10px; cursor:pointer; color:#3b82f6; font-size:0.9rem;">👁️ Ver</button></td>
+            `;
+            tbody.appendChild(tr);
+        });
+    }
+
+    if (paginacion) {
+        paginacion.innerHTML = `
+            <button onclick="leCambiarPaginaPlazoEspera(-1)" class="btn-secondary" style="padding:6px 14px;" ${dashboardPlazoEsperaPagina === 0 ? 'disabled' : ''}>‹ Anterior</button>
+            <span style="font-size:0.85rem; color:#475569;">Página ${dashboardPlazoEsperaPagina + 1} de ${totalPaginas}</span>
+            <button onclick="leCambiarPaginaPlazoEspera(1)" class="btn-secondary" style="padding:6px 14px;" ${dashboardPlazoEsperaPagina >= totalPaginas - 1 ? 'disabled' : ''}>Siguiente ›</button>
+        `;
+    }
+}
+
+function leCambiarPaginaPlazoEspera(delta) {
+    dashboardPlazoEsperaPagina += delta;
+    actualizarTablaPlazoEsperaDashboard();
+}
+
+function leFiltrarPlazoEsperaDashboard() {
+    const sel = document.getElementById('filtroPlazoEsperaDashboard');
+    dashboardPlazoEsperaFiltro = sel ? sel.value : 'todos';
+    dashboardPlazoEsperaPagina = 0;
+    actualizarTablaPlazoEsperaDashboard();
 }

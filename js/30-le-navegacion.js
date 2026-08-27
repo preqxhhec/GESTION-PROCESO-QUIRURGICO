@@ -60,6 +60,7 @@ function leRefrescarVistaActual() {
     if (leSeccionActiva === 'dashboard' && document.getElementById('totalPatients')) {
         updateDashboard();
         actualizarTablaLlamadosPendientes();
+        actualizarTablaPlazoEsperaDashboard();
         leCargarEspecialidadesEnFiltroDashboard();
     } else if (leSeccionActiva === 'listaPacientes' && document.getElementById('tableBody')) {
         leMakeTableSortable();
