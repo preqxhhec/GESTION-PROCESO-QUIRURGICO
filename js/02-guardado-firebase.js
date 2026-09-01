@@ -14,7 +14,16 @@
 
     // Configuración
     const AUTO_SAVE_INTERVAL = 10 * 60 * 1000; // 10 minutos en milisegundos
-    const DEBOUNCE_DELAY = 60000; // 30 segundos de espera después del último cambio
+    // 🐢→🐇 Antes eran 60 segundos completos de inactividad — y ese
+    // temporizador es GLOBAL (una sola cuenta regresiva para toda la
+    // tabla, ver triggerAutoSave() más abajo), así que cualquier edición
+    // en OTRA fila lo reiniciaba: si el usuario seguía trabajando, sus
+    // cambios podían tardar varios minutos en siquiera guardarse (no ya en
+    // sincronizarse) — de ahí que a otros usuarios les llegara "muy
+    // lento". 2 segundos sigue agrupando las pulsaciones de una misma
+    // palabra/campo en un solo guardado, sin esperar a que la persona
+    // termine de trabajar en toda la tabla.
+    const DEBOUNCE_DELAY = 2000;
 
 // =============================================================
 // 💾 GUARDAR DÍA OPTIMIZADO (UNA SOLA LLAMADA A FIREBASE)

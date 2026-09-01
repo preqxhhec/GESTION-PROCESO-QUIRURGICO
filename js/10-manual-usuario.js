@@ -595,7 +595,7 @@ function construirManualContenidos() {
             </ul>
             <p style="color:#475569; line-height:1.7; margin-bottom:12px;">Los permisos se pueden editar todas las veces que sea necesario, y los cambios se aplican la próxima vez que ese usuario inicie sesión (o al recargar la página si ya la tiene abierta).</p>
             <p style="color:#64748b; font-style:italic; margin-top:8px;">💡 Un usuario creado antes de que existiera este sistema de permisos conserva acceso total mientras no se le configure ninguna restricción explícita — esto también aplica a los permisos por botón agregados después.</p>
-            <p style="color:#dc2626; font-size:0.9rem; margin-top:8px;">⚠️ Quitar "Guardar" no desactiva el guardado automático (cada 60 segundos de inactividad y cada 10 minutos) — solo oculta el botón de guardado manual/inmediato. "Limpiar", en cambio, es una acción exclusivamente manual: quitar ese permiso sí la bloquea por completo.</p>
+            <p style="color:#dc2626; font-size:0.9rem; margin-top:8px;">⚠️ Quitar "Guardar" no desactiva el guardado automático (cada 2 segundos de inactividad y cada 10 minutos) — solo oculta el botón de guardado manual/inmediato. "Limpiar", en cambio, es una acción exclusivamente manual: quitar ese permiso sí la bloquea por completo.</p>
 
             <h2 style="font-size:1.3rem; color:#0b2a4f; margin-top:24px; margin-bottom:12px;">7.5 Gestión de Desplegables</h2>
             <p style="color:#475569; line-height:1.7; margin-bottom:12px;">Puedes gestionar las opciones de los siguientes desplegables:</p>
@@ -633,7 +633,7 @@ function construirManualContenidos() {
             <h2 style="font-size:1.3rem; color:#0b2a4f; margin-top:24px; margin-bottom:12px;">8.1 Guardado Automático</h2>
             <p style="color:#475569; line-height:1.7; margin-bottom:12px;">El sistema guarda automáticamente los datos de dos maneras:</p>
             <ol style="color:#475569; line-height:1.8; padding-left:24px; margin-bottom:16px;">
-                <li><strong>Debounce (60 segundos)</strong>: Después de 60 segundos sin escribir, se guarda automáticamente. Este guardado nunca se salta por falta de FECHA</li>
+                <li><strong>Debounce (2 segundos)</strong>: Después de 2 segundos sin escribir, se guarda automáticamente. Este guardado nunca se salta por falta de FECHA</li>
                 <li><strong>Intervalo (10 minutos)</strong>: Cada 10 minutos se guarda automáticamente. Si hay filas con datos de paciente pero sin FECHA, muestra una alerta recordatorio (sin dejar de guardar)</li>
             </ol>
             <p style="color:#64748b; font-style:italic;">💡 Puedes ver los guardados automáticos en la consola del navegador (F12)</p>
@@ -904,7 +904,7 @@ location.reload();</pre>
             
             <div style="margin-bottom:20px;">
                 <h3 style="color:#0b2a4f; font-size:1.1rem; margin-bottom:6px;">❓ ¿Qué hago si cierro la página sin guardar?</h3>
-                <p style="color:#475569; line-height:1.7;">El sistema tiene guardado automático 60 segundos después del último cambio, por lo que la mayoría de los datos ya estarán guardados.</p>
+                <p style="color:#475569; line-height:1.7;">El sistema tiene guardado automático 2 segundos después del último cambio, por lo que la mayoría de los datos ya estarán guardados.</p>
             </div>
             
             <div style="margin-bottom:20px;">
