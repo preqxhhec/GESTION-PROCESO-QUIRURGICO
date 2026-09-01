@@ -696,6 +696,8 @@ async function cargarDatosDesdeFirebase() {
 // en edicion_en_curso/{docId} cuando alguien empieza a editar una fila y
 // la limpian al guardar (o al desconectarse). Esto solo LEE esa colección
 // y pinta un aviso visual sobre la fila en pantalla; no bloquea nada.
+let intervaloRespaldoEdicionEnCurso = null;
+
 function iniciarEscuchaEdicionEnCurso() {
     database.ref('edicion_en_curso').on('value', function(snapshot) {
         edicionEnCursoRemota = snapshot.val() || {};
@@ -703,6 +705,32 @@ function iniciarEscuchaEdicionEnCurso() {
     }, function(error) {
         console.error('❌ Error en sincronización de edición en curso:', error);
     });
+
+    // 🛟 Red de seguridad: además del listener en tiempo real de arriba,
+    // una lectura directa a Firebase cada 2 segundos que vuelve a aplicar
+    // el aviso. Visto en producción: una sesión donde el dato llegaba
+    // bien a una lectura manual (.once('value')) pero el listener en
+    // tiempo real (.on('value')) no actualizaba la variable interna —
+    // sin causa identificada todavía. Esta lectura periódica garantiza
+    // que el aviso siempre se ponga al día en un máximo de 2 segundos,
+    // sin depender de encontrar esa causa.
+    if (intervaloRespaldoEdicionEnCurso) clearInterval(intervaloRespaldoEdicionEnCurso);
+    intervaloRespaldoEdicionEnCurso = setInterval(async () => {
+        try {
+            const snapshot = await database.ref('edicion_en_curso').once('value');
+            edicionEnCursoRemota = snapshot.val() || {};
+            aplicarAvisosEdicionEnCurso();
+        } catch (error) {
+            console.error('❌ Error en la lectura de respaldo de edición en curso:', error);
+        }
+    }, 2000);
+}
+
+function detenerEscuchaEdicionEnCurso() {
+    if (intervaloRespaldoEdicionEnCurso) {
+        clearInterval(intervaloRespaldoEdicionEnCurso);
+        intervaloRespaldoEdicionEnCurso = null;
+    }
 }
 
 // Antigüedad máxima de una marca antes de ignorarla — red de seguridad por
@@ -748,6 +776,7 @@ function aplicarAvisosEdicionEnCurso() {
     database.ref('pacientes_diferidos').off();
     database.ref('registros_definitivos').off();
     database.ref('edicion_en_curso').off();
+    detenerEscuchaEdicionEnCurso();
 
     // ✅ DETENER SINCRONIZACIÓN DE DESPLEGABLES
     const keysDesplegables = ['Jornada', 'ESTADO_DE_IQx', 'DESTINO', 'Especialidad', 'Anestesista'];
