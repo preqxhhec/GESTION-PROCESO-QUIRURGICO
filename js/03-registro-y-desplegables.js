@@ -357,13 +357,23 @@ async function cargarDatosDesdeFirebase() {
                 const diaIdx = parseInt(dia);
                 const pabIdx = parseInt(pab);
                 const filaIdx = parseInt(fila);
+                const pabName = PABS[pabIdx];
                 if (semanas[semanaIdx] &&
                     semanas[semanaIdx][diaIdx] &&
-                    semanas[semanaIdx][diaIdx].pabs[PABS[pabIdx]] &&
-                    semanas[semanaIdx][diaIdx].pabs[PABS[pabIdx]][filaIdx]) {
+                    pabName &&
+                    semanas[semanaIdx][diaIdx].pabs[pabName]) {
+                    const rows = semanas[semanaIdx][diaIdx].pabs[pabName];
+                    // 🛟 Una fila con índice más allá de las FILAS_INICIALES
+                    // (agregada con "➕ Agregar Fila" por quien cargó estos
+                    // datos por primera vez) antes se descartaba en silencio
+                    // acá — crecer el arreglo local asegura que también
+                    // aparezca en una carga inicial nueva.
+                    while (rows.length <= filaIdx) {
+                        rows.push(crearFilaVacia());
+                    }
                     const filaData = data[key];
-                    const filaLocal = semanas[semanaIdx][diaIdx].pabs[PABS[pabIdx]][filaIdx];
-                    
+                    const filaLocal = rows[filaIdx];
+
                     Object.keys(filaData).forEach(campo => {
                         if (campo !== 'metadata') {
                             if (campo === 'RUT' && filaData[campo] !== undefined && filaData[campo] !== null) {
@@ -374,7 +384,7 @@ async function cargarDatosDesdeFirebase() {
                             }
                         }
                     });
-                    
+
                     datosCargados++;
                 }
             }
@@ -407,12 +417,25 @@ async function cargarDatosDesdeFirebase() {
                 const diaIdx = parseInt(dia);
                 const pabIdx = parseInt(pab);
                 const filaIdx = parseInt(fila);
+                const pabName = PABS[pabIdx];
                 if (semanas[semanaIdx] &&
                     semanas[semanaIdx][diaIdx] &&
-                    semanas[semanaIdx][diaIdx].pabs[PABS[pabIdx]] &&
-                    semanas[semanaIdx][diaIdx].pabs[PABS[pabIdx]][filaIdx]) {
+                    pabName &&
+                    semanas[semanaIdx][diaIdx].pabs[pabName]) {
+                    const rows = semanas[semanaIdx][diaIdx].pabs[pabName];
+                    // 🛟 Una fila agregada por OTRO usuario ("➕ Agregar Fila"
+                    // es 100% local hasta que se guarda) puede tener un
+                    // índice más allá de lo que este navegador tiene en
+                    // memoria — antes se descartaba en silencio acá y esa
+                    // fila quedaba invisible para siempre (ni con recarga de
+                    // página aparecía, porque cargarDatosDesdeFirebase tenía
+                    // el mismo problema). Crecer el arreglo local con filas
+                    // vacías hasta alcanzar el índice que hace falta.
+                    while (rows.length <= filaIdx) {
+                        rows.push(crearFilaVacia());
+                    }
                     const filaData = data[key];
-                    const filaLocal = semanas[semanaIdx][diaIdx].pabs[PABS[pabIdx]][filaIdx];
+                    const filaLocal = rows[filaIdx];
                     const ultimoEditor = filaData.metadata?.ultimo_editor;
                     const rowKeyLocal = `${semanaIdx}-${diaIdx}-${pabIdx}-${filaIdx}`;
                     // 🛟 Mientras ESTA fila en particular tenga una edición

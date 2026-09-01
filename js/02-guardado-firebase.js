@@ -64,13 +64,24 @@ async function guardarDiaEnFirebaseOptimizadoConModal(dayKey, mostrarModal = tru
     let filasConDatos = 0;
     let filasEliminadas = 0;
 
+    // 🛟 El guardado manual (mostrarModal=true, botón "Guardar Día") guarda
+    // TODO lo visible — es una acción explícita del usuario. El autoguardado
+    // (mostrarModal=false, tanto el de 10 minutos como el de inactividad)
+    // SOLO debe re-guardar filas que ESTA pestaña sabe que tiene editadas
+    // sin guardar (filasConCambiosSinGuardar) — de lo contrario, una pestaña
+    // con una copia local desactualizada de este día (ej. quedó abierta toda
+    // la noche) reescribe esa copia vieja sobre Firebase cada vez que el
+    // temporizador dispara, pisando lo que otros usuarios guardaron mientras
+    // tanto.
     for (let pIdx = 0; pIdx < PABS.length; pIdx++) {
         const pabName = PABS[pIdx];
         const rows = dayData.pabs[pabName] || [];
 
         for (let fIdx = 0; fIdx < rows.length; fIdx++) {
-            const fila = rows[fIdx];
             const rowKey = `${semanaIdx}-${diaIdx}-${pIdx}-${fIdx}`;
+            if (!mostrarModal && !filasConCambiosSinGuardar.has(rowKey)) continue;
+
+            const fila = rows[fIdx];
             const docId = getFirebaseKey(rowKey);
             if (!docId) continue;
 
@@ -344,27 +355,43 @@ function triggerAutoSave(rowKey) {
     }
 
     autoSaveTimeout = setTimeout(() => {
-        if (seccionActiva === 'registro' && currentUser) {
-            const dayKey = `${currentWeek}-${currentDay}`;
-            console.log('🕒 Ejecutando auto-save');
-            // Las filas de este día se quitan del Set DENTRO de
-            // guardarDiaEnFirebaseOptimizadoConModal, justo cuando el
-            // guardado en Firebase realmente termina bien — así sea que
-            // haya llegado hasta acá por el autoguardado o por el botón
-            // manual "Guardar Día", el punto de "ya se guardó" es el mismo.
-            guardarDiaEnFirebaseOptimizadoConModal(dayKey, false).then(() => {
-                renderWeekView(true);
-            });
-        } else {
-            // El usuario cambió de sección antes de que corriera el
-            // autoguardado — no hay nada que guardar en este momento, así
-            // que no hay que seguir bloqueando el listener por esto. No se
-            // sabe con certeza qué filas quedaron pendientes de esta tanda
-            // en particular, así que se limpia todo el Set (mismo criterio
-            // que ya se usaba con la bandera global anterior).
+        if (!currentUser) {
+            // No hay sesión — no hay dónde guardar. Se limpia el Set para no
+            // seguir bloqueando el listener por filas que ya no se pueden
+            // persistir.
             filasConCambiosSinGuardar.forEach(limpiarEdicionEnCurso);
             filasConCambiosSinGuardar.clear();
+            return;
         }
+
+        // 🛟 Guarda TODOS los días que tengan filas pendientes, no solo el
+        // que está a la vista en este momento (currentWeek/currentDay). Si
+        // el usuario editó el Lunes y cambió a ver el Martes antes de que
+        // pasaran los 60s, antes el cambio del Lunes se perdía (nunca se
+        // guardaba) y esa fila quedaba trabada sin sincronizar con los
+        // demás usuarios para siempre — ver filasConCambiosSinGuardar en
+        // js/01 y su uso en iniciarSincronizacionTiempoReal (js/03).
+        const diasPendientes = new Set();
+        filasConCambiosSinGuardar.forEach(rowKey => {
+            const partes = rowKey.split('-');
+            diasPendientes.add(`${partes[0]}-${partes[1]}`);
+        });
+
+        console.log(`🕒 Ejecutando auto-save (${diasPendientes.size} día(s) con cambios pendientes)`);
+
+        // Las filas de cada día se quitan del Set DENTRO de
+        // guardarDiaEnFirebaseOptimizadoConModal, justo cuando el guardado
+        // en Firebase realmente termina bien. Uno por uno (no en paralelo):
+        // guardarDiaEnFirebaseOptimizadoConModal usa la bandera global
+        // isAutoSaving para no solaparse consigo misma — si se llamara para
+        // varios días a la vez, todas menos la primera se saltarían
+        // pensando que ya había un guardado en curso.
+        (async () => {
+            for (const dayKey of diasPendientes) {
+                await guardarDiaEnFirebaseOptimizadoConModal(dayKey, false);
+            }
+            if (seccionActiva === 'registro') renderWeekView(true);
+        })();
     }, DEBOUNCE_DELAY);
 }
 
