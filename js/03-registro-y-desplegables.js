@@ -698,7 +698,19 @@ async function cargarDatosDesdeFirebase() {
 // y pinta un aviso visual sobre la fila en pantalla; no bloquea nada.
 let intervaloRespaldoEdicionEnCurso = null;
 
+// 🕐 Diferencia (ms) entre el reloj de ESTE equipo y la hora real del
+// servidor de Firebase — si el reloj del equipo está mal puesto (aunque
+// sea por unos minutos), comparar "ahora" contra el timestamp guardado en
+// Firebase (que SÍ es la hora real del servidor) puede descartar avisos
+// válidos por creerlos vencidos, sin ningún error visible. Se resta/suma
+// este desfase antes de comparar, para no depender del reloj local.
+let desfaseHorarioServidor = 0;
+
 function iniciarEscuchaEdicionEnCurso() {
+    database.ref('.info/serverTimeOffset').on('value', function(snap) {
+        desfaseHorarioServidor = snap.val() || 0;
+    });
+
     database.ref('edicion_en_curso').on('value', function(snapshot) {
         edicionEnCursoRemota = snapshot.val() || {};
         aplicarAvisosEdicionEnCurso();
@@ -739,7 +751,9 @@ function detenerEscuchaEdicionEnCurso() {
 const EDICION_EN_CURSO_MAX_ANTIGUEDAD_MS = 5 * 60 * 1000;
 
 function aplicarAvisosEdicionEnCurso() {
-    const ahora = Date.now();
+    // 🕐 Hora real del servidor, no la del equipo local — ver
+    // desfaseHorarioServidor más arriba.
+    const ahora = Date.now() + desfaseHorarioServidor;
     document.querySelectorAll('#weekContent tr[data-rowkey]').forEach(tr => {
         const rowKey = tr.dataset.rowkey;
         // 🆔 data-pushid lo agrega js/07 al renderizar la fila, si tiene
@@ -776,6 +790,7 @@ function aplicarAvisosEdicionEnCurso() {
     database.ref('pacientes_diferidos').off();
     database.ref('registros_definitivos').off();
     database.ref('edicion_en_curso').off();
+    database.ref('.info/serverTimeOffset').off();
     detenerEscuchaEdicionEnCurso();
 
     // ✅ DETENER SINCRONIZACIÓN DE DESPLEGABLES
