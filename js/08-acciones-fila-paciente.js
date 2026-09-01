@@ -365,7 +365,28 @@ function imprimirDia(dayKey) {
             }
         }
 
-        rows.splice(f, 1);
+        if (filaAEliminar._pushId) {
+            // 🆔 Fila con identidad propia (agregada con "➕ Agregar Fila"):
+            // se puede quitar del arreglo sin problema, no depende de su
+            // posición para nada.
+            rows.splice(f, 1);
+        } else {
+            // 🛟 Fila de las FILAS_INICIALES, identificada por su POSICIÓN
+            // en Firebase (no por un ID propio) — jamás se quita del
+            // arreglo. Si se quitara, todas las filas siguientes correrían
+            // un lugar, y la próxima vez que alguien guardara esa fila
+            // corrida quedaría escrita bajo la clave posicional
+            // equivocada, dejando un dato fantasma/duplicado en Firebase
+            // bajo la clave vieja (que nadie borra) — reaparece mal en la
+            // próxima recarga de cualquier usuario. En vez de eso, se vacía
+            // (mismo resultado visible: la fila queda en blanco), sin
+            // nunca correr de lugar a las demás.
+            Object.assign(filaAEliminar, crearFilaVacia());
+            filaAEliminar['Ya_Diferido'] = false;
+            filaAEliminar['Ya_Reubicado'] = false;
+            filaAEliminar['WhatsApp_Enviado'] = false;
+            filaAEliminar['WhatsApp_UltimoEnvio'] = null;
+        }
         renderWeekView();
     }
 

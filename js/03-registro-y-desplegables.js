@@ -458,6 +458,62 @@ async function cargarDatosDesdeFirebase() {
     }
 }
 
+    // 🗑️ Claves de registros_quirurgicos que este cliente vio la última vez
+    // — permite detectar cuando una desaparece (fila eliminada por
+    // eliminarFila(), reubicarPaciente(), "Registrar Día", o vaciada hasta
+    // quedar sin datos) para limpiarla también acá en vivo. Antes el
+    // listener solo procesaba lo que SÍ estaba presente en cada snapshot,
+    // así que una eliminación remota nunca se reflejaba hasta recargar la
+    // página.
+    let clavesRegistrosQuirurgicosConocidas = new Set();
+
+    function aplicarEliminacionRemota(clave) {
+        const matchLegacy = clave.match(/semana_(\d+)_dia_(\d+)_pab_(\d+)_fila_(\d+)/);
+        if (matchLegacy) {
+            const [_, semana, dia, pab, fila] = matchLegacy.map(Number);
+            const semanaIdx = semana - 1;
+            const pabName = PABS[pab];
+            if (!semanas[semanaIdx] || !semanas[semanaIdx][dia] || !pabName || !semanas[semanaIdx][dia].pabs[pabName]) return false;
+            const rows = semanas[semanaIdx][dia].pabs[pabName];
+            const rowKeyLocal = `${semanaIdx}-${dia}-${pab}-${fila}`;
+            if (filasConCambiosSinGuardar.has(rowKeyLocal)) return false; // edición local en curso, no se pisa
+            if (!rows[fila]) return false;
+            if (rows[fila]._pushId) {
+                // No debería pasar (una fila con _pushId se identifica con
+                // la clave nueva, no con esta), pero por si acaso no se
+                // toca — quitarla acá correría de lugar filas ajenas.
+                return false;
+            }
+            // 🛟 Nunca se quita del arreglo: esta fila se identifica por su
+            // POSICIÓN en Firebase, y removerla correría de lugar a las
+            // siguientes (mismo motivo que eliminarFila() en js/08 ya no
+            // hace splice() en filas sin _pushId).
+            Object.assign(rows[fila], crearFilaVacia());
+            rows[fila]['Ya_Diferido'] = false;
+            rows[fila]['Ya_Reubicado'] = false;
+            rows[fila]['WhatsApp_Enviado'] = false;
+            rows[fila]['WhatsApp_UltimoEnvio'] = null;
+            return true;
+        } else if (clave.startsWith('fila_')) {
+            const pushId = clave.slice('fila_'.length);
+            for (const semana of semanas) {
+                for (const dia of semana) {
+                    for (const pabName of PABS) {
+                        const rows = dia.pabs[pabName];
+                        if (!rows) continue;
+                        const idx = rows.findIndex(f => f._pushId === pushId);
+                        if (idx === -1) continue;
+                        const rowKeyLocal = `${semanas.indexOf(semana)}-${semana.indexOf(dia)}-${PABS.indexOf(pabName)}-${idx}`;
+                        if (filasConCambiosSinGuardar.has(rowKeyLocal)) return false;
+                        rows.splice(idx, 1);
+                        return true;
+                    }
+                }
+            }
+        }
+        return false;
+    }
+
    function iniciarSincronizacionTiempoReal() {
     if (!currentUser) {
         console.warn('⚠️ No hay usuario autenticado');
@@ -465,12 +521,22 @@ async function cargarDatosDesdeFirebase() {
     }
     console.log('🔄 Iniciando sincronización en tiempo real...');
     database.ref('registros_quirurgicos').on('value', function(snapshot) {
-        const data = snapshot.val();
-        if (!data) {
+        const data = snapshot.val() || {};
+        const clavesActuales = new Set(Object.keys(data));
+        let eliminacionesAplicadas = 0;
+        clavesRegistrosQuirurgicosConocidas.forEach(claveVieja => {
+            if (!clavesActuales.has(claveVieja) && aplicarEliminacionRemota(claveVieja)) {
+                eliminacionesAplicadas++;
+            }
+        });
+        clavesRegistrosQuirurgicosConocidas = clavesActuales;
+
+        if (!snapshot.val()) {
             console.log('ℹ️ No hay datos en Firebase');
+            if (eliminacionesAplicadas > 0 && seccionActiva === 'registro') renderWeekView(true);
             return;
         }
-        let datosActualizados = 0;
+        let datosActualizados = eliminacionesAplicadas;
         Object.keys(data).forEach(key => {
             const match = key.match(/semana_(\d+)_dia_(\d+)_pab_(\d+)_fila_(\d+)/);
             if (match) {
