@@ -133,7 +133,12 @@ async function renderDayTable(dayData, semanaIdx, diaIdx) {
             const rowKey = `${pabKey}-${rowIdx}`;
             const colorVal = fila['Color'] || '';
 
-            html += `<tr data-rowkey="${rowKey}">`;
+            // 🆔 data-pushid: si la fila tiene clave única (agregada con "➕
+            // Agregar Fila" después de la corrección de colisiones — ver
+            // agregarFila() en js/08), aplicarAvisosEdicionEnCurso() (js/03)
+            // la usa en vez del rowKey posicional para calcular la clave de
+            // Firebase correcta del aviso de edición simultánea.
+            html += `<tr data-rowkey="${rowKey}" ${fila._pushId ? `data-pushid="${fila._pushId}"` : ''}>`;
 
             // 🎨 Columna de Color
             html += `<td class="small-cell col-color" style="text-align:center; vertical-align:middle;">`;

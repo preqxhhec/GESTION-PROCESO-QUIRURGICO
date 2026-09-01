@@ -86,7 +86,7 @@ async function guardarDiaEnFirebaseOptimizadoConModal(dayKey, mostrarModal = tru
             // propia clave única de Firebase (_pushId) — se usa esa en vez
             // de la clave por posición, para que dos altas simultáneas de
             // distintos usuarios nunca compitan por el mismo lugar.
-            const docId = fila._pushId ? `fila_${fila._pushId}` : getFirebaseKey(rowKey);
+            const docId = obtenerDocIdDeFila(fila, rowKey);
             if (!docId) continue;
 
             const tieneDatos = Object.entries(fila).some(([campo, v]) =>
@@ -235,7 +235,7 @@ async function guardarPabellonEnFirebaseOptimizadoConModal(pabKey, mostrarModal 
         const rowKey = `${semanaIdx}-${diaIdx}-${pabIdx}-${fIdx}`;
         // 🆔 Ver guardarDiaEnFirebaseOptimizadoConModal — misma lógica de
         // clave única para filas agregadas con "➕ Agregar Fila".
-        const docId = fila._pushId ? `fila_${fila._pushId}` : getFirebaseKey(rowKey);
+        const docId = obtenerDocIdDeFila(fila, rowKey);
         if (!docId) continue;
 
         const tieneDatos = Object.entries(fila).some(([campo, v]) =>
@@ -421,7 +421,9 @@ function triggerAutoSave(rowKey) {
 // guardar, sin afectar la marca de la otra persona.
 function marcarEdicionEnCurso(rowKey) {
     if (!currentUser || !currentUserEmail) return;
-    const docId = getFirebaseKey(rowKey);
+    // 🆔 obtenerFilaPorRowKey()/obtenerDocIdDeFila() (js/03) — para filas con
+    // clave única (_pushId) usan esa en vez de la derivada de la posición.
+    const docId = obtenerDocIdDeFila(obtenerFilaPorRowKey(rowKey), rowKey);
     if (!docId) return;
     const miClave = claveEdicionEnCurso(currentUserEmail);
     const ref = database.ref(`edicion_en_curso/${docId}/${miClave}`);
@@ -442,7 +444,7 @@ function claveEdicionEnCurso(email) {
 
 function limpiarEdicionEnCurso(rowKey) {
     if (!currentUserEmail) return;
-    const docId = getFirebaseKey(rowKey);
+    const docId = obtenerDocIdDeFila(obtenerFilaPorRowKey(rowKey), rowKey);
     if (!docId) return;
     const miClave = claveEdicionEnCurso(currentUserEmail);
     database.ref(`edicion_en_curso/${docId}/${miClave}`).remove().catch(() => {});

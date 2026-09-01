@@ -83,12 +83,34 @@ function obtenerOpcionesCache(key) {
         return null;
     }
 
+    // 🆔 Para filas con clave única (_pushId, ver agregarFila() en js/08 y
+    // el resto de guardarDiaEnFirebaseOptimizadoConModal/etc. en js/02), la
+    // clave real de Firebase es "fila_{pushId}", no la derivada de la
+    // posición — este helper la calcula a partir de la fila misma (si la
+    // tiene) en vez de solo del rowKey posicional, para usarse en
+    // Eliminar/Diferir/Reubicar/WhatsApp y el aviso de edición simultánea.
+    function obtenerDocIdDeFila(fila, rowKey) {
+        return (fila && fila._pushId) ? `fila_${fila._pushId}` : getFirebaseKey(rowKey);
+    }
+
+    // Ubica la fila real en `semanas` a partir de un rowKey "s-d-p-f" —
+    // usado por marcarEdicionEnCurso()/limpiarEdicionEnCurso() (js/02), que
+    // solo reciben el rowKey, no la fila, y necesitan saber si tiene
+    // _pushId para calcular la clave de Firebase correcta.
+    function obtenerFilaPorRowKey(rowKey) {
+        const parts = (rowKey || '').split('-').map(Number);
+        if (parts.length !== 4) return null;
+        const [s, d, p, f] = parts;
+        const pabName = PABS[p];
+        return (semanas[s] && semanas[s][d] && pabName && semanas[s][d].pabs[pabName] && semanas[s][d].pabs[pabName][f]) || null;
+    }
+
     async function guardarFilaEnFirebase(rowKey, datos) {
     if (!currentUser) {
         console.warn('⚠️ No hay usuario autenticado');
         return false;
     }
-    const docId = getFirebaseKey(rowKey);
+    const docId = obtenerDocIdDeFila(datos, rowKey);
     if (!docId) {
         console.warn('⚠️ Clave inválida:', rowKey);
         return false;
@@ -260,7 +282,7 @@ function obtenerOpcionesCache(key) {
             const rows = dayData.pabs[pab] || [];
             rows.forEach((fila, filaIdx) => {
                 const rowKey = `${semanaIdx}-${diaIdx}-${pabIdx}-${filaIdx}`;
-                const docId = getFirebaseKey(rowKey);
+                const docId = obtenerDocIdDeFila(fila, rowKey);
                 if (docId) {
                     updates[`registros_quirurgicos/${docId}`] = null;
                     filasAEliminar.push(rowKey);
@@ -626,7 +648,9 @@ function aplicarAvisosEdicionEnCurso() {
     const ahora = Date.now();
     document.querySelectorAll('#weekContent tr[data-rowkey]').forEach(tr => {
         const rowKey = tr.dataset.rowkey;
-        const docId = getFirebaseKey(rowKey);
+        // 🆔 data-pushid lo agrega js/07 al renderizar la fila, si tiene
+        // clave única — ver obtenerDocIdDeFila() más arriba.
+        const docId = tr.dataset.pushid ? `fila_${tr.dataset.pushid}` : getFirebaseKey(rowKey);
         // edicionEnCursoRemota[docId] es un objeto con UNA clave por cada
         // usuario editando esa fila (ver marcarEdicionEnCurso() en js/02),
         // así que puede haber varias personas a la vez — se busca a la
