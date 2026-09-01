@@ -136,6 +136,31 @@
     // =============================================================
     // 🚪 CERRAR SESIÓN
     // =============================================================
+    // Lógica real de cierre, sin el modal de confirmación — la usan tanto el
+    // botón manual como el cierre automático por inactividad (más abajo),
+    // para no duplicarla.
+    async function cerrarSesionInterna() {
+        detenerSincronizacionTiempoReal();
+        detenerAutoSave();
+        detenerTemporizadoresInactividad();
+        await liberarSesionActiva();
+        await auth.signOut();
+
+        currentUser = null;
+        currentUserEmail = '';
+        currentUserRol = '';
+
+        document.getElementById('userInfo').style.display = 'none';
+        loginContainer.style.display = 'flex';
+        appContainer.style.display = 'none';
+        appContainer.classList.remove('visible');
+        loginEmail.value = '';
+        loginPassword.value = '';
+        loginStatus.textContent = '';
+
+        document.getElementById('weekContent').innerHTML = '';
+    }
+
     document.getElementById('logoutBtn').addEventListener('click', async function() {
         const confirmed = await showModal({
             title: '🚪 Cerrar Sesión',
@@ -149,24 +174,7 @@
         if (!confirmed) return;
 
         try {
-            detenerSincronizacionTiempoReal();
-            detenerAutoSave(); // ← AGREGAR ESTA LÍNEA
-            await auth.signOut();
-
-            currentUser = null;
-            currentUserEmail = '';
-            currentUserRol = '';
-
-            document.getElementById('userInfo').style.display = 'none';
-            loginContainer.style.display = 'flex';
-            appContainer.style.display = 'none';
-            appContainer.classList.remove('visible');
-            loginEmail.value = '';
-            loginPassword.value = '';
-            loginStatus.textContent = '';
-
-            document.getElementById('weekContent').innerHTML = '';
-
+            await cerrarSesionInterna();
             console.log('✅ Sesión cerrada');
         } catch (error) {
             console.error('❌ Error al cerrar sesión:', error);
@@ -176,6 +184,157 @@
                 icon: '❌',
                 confirmText: 'Aceptar'
             });
+        }
+    });
+
+    // =============================================================
+    // 🔒 SESIÓN ÚNICA POR USUARIO
+    // =============================================================
+    // Cada pestaña/equipo se identifica con un ID propio guardado en
+    // sessionStorage (sobrevive a una RECARGA de la misma pestaña, pero no
+    // a cerrarla ni a abrir una nueva) — evita que refrescar la página se
+    // interprete como "otra sesión" compitiendo consigo misma.
+    let miSessionId = null;
+    let refSesionActiva = null;
+
+    function obtenerMiSessionId() {
+        let id = sessionStorage.getItem('sesionQuirurgicaId');
+        if (!id) {
+            id = 'sess_' + Date.now() + '_' + Math.random().toString(36).slice(2, 10);
+            sessionStorage.setItem('sesionQuirurgicaId', id);
+        }
+        return id;
+    }
+
+    // Se llama justo después de autenticar (ver auth.onAuthStateChanged más
+    // abajo). Si ya hay una sesión activa de OTRA pestaña/equipo, cierra
+    // esta sesión recién iniciada y avisa — si no, reclama la sesión para
+    // esta pestaña. Retorna true si se puede continuar.
+    async function verificarYReclamarSesionUnica(uid) {
+        miSessionId = obtenerMiSessionId();
+        const ref = database.ref('usuarios/' + uid + '/sesionActiva');
+        const snapshot = await ref.once('value');
+        const existente = snapshot.val();
+
+        if (existente && existente.sessionId && existente.sessionId !== miSessionId) {
+            await auth.signOut();
+            currentUser = null;
+            currentUserEmail = '';
+            currentUserRol = '';
+            mostrarLoginStatus('⛔ Esta cuenta ya tiene una sesión activa en otro equipo o pestaña. Ciérrala primero, o pide a un superadministrador que la libere desde el Panel de Administrador.', 'error');
+            return false;
+        }
+
+        await ref.set({
+            sessionId: miSessionId,
+            dispositivo: navigator.userAgent || 'Desconocido',
+            ts: firebase.database.ServerValue.TIMESTAMP
+        });
+        refSesionActiva = ref;
+
+        // 🛟 Patrón estándar de "presencia" de Firebase: onDisconnect() se
+        // borra automáticamente tras dispararse una vez y hay que volver a
+        // registrarlo cada vez que la conexión se restablece — así, si se
+        // corta la red un momento y vuelve, la sesión sigue liberándose
+        // sola al cerrar la pestaña de verdad. Cubre cerrar la pestaña,
+        // perder la red, o apagar el equipo — no hay riesgo real de quedar
+        // bloqueado para siempre (y el superadministrador puede liberarla
+        // a mano desde el Panel de Administrador de todos modos).
+        database.ref('.info/connected').on('value', function(snap) {
+            if (snap.val() === true && refSesionActiva) {
+                refSesionActiva.onDisconnect().remove();
+            }
+        });
+
+        return true;
+    }
+
+    async function liberarSesionActiva() {
+        if (!refSesionActiva) return;
+        try {
+            await refSesionActiva.remove();
+        } catch (error) {
+            console.error('❌ Error al liberar la sesión activa:', error);
+        }
+    }
+
+    // =============================================================
+    // ⏱️ CIERRE AUTOMÁTICO POR INACTIVIDAD (30 minutos) Y AL CERRAR LA PESTAÑA
+    // =============================================================
+    const INACTIVIDAD_AVISO_MS = 25 * 60 * 1000;
+    const INACTIVIDAD_LOGOUT_MS = 30 * 60 * 1000;
+    let temporizadorAvisoInactividad = null;
+    let temporizadorLogoutInactividad = null;
+    let ultimoReinicioInactividad = 0;
+
+    function detenerTemporizadoresInactividad() {
+        if (temporizadorAvisoInactividad) { clearTimeout(temporizadorAvisoInactividad); temporizadorAvisoInactividad = null; }
+        if (temporizadorLogoutInactividad) { clearTimeout(temporizadorLogoutInactividad); temporizadorLogoutInactividad = null; }
+    }
+
+    function reiniciarTemporizadoresInactividad() {
+        detenerTemporizadoresInactividad();
+        if (!currentUser) return;
+        temporizadorAvisoInactividad = setTimeout(mostrarAvisoInactividad, INACTIVIDAD_AVISO_MS);
+        temporizadorLogoutInactividad = setTimeout(cerrarSesionPorInactividad, INACTIVIDAD_LOGOUT_MS);
+    }
+
+    // Throttle: sin esto, cada mousemove reiniciaría 2 temporizadores —
+    // alcanza con chequear la actividad una vez cada 10 segundos como mucho.
+    function marcarActividadReciente() {
+        if (!currentUser) return;
+        const ahora = Date.now();
+        if (ahora - ultimoReinicioInactividad < 10000) return;
+        ultimoReinicioInactividad = ahora;
+        reiniciarTemporizadoresInactividad();
+    }
+    ['mousemove', 'keydown', 'click', 'touchstart', 'scroll'].forEach(evento => {
+        document.addEventListener(evento, marcarActividadReciente, { passive: true });
+    });
+
+    function mostrarAvisoInactividad() {
+        if (!currentUser) return;
+        document.getElementById('avisoInactividadOverlay')?.remove();
+        const overlay = document.createElement('div');
+        overlay.id = 'avisoInactividadOverlay';
+        overlay.className = 'modal-overlay';
+        overlay.innerHTML = `
+            <div class="modal-box" style="max-width:420px; text-align:center;">
+                <span class="modal-icon">⏳</span>
+                <div class="modal-title">¿Sigues ahí?</div>
+                <div class="modal-message">Tu sesión se cerrará en 5 minutos por inactividad.</div>
+                <div class="modal-actions">
+                    <button class="modal-btn" id="seguirConectadoBtn" style="background:#0b2a4f; color:white; box-shadow:0 4px 12px rgba(11,42,79,0.35);">✅ Seguir conectado</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+        document.getElementById('seguirConectadoBtn').addEventListener('click', function() {
+            overlay.remove();
+            reiniciarTemporizadoresInactividad();
+        });
+    }
+
+    async function cerrarSesionPorInactividad() {
+        document.getElementById('avisoInactividadOverlay')?.remove();
+        if (!currentUser) return;
+        try {
+            await cerrarSesionInterna();
+            mostrarLoginStatus('Tu sesión se cerró automáticamente por inactividad.', 'success');
+        } catch (error) {
+            console.error('❌ Error al cerrar sesión por inactividad:', error);
+        }
+    }
+
+    // Mejor esfuerzo al cerrar la pestaña: la garantía real de que la
+    // sesión queda libre la da onDisconnect() (arriba) — esto es una
+    // limpieza adicional para que este navegador pida iniciar sesión de
+    // nuevo la próxima vez, en vez de reanudar la sesión sola. Los
+    // navegadores no garantizan que código asíncrono termine de correr acá,
+    // así que no se espera el resultado.
+    window.addEventListener('pagehide', function() {
+        if (currentUser) {
+            auth.signOut().catch(() => {});
         }
     });
 
@@ -320,6 +479,13 @@
                 return;
             }
 
+            // 🔒 Sesión única: si esta cuenta ya tiene una sesión activa en
+            // otro equipo/pestaña, se bloquea acá (ver
+            // verificarYReclamarSesionUnica más arriba) antes de mostrar
+            // nada de la app.
+            const puedeContinuar = await verificarYReclamarSesionUnica(user.uid);
+            if (!puedeContinuar) return;
+
             // 🕐 Bitácora de inicio de sesión — no bloquea el login si falla.
             registrarInicioSesionBitacora(user.uid, currentUserEmail);
 
@@ -375,6 +541,7 @@
             await cargarWhatsappPlantillasCache();
             iniciarSincronizacionTiempoReal();
             iniciarAutoSave();
+            reiniciarTemporizadoresInactividad();
 
             // 🩺 Lista de Espera: carga su propia taxonomía administrable y
             // abre su listener de pacientes en tiempo real, solo si el
@@ -406,6 +573,7 @@
             currentUserRol = '';
             currentUserSecciones = null;
             currentUserSoloLecturaTabla = false;
+            detenerTemporizadoresInactividad();
             loginContainer.style.display = 'flex';
             appContainer.style.display = 'none';
             appContainer.classList.remove('visible');

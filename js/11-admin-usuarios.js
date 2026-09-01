@@ -96,6 +96,9 @@
                         </td>
                         <td style="padding:8px 10px; text-align:center; white-space:nowrap;">
                             <button class="btn-ver-bitacora" data-uid="${uid}" data-email="${email}" title="Ver bitácora de accesos" style="background:transparent; border:1px solid #64748b; border-radius:4px; padding:2px 8px; cursor:pointer; color:#64748b; font-size:0.8rem; margin-right:4px;">🕐</button>
+                            ${esSuperAdministrador() ?
+                                `<button class="btn-liberar-sesion" data-uid="${uid}" data-email="${email}" title="Liberar sesión activa (por si quedó bloqueada)" style="background:transparent; border:1px solid #d97706; border-radius:4px; padding:2px 8px; cursor:pointer; color:#d97706; font-size:0.8rem; margin-right:4px;">🔓</button>` : ''
+                            }
                             ${esUsuarioActual ?
                                 '<span style="color:#94a3b8; font-size:0.7rem;">No puedes modificarte</span>' :
                                 `<button class="btn-eliminar-usuario" data-uid="${uid}" data-email="${email}" style="background:transparent; border:1px solid #ef4444; border-radius:4px; padding:2px 8px; cursor:pointer; color:#ef4444; font-size:0.8rem;">🗑️</button>`
@@ -153,11 +156,65 @@
                 });
             });
 
+            document.querySelectorAll('.btn-liberar-sesion').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const uid = this.dataset.uid;
+                    const email = this.dataset.email;
+                    liberarSesionUsuario(uid, email);
+                });
+            });
+
         } catch (error) {
             console.error('❌ Error al cargar usuarios:', error);
             contenedor.innerHTML = `
                 <p style="color:#dc2626; text-align:center; padding:20px;">Error al cargar usuarios. Intenta nuevamente.</p>
             `;
+        }
+    }
+
+    // 🔓 Válvula de escape para la sesión única (ver
+    // verificarYReclamarSesionUnica en js/15): usuarios/{uid}.sesionActiva
+    // se libera sola cuando la pestaña se cierra normalmente (onDisconnect),
+    // pero en casos raros (ej. corte de luz sin que la red alcance a
+    // avisar) puede quedar pegada — esto la borra a mano.
+    async function liberarSesionUsuario(uid, email) {
+        if (!currentUser || !esSuperAdministrador()) {
+            showModal({
+                title: '⛔ Acceso denegado',
+                message: 'Solo el superadministrador puede liberar sesiones.',
+                icon: '⛔',
+                confirmText: 'Aceptar'
+            });
+            return;
+        }
+
+        const confirmed = await showModal({
+            title: '🔓 Liberar sesión',
+            message: `¿Liberar la sesión activa de <strong>${email}</strong>?<br><br>Solo hace falta si quedó bloqueada (ej. el equipo se apagó de golpe sin cerrar sesión) y esa persona no puede volver a entrar.`,
+            icon: '🔓',
+            confirmText: 'Liberar',
+            cancelText: 'Cancelar',
+            type: 'danger'
+        });
+
+        if (!confirmed) return;
+
+        try {
+            await database.ref('usuarios/' + uid + '/sesionActiva').remove();
+            showModal({
+                title: '✅ Sesión liberada',
+                message: `La sesión de <strong>${email}</strong> fue liberada.<br>Ya puede iniciar sesión de nuevo.`,
+                icon: '✅',
+                confirmText: 'Aceptar'
+            });
+        } catch (error) {
+            console.error('❌ Error al liberar sesión:', error);
+            showModal({
+                title: '❌ Error',
+                message: 'Hubo un problema al liberar la sesión.<br>Intenta nuevamente.',
+                icon: '❌',
+                confirmText: 'Aceptar'
+            });
         }
     }
 
