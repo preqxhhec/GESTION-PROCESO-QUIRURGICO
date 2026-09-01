@@ -438,7 +438,7 @@ function triggerAutoSave(rowKey) {
             for (const dayKey of diasPendientes) {
                 await guardarDiaEnFirebaseOptimizadoConModal(dayKey, false);
             }
-            if (seccionActiva === 'registro') renderWeekView(true);
+            if (seccionEstaVisible('registro')) renderWeekView(true);
         })();
     }, DEBOUNCE_DELAY);
 }
@@ -903,7 +903,7 @@ function iniciarAutoSave() {
     detenerAutoSave();
 
     autoSaveInterval = setInterval(() => {
-        if (seccionActiva === 'registro' && currentUser) {
+        if (seccionEstaVisible('registro') && currentUser) {
             const dayKey = `${currentWeek}-${currentDay}`;
             if (!isAutoSaving) {
                 console.log('🕒 Guardado automático programado (10 minutos)');

@@ -1727,6 +1727,23 @@ tr.fila-en-edicion-por-otro {
     outline-offset: -1px;
 }
 
+@media (max-width: 1024px) {
+    .vista-dividida-columnas {
+        flex-direction: column !important;
+    }
+}
+
+/* Dos columnas necesitan más que los 1600px normales de ".app" —      */
+/* mientras vista dividida está activa, usa casi todo el ancho de la   */
+/* pantalla en vez de quedar centrada con ese tope.                    */
+body.vista-dividida-modo {
+    padding-left: 8px;
+    padding-right: 8px;
+}
+body.vista-dividida-modo .app {
+    max-width: 100%;
+}
+
 /* ============================================================= */
 /* 📱 OPTIMIZACIÓN GENERAL PARA CELULAR Y TABLET                  */
 /* Bloque aparte (no mezclado con los @media puntuales de arriba, */

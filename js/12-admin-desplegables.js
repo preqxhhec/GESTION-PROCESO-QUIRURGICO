@@ -168,7 +168,7 @@
             medicosPorEspecialidadCache[especialidad] = medicos;
 
             cargarMedicosPorEspecialidad();
-            if (seccionActiva === 'registro') renderWeekView();
+            if (seccionEstaVisible('registro')) renderWeekView();
 
         } catch (error) {
             console.error('❌ Error al agregar médico:', error);
@@ -201,7 +201,7 @@
             medicosPorEspecialidadCache[especialidad] = medicos;
 
             cargarMedicosPorEspecialidad();
-            if (seccionActiva === 'registro') renderWeekView();
+            if (seccionEstaVisible('registro')) renderWeekView();
 
         } catch (error) {
             console.error('❌ Error al eliminar médico:', error);
@@ -328,7 +328,7 @@
         cargarDesplegables();
         
         // ✅ RECARGAR LA TABLA CON LAS NUEVAS OPCIONES
-        if (seccionActiva === 'registro') {
+        if (seccionEstaVisible('registro')) {
             renderWeekView();
         }
 
@@ -386,7 +386,7 @@
         cargarDesplegables();
         
         // ✅ RECARGAR LA TABLA CON LAS NUEVAS OPCIONES
-        if (seccionActiva === 'registro') {
+        if (seccionEstaVisible('registro')) {
             renderWeekView();
         }
 

@@ -18,6 +18,15 @@
             return;
         }
 
+        // 🪟 Si vista dividida estaba activa (ej. el usuario hizo clic en una
+        // sección normal del menú sin pasar por "Salir de Vista Dividida"),
+        // hay que devolver los contenedores a su lugar ANTES de seguir —
+        // si no, quedan atrapados dentro de los paneles mientras esta
+        // función intenta mostrarlos/ocultarlos en su posición normal.
+        if (vistaDivididaActiva) {
+            restaurarContenedoresVistaDividida();
+        }
+
         // 🔄 Solo la Tabla Quirúrgica y el Libro de Quirófano necesitan el
         // ancho de la vista horizontal (son las tablas con muchas columnas).
         // El resto de las secciones (Estadísticas, Diferidos, Admin, Manual,
@@ -551,6 +560,15 @@
                 await leInicializarModulo();
             }
 
+            // 🪟 Por si quedó una vista dividida a medio armar de una sesión
+            // anterior en esta misma pestaña (ej. otro usuario se
+            // desconectó estando en vista dividida) — el aterrizaje directo
+            // en "registro" más abajo NO pasa por cambiarSeccion(), así que
+            // sin esto la vista dividida podría quedar visualmente atascada.
+            if (vistaDivididaActiva) {
+                restaurarContenedoresVistaDividida();
+            }
+
             aplicarPermisosNavegacion();
             const seccionInicial = obtenerPrimeraSeccionAccesible();
             if (!seccionInicial) {
@@ -679,4 +697,203 @@
             }
             abrirModalGeneradorPpt();
         });
+    }
+
+    // =============================================================
+    // 🪟 VISTA DIVIDIDA: dos secciones distintas a la vez, lado a lado.
+    // No duplica ninguna función de carga — MUEVE (appendChild) el mismo
+    // contenedor de cada sección dentro del panel elegido, así que todo su
+    // estado y sus event listeners ya enganchados siguen funcionando sin
+    // cambios. vistaDivididaActiva/vistaDivididaSecciones están declaradas en
+    // js/09-diferidos-libro-admin.js (las usa seccionEstaVisible() para que
+    // los listeners de tiempo real de js/02, js/03 y js/12 sepan
+    // re-renderizar la sección correcta aunque haya DOS visibles a la vez).
+    // =============================================================
+    const SECCIONES_VISTA_DIVIDIDA = [
+        { key: 'registro', label: '📋 Tabla Quirúrgica', grupoIds: ['tabContainer', 'weekContent'], cargar: () => renderWeekView() },
+        { key: 'diferidos', label: '📤 Pacientes Diferidos', grupoIds: ['diferidosContent'], cargar: () => cargarPacientesDiferidos() },
+        { key: 'libro', label: '📘 Libro de Quirófano', grupoIds: ['libroContent'], cargar: () => cargarLibroQuirofano() },
+        { key: 'estadisticas', label: '📊 Estadísticas', grupoIds: ['estadisticasContent'], cargar: () => cargarEstadisticas() },
+        { key: 'admin', label: '⚙️ Administrador', grupoIds: ['adminContent'], cargar: () => cargarAdmin() },
+        { key: 'manual', label: '📖 Manual de Usuario', grupoIds: ['manualContent'], cargar: () => cargarManual() },
+        { key: 'listaEspera', label: '🩺 Lista de Espera', grupoIds: ['listaEsperaContent'], cargar: () => leMostrarSeccionListaEspera() }
+    ];
+
+    let seccionAntesDeVistaDividida = null;
+
+    // Recuerda dónde vivía cada contenedor ANTES de moverlo por primera vez,
+    // para poder devolverlo a su lugar exacto al salir de vista dividida.
+    const posicionOriginalVistaDividida = new Map();
+
+    function recordarPosicionOriginal(elementId) {
+        if (posicionOriginalVistaDividida.has(elementId)) return;
+        const el = document.getElementById(elementId);
+        if (!el) return;
+        posicionOriginalVistaDividida.set(elementId, { padre: el.parentNode, siguienteHermano: el.nextSibling });
+    }
+
+    function devolverATuLugar(elementId) {
+        const pos = posicionOriginalVistaDividida.get(elementId);
+        const el = document.getElementById(elementId);
+        if (!pos || !el) return;
+        if (pos.siguienteHermano && pos.siguienteHermano.parentNode === pos.padre) {
+            pos.padre.insertBefore(el, pos.siguienteHermano);
+        } else {
+            pos.padre.appendChild(el);
+        }
+    }
+
+    function montarSeccionEnPanel(panel, seccion) {
+        const otroPanel = panel === 'izquierda' ? 'derecha' : 'izquierda';
+        const selectorId = panel === 'izquierda' ? 'selectorPanelIzquierdo' : 'selectorPanelDerecho';
+
+        if (vistaDivididaSecciones[otroPanel] === seccion) {
+            showModal({
+                title: '⚠️ Sección repetida',
+                message: 'Esa sección ya está abierta en el otro panel — elige una distinta.',
+                icon: '⚠️',
+                confirmText: 'Aceptar'
+            });
+            const selector = document.getElementById(selectorId);
+            if (selector) selector.value = vistaDivididaSecciones[panel] || '';
+            return;
+        }
+
+        const config = SECCIONES_VISTA_DIVIDIDA.find(s => s.key === seccion);
+        if (!config) return;
+
+        // Oculta lo que hubiera antes en ESTE panel — appendChild solo
+        // agrega, no saca lo anterior, así que sin esto la sección previa
+        // se queda apilada debajo de la nueva en vez de ser reemplazada.
+        const seccionAnteriorEnPanel = vistaDivididaSecciones[panel];
+        if (seccionAnteriorEnPanel && seccionAnteriorEnPanel !== seccion) {
+            const configAnterior = SECCIONES_VISTA_DIVIDIDA.find(s => s.key === seccionAnteriorEnPanel);
+            if (configAnterior) {
+                configAnterior.grupoIds.forEach(id => {
+                    const el = document.getElementById(id);
+                    if (el) el.style.display = 'none';
+                });
+            }
+        }
+
+        config.grupoIds.forEach(recordarPosicionOriginal);
+
+        const contenedorPanel = document.getElementById(panel === 'izquierda' ? 'contenidoPanelIzquierdo' : 'contenidoPanelDerecho');
+        if (!contenedorPanel) return;
+
+        config.grupoIds.forEach(id => {
+            const el = document.getElementById(id);
+            if (el) {
+                el.style.display = id === 'tabContainer' ? 'flex' : 'block';
+                contenedorPanel.appendChild(el);
+            }
+        });
+
+        vistaDivididaSecciones[panel] = seccion;
+        config.cargar();
+    }
+
+    function poblarSelectoresVistaDividida() {
+        const disponibles = SECCIONES_VISTA_DIVIDIDA.filter(s => usuarioTieneAccesoSeccion(s.key));
+        ['selectorPanelIzquierdo', 'selectorPanelDerecho'].forEach(selectId => {
+            const select = document.getElementById(selectId);
+            if (!select) return;
+            select.innerHTML = disponibles.map(s => `<option value="${s.key}">${s.label}</option>`).join('');
+            if (!select.dataset.listenerVistaDividida) {
+                select.dataset.listenerVistaDividida = '1';
+                select.addEventListener('change', function() {
+                    const panel = selectId === 'selectorPanelIzquierdo' ? 'izquierda' : 'derecha';
+                    montarSeccionEnPanel(panel, this.value);
+                });
+            }
+        });
+    }
+
+    function activarVistaDividida() {
+        seccionAntesDeVistaDividida = seccionActiva;
+
+        // 🖥️ Con dos secciones lado a lado (sobre todo con la Tabla
+        // Quirúrgica, que ya es ancha de por sí) el máximo de 1600px de
+        // ".app" se queda corto — ver ".vista-dividida-modo .app" en
+        // styles.css.
+        document.body.classList.add('vista-dividida-modo');
+
+        weekContent.style.display = 'none';
+        diferidosContent.style.display = 'none';
+        libroContent.style.display = 'none';
+        if (estadisticasContent) estadisticasContent.style.display = 'none';
+        adminContent.style.display = 'none';
+        manualContent.style.display = 'none';
+        if (listaEsperaContent) listaEsperaContent.style.display = 'none';
+        const tabContainer = document.getElementById('tabContainer');
+        const daysGrid = document.querySelector('.days-grid');
+        const weekContainer = document.querySelector('.week-container');
+        if (tabContainer) tabContainer.style.display = 'none';
+        if (daysGrid) daysGrid.style.display = 'none';
+        if (weekContainer) weekContainer.style.display = 'none';
+
+        document.querySelectorAll('.menu-item').forEach(item => item.classList.remove('active'));
+        document.body.removeAttribute('data-seccion');
+
+        vistaDivididaActiva = true;
+        vistaDivididaSecciones = { izquierda: null, derecha: null };
+        document.getElementById('vistaDivididaContainer').style.display = 'block';
+
+        poblarSelectoresVistaDividida();
+
+        const disponibles = SECCIONES_VISTA_DIVIDIDA.filter(s => usuarioTieneAccesoSeccion(s.key));
+        const izqDefault = disponibles.find(s => s.key === seccionAntesDeVistaDividida) || disponibles[0];
+        const derDefault = disponibles.find(s => !izqDefault || s.key !== izqDefault.key);
+
+        if (izqDefault) {
+            const selIzq = document.getElementById('selectorPanelIzquierdo');
+            if (selIzq) selIzq.value = izqDefault.key;
+            montarSeccionEnPanel('izquierda', izqDefault.key);
+        }
+        if (derDefault) {
+            const selDer = document.getElementById('selectorPanelDerecho');
+            if (selDer) selDer.value = derDefault.key;
+            montarSeccionEnPanel('derecha', derDefault.key);
+        }
+    }
+
+    // Devuelve ambos paneles a su lugar original en el HTML y apaga vista
+    // dividida — sin volver a mostrar ninguna sección (eso lo decide quien
+    // llama: salirDeVistaDividida() sigue con cambiarSeccion(), pero el
+    // guard de cambiarSeccion() y el reset al iniciar sesión solo necesitan
+    // la limpieza, no una sección específica después).
+    function restaurarContenedoresVistaDividida() {
+        ['izquierda', 'derecha'].forEach(panel => {
+            const seccion = vistaDivididaSecciones[panel];
+            if (!seccion) return;
+            const config = SECCIONES_VISTA_DIVIDIDA.find(s => s.key === seccion);
+            if (config) config.grupoIds.forEach(devolverATuLugar);
+        });
+
+        vistaDivididaActiva = false;
+        vistaDivididaSecciones = { izquierda: null, derecha: null };
+        document.body.classList.remove('vista-dividida-modo');
+        const cont = document.getElementById('vistaDivididaContainer');
+        if (cont) cont.style.display = 'none';
+    }
+
+    function salirDeVistaDividida() {
+        restaurarContenedoresVistaDividida();
+        cambiarSeccion(seccionAntesDeVistaDividida || 'registro');
+    }
+
+    const navVistaDividida = document.getElementById('navVistaDividida');
+    if (navVistaDividida) {
+        navVistaDividida.addEventListener('click', function() {
+            if (menuDropdown && menuToggle) {
+                menuDropdown.classList.remove('open');
+                menuToggle.classList.remove('active');
+            }
+            activarVistaDividida();
+        });
+    }
+
+    const btnSalirVistaDividida = document.getElementById('btnSalirVistaDividida');
+    if (btnSalirVistaDividida) {
+        btnSalirVistaDividida.addEventListener('click', salirDeVistaDividida);
     }

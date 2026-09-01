@@ -20,6 +20,22 @@
 
     let seccionActiva = 'registro';
 
+    // 🪟 Vista Dividida: dos secciones distintas visibles a la vez (ver
+    // montarSeccionEnPanel() en js/15-navegacion-y-autenticacion.js). Los
+    // listeners de tiempo real (js/02, js/03, js/12) usan
+    // seccionEstaVisible() en vez de comparar contra seccionActiva
+    // directamente, para saber si conviene re-renderizar aunque haya DOS
+    // secciones visibles simultáneamente.
+    let vistaDivididaActiva = false;
+    let vistaDivididaSecciones = { izquierda: null, derecha: null };
+
+    function seccionEstaVisible(seccion) {
+        if (vistaDivididaActiva) {
+            return vistaDivididaSecciones.izquierda === seccion || vistaDivididaSecciones.derecha === seccion;
+        }
+        return seccionActiva === seccion;
+    }
+
     // =============================================================
     // 📋 CARGAR PACIENTES DIFERIDOS
     // =============================================================
