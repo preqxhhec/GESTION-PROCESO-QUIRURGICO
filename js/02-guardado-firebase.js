@@ -158,7 +158,10 @@ async function guardarDiaEnFirebaseOptimizadoConModal(dayKey, mostrarModal = tru
         for (const rk of [...filasConCambiosSinGuardar]) {
             if (rk.startsWith(`${semanaIdx}-${diaIdx}-`)) {
                 filasConCambiosSinGuardar.delete(rk);
-                limpiarEdicionEnCurso(rk);
+                // 👥 El aviso de "editando" NO se limpia acá — se mantiene
+                // mientras la persona siga tocando la fila y se limpia solo
+                // por inactividad (ver programarLimpiezaEdicionEnCurso más
+                // arriba), independiente de cuántas veces se guarde.
             }
         }
 
@@ -306,7 +309,8 @@ async function guardarPabellonEnFirebaseOptimizadoConModal(pabKey, mostrarModal 
         for (const rk of [...filasConCambiosSinGuardar]) {
             if (rk.startsWith(`${semanaIdx}-${diaIdx}-${pabIdx}-`)) {
                 filasConCambiosSinGuardar.delete(rk);
-                limpiarEdicionEnCurso(rk);
+                // 👥 El aviso de "editando" NO se limpia acá — ver el mismo
+                // comentario en guardarDiaEnFirebaseOptimizadoConModal.
             }
         }
 
@@ -351,16 +355,45 @@ async function guardarPabellonEnFirebaseOptimizadoConModal(pabKey, mostrarModal 
 // =============================================================
 // 🕒 DISPARADOR DE GUARDADO AUTOMÁTICO
 // =============================================================
+// 👥 Aviso de "otro usuario está editando esta fila" (marcarEdicionEnCurso,
+// js/02) — a propósito NO se limpia cuando el guardado automático dispara
+// (cada 2s de inactividad, ver DEBOUNCE_DELAY): antes se limpiaba ahí
+// mismo, así que con un guardado tan seguido el aviso aparecía y
+// desaparecía casi al instante, muy fácil de no alcanzar a ver. Ahora se
+// mantiene mientras la persona siga tocando esa fila, y solo se limpia
+// tras unos segundos SIN ningún cambio nuevo en ella (ver
+// programarLimpiezaEdicionEnCurso más abajo) — independiente de cuántas
+// veces se haya guardado mientras tanto.
+const timersLimpiezaEdicionEnCurso = new Map(); // rowKey -> id de setTimeout
+const ultimoRefrescoEdicionEnCurso = new Map(); // rowKey -> timestamp del último marcarEdicionEnCurso
+const EDICION_EN_CURSO_INACTIVIDAD_MS = 8000; // sin más cambios en la fila, se limpia el aviso
+const EDICION_EN_CURSO_REFRESCO_MIN_MS = 3000; // no reescribir el aviso en CADA tecla
+
+function marcarEdicionEnCursoConThrottle(rowKey) {
+    const ahora = Date.now();
+    const ultimo = ultimoRefrescoEdicionEnCurso.get(rowKey) || 0;
+    if (ahora - ultimo >= EDICION_EN_CURSO_REFRESCO_MIN_MS) {
+        ultimoRefrescoEdicionEnCurso.set(rowKey, ahora);
+        marcarEdicionEnCurso(rowKey);
+    }
+
+    const timerExistente = timersLimpiezaEdicionEnCurso.get(rowKey);
+    if (timerExistente) clearTimeout(timerExistente);
+    timersLimpiezaEdicionEnCurso.set(rowKey, setTimeout(() => {
+        timersLimpiezaEdicionEnCurso.delete(rowKey);
+        ultimoRefrescoEdicionEnCurso.delete(rowKey);
+        limpiarEdicionEnCurso(rowKey);
+    }, EDICION_EN_CURSO_INACTIVIDAD_MS));
+}
+
 function triggerAutoSave(rowKey) {
     // 🛟 Esta fila tiene un cambio sin guardar desde ahora — ver el Set en
     // js/01 para el detalle de qué protege exactamente (solo esta fila, no
     // toda la tabla).
-    if (rowKey && !filasConCambiosSinGuardar.has(rowKey)) {
-        // 👥 Recién empieza a editarse esta fila (no en cada tecla) — avisa
-        // a los demás por si alguien más la está editando también.
-        marcarEdicionEnCurso(rowKey);
+    if (rowKey) {
+        marcarEdicionEnCursoConThrottle(rowKey);
+        filasConCambiosSinGuardar.add(rowKey);
     }
-    if (rowKey) filasConCambiosSinGuardar.add(rowKey);
 
     if (autoSaveTimeout) {
         clearTimeout(autoSaveTimeout);
