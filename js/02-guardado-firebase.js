@@ -90,7 +90,7 @@ async function guardarDiaEnFirebaseOptimizadoConModal(dayKey, mostrarModal = tru
             if (!docId) continue;
 
             const tieneDatos = Object.entries(fila).some(([campo, v]) =>
-                campo !== '_pushId' && v && v !== '' && v !== 'Seleccione'
+                campo !== '_pushId' && campo !== '_ubicacion' && v && v !== '' && v !== 'Seleccione'
             );
 
             if (tieneDatos) {
@@ -239,7 +239,7 @@ async function guardarPabellonEnFirebaseOptimizadoConModal(pabKey, mostrarModal 
         if (!docId) continue;
 
         const tieneDatos = Object.entries(fila).some(([campo, v]) =>
-            campo !== '_pushId' && v && v !== '' && v !== 'Seleccione'
+            campo !== '_pushId' && campo !== '_ubicacion' && v && v !== '' && v !== 'Seleccione'
         );
 
         if (tieneDatos) {

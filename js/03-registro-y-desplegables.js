@@ -387,6 +387,46 @@ async function cargarDatosDesdeFirebase() {
 
                     datosCargados++;
                 }
+            } else if (key.startsWith('fila_')) {
+                // 🆔 Fila con clave única de Firebase (agregada con "➕
+                // Agregar Fila" después de la corrección de colisiones —
+                // ver agregarFila() en js/08). Esta clave ya no codifica
+                // semana/día/pabellón, así que la ubicación viaja en el
+                // propio dato (_ubicacion, formato "semana-dia-pab").
+                const filaData = data[key];
+                const pushId = key.slice('fila_'.length);
+                const ubicacion = filaData && filaData._ubicacion;
+                if (!ubicacion) return;
+                const partesUbicacion = ubicacion.split('-').map(Number);
+                if (partesUbicacion.length !== 3) return;
+                const [semanaIdx, diaIdx, pabIdx] = partesUbicacion;
+                const pabName = PABS[pabIdx];
+                if (!semanas[semanaIdx] || !semanas[semanaIdx][diaIdx] || !pabName || !semanas[semanaIdx][diaIdx].pabs[pabName]) return;
+
+                const rows = semanas[semanaIdx][diaIdx].pabs[pabName];
+                // Si esta fila ya existe localmente (por _pushId) se edita
+                // en su lugar; si es la primera vez que aparece (alta de
+                // otro usuario, o de este mismo en otra pestaña) se agrega
+                // al final del pabellón.
+                let filaLocal = rows.find(f => f._pushId === pushId);
+                if (!filaLocal) {
+                    filaLocal = crearFilaVacia();
+                    filaLocal._pushId = pushId;
+                    filaLocal._ubicacion = ubicacion;
+                    rows.push(filaLocal);
+                }
+
+                Object.keys(filaData).forEach(campo => {
+                    if (campo !== 'metadata') {
+                        if (campo === 'RUT' && filaData[campo] !== undefined && filaData[campo] !== null) {
+                            filaLocal[campo] = formatearRut(filaData[campo]);
+                        } else {
+                            filaLocal[campo] = filaData[campo];
+                        }
+                    }
+                });
+
+                datosCargados++;
             }
         });
         console.log(`✅ Datos cargados: ${datosCargados} filas`);
@@ -459,6 +499,45 @@ async function cargarDatosDesdeFirebase() {
                         });
                         datosActualizados++;
                     }
+                }
+            } else if (key.startsWith('fila_')) {
+                // 🆔 Fila con clave única de Firebase — ver el mismo bloque
+                // en cargarDatosDesdeFirebase() para el detalle. Acá además
+                // se respeta filasConCambiosSinGuardar, igual que las filas
+                // con clave por posición.
+                const filaData = data[key];
+                const pushId = key.slice('fila_'.length);
+                const ubicacion = filaData && filaData._ubicacion;
+                if (!ubicacion) return;
+                const partesUbicacion = ubicacion.split('-').map(Number);
+                if (partesUbicacion.length !== 3) return;
+                const [semanaIdx, diaIdx, pabIdx] = partesUbicacion;
+                const pabName = PABS[pabIdx];
+                if (!semanas[semanaIdx] || !semanas[semanaIdx][diaIdx] || !pabName || !semanas[semanaIdx][diaIdx].pabs[pabName]) return;
+
+                const rows = semanas[semanaIdx][diaIdx].pabs[pabName];
+                let filaLocal = rows.find(f => f._pushId === pushId);
+                if (!filaLocal) {
+                    filaLocal = crearFilaVacia();
+                    filaLocal._pushId = pushId;
+                    filaLocal._ubicacion = ubicacion;
+                    rows.push(filaLocal);
+                }
+
+                const ultimoEditor = filaData.metadata?.ultimo_editor;
+                const idxLocal = rows.indexOf(filaLocal);
+                const rowKeyLocal = `${semanaIdx}-${diaIdx}-${pabIdx}-${idxLocal}`;
+                if (!filasConCambiosSinGuardar.has(rowKeyLocal) && ultimoEditor !== currentUserEmail) {
+                    Object.keys(filaData).forEach(campo => {
+                        if (campo !== 'metadata') {
+                            if (campo === 'RUT' && filaData[campo] !== undefined && filaData[campo] !== null) {
+                                filaLocal[campo] = formatearRut(filaData[campo]);
+                            } else {
+                                filaLocal[campo] = filaData[campo];
+                            }
+                        }
+                    });
+                    datosActualizados++;
                 }
             }
         });

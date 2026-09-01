@@ -304,6 +304,11 @@ function imprimirDia(dayKey) {
         // guardarDiaEnFirebaseOptimizadoConModal/guardarPabellonEnFirebaseOptimizadoConModal
         // en js/02, que usan _pushId para la clave de guardado cuando existe).
         newRow._pushId = database.ref('registros_quirurgicos').push().key;
+        // 📍 La clave nueva (fila_{pushId}) ya no codifica semana/día/pabellón
+        // como sí hacía la clave por posición — viaja con la fila para que
+        // iniciarSincronizacionTiempoReal()/cargarDatosDesdeFirebase() (js/03)
+        // sepan dónde colocarla en los navegadores de los demás usuarios.
+        newRow._ubicacion = pabKey;
         rows.push(newRow);
         renderWeekView();
     }
