@@ -82,11 +82,15 @@ async function guardarDiaEnFirebaseOptimizadoConModal(dayKey, mostrarModal = tru
             if (!mostrarModal && !filasConCambiosSinGuardar.has(rowKey)) continue;
 
             const fila = rows[fIdx];
-            const docId = getFirebaseKey(rowKey);
+            // 🆔 Filas agregadas con "➕ Agregar Fila" (js/08) ya traen su
+            // propia clave única de Firebase (_pushId) — se usa esa en vez
+            // de la clave por posición, para que dos altas simultáneas de
+            // distintos usuarios nunca compitan por el mismo lugar.
+            const docId = fila._pushId ? `fila_${fila._pushId}` : getFirebaseKey(rowKey);
             if (!docId) continue;
 
-            const tieneDatos = Object.values(fila).some(v =>
-                v && v !== '' && v !== 'Seleccione'
+            const tieneDatos = Object.entries(fila).some(([campo, v]) =>
+                campo !== '_pushId' && v && v !== '' && v !== 'Seleccione'
             );
 
             if (tieneDatos) {
@@ -229,11 +233,13 @@ async function guardarPabellonEnFirebaseOptimizadoConModal(pabKey, mostrarModal 
     for (let fIdx = 0; fIdx < rows.length; fIdx++) {
         const fila = rows[fIdx];
         const rowKey = `${semanaIdx}-${diaIdx}-${pabIdx}-${fIdx}`;
-        const docId = getFirebaseKey(rowKey);
+        // 🆔 Ver guardarDiaEnFirebaseOptimizadoConModal — misma lógica de
+        // clave única para filas agregadas con "➕ Agregar Fila".
+        const docId = fila._pushId ? `fila_${fila._pushId}` : getFirebaseKey(rowKey);
         if (!docId) continue;
 
-        const tieneDatos = Object.values(fila).some(v =>
-            v && v !== '' && v !== 'Seleccione'
+        const tieneDatos = Object.entries(fila).some(([campo, v]) =>
+            campo !== '_pushId' && v && v !== '' && v !== 'Seleccione'
         );
 
         if (tieneDatos) {

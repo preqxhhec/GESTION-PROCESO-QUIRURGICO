@@ -293,6 +293,17 @@ function imprimirDia(dayKey) {
         if (!rows) return;
 
         const newRow = crearFilaVacia();
+        // 🆔 Clave única generada por Firebase (no pisa nada, no hace red
+        // todavía — solo reserva un ID) en vez de depender de la posición
+        // en este arreglo LOCAL. Antes, si dos usuarios agregaban fila casi
+        // al mismo tiempo, ambos calculaban la misma "próxima fila" (ej.
+        // la 6ª) y el guardado de Firebase quedaba en la misma clave — el
+        // segundo en guardar borraba por completo los datos del primero.
+        // Con un _pushId propio desde el momento en que se crea, dos altas
+        // simultáneas ya no pueden competir por el mismo lugar (ver
+        // guardarDiaEnFirebaseOptimizadoConModal/guardarPabellonEnFirebaseOptimizadoConModal
+        // en js/02, que usan _pushId para la clave de guardado cuando existe).
+        newRow._pushId = database.ref('registros_quirurgicos').push().key;
         rows.push(newRow);
         renderWeekView();
     }
