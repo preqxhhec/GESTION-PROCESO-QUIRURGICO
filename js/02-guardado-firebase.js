@@ -23,7 +23,14 @@
     // lento". 2 segundos sigue agrupando las pulsaciones de una misma
     // palabra/campo en un solo guardado, sin esperar a que la persona
     // termine de trabajar en toda la tabla.
-    const DEBOUNCE_DELAY = 2000;
+    const DEBOUNCE_DELAY = 5000;
+    // Los campos de Intervención Qx usan un combobox de sugerencias (ver
+    // crearComboboxIntervenciones() en js/05) que se cierra cuando la tabla
+    // se re-renderiza al terminar el auto-guardado — si eso pasa mientras el
+    // usuario todavía está eligiendo una opción, pierde la selección. Les
+    // damos más margen de inactividad antes de guardar/re-renderizar.
+    const DEBOUNCE_DELAY_INTERVENCION = 10000;
+    const CAMPOS_INTERVENCION = ['1ra_Intervencion_Qx_Realizada', '2da_Intervencion_Qx_Realizada', '3ra_Intervencion_Realizada'];
 
 // =============================================================
 // 💾 GUARDAR DÍA OPTIMIZADO (UNA SOLA LLAMADA A FIREBASE)
@@ -386,7 +393,7 @@ function marcarEdicionEnCursoConThrottle(rowKey) {
     }, EDICION_EN_CURSO_INACTIVIDAD_MS));
 }
 
-function triggerAutoSave(rowKey) {
+function triggerAutoSave(rowKey, col) {
     // 🛟 Esta fila tiene un cambio sin guardar desde ahora — ver el Set en
     // js/01 para el detalle de qué protege exactamente (solo esta fila, no
     // toda la tabla).
@@ -401,6 +408,8 @@ function triggerAutoSave(rowKey) {
     } else {
         console.log('🔄 Auto-save iniciado (esperando inactividad)');
     }
+
+    const delay = CAMPOS_INTERVENCION.includes(col) ? DEBOUNCE_DELAY_INTERVENCION : DEBOUNCE_DELAY;
 
     autoSaveTimeout = setTimeout(() => {
         if (!currentUser) {
@@ -440,7 +449,7 @@ function triggerAutoSave(rowKey) {
             }
             if (seccionEstaVisible('registro')) renderWeekView(true);
         })();
-    }, DEBOUNCE_DELAY);
+    }, delay);
 }
 
 // =============================================================
@@ -549,7 +558,7 @@ function asignarEventosDelegados() {
                     }
                 }
             }
-            triggerAutoSave(rowKey);
+            triggerAutoSave(rowKey, col);
         }
 
         input.addEventListener('input', function() {
@@ -798,7 +807,7 @@ document.querySelectorAll('#weekContent input[data-col="RUT"]').forEach(input =>
                     }
                 }
             }
-            triggerAutoSave(rowKey);
+            triggerAutoSave(rowKey, col);
         });
 
         // También escuchar change (para cuando se selecciona del dropdown)
