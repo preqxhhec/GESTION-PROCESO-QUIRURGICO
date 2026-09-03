@@ -226,12 +226,34 @@
         const existente = snapshot.val();
 
         if (existente && existente.sessionId && existente.sessionId !== miSessionId) {
-            await auth.signOut();
-            currentUser = null;
-            currentUserEmail = '';
-            currentUserRol = '';
-            mostrarLoginStatus('⛔ Esta cuenta ya tiene una sesión activa en otro equipo o pestaña. Ciérrala primero, o pide a un superadministrador que la libere desde el Panel de Administrador.', 'error');
-            return false;
+            // 🔓 Válvula de escape self-service: en este punto el usuario YA
+            // se autenticó de verdad con Firebase (credenciales correctas),
+            // así que confiamos en que sabe si esa "otra sesión" es
+            // realmente suya en otro equipo, o quedó pegada (ej. se apagó el
+            // equipo o se fue la luz antes de que onDisconnect avisara).
+            // Antes esto era un callejón sin salida para el
+            // superadministrador (nadie más puede liberar sesiones — ver
+            // liberarSesionUsuario en js/11), así que se ofrece liberarla acá
+            // mismo en vez de solo mostrar el error.
+            const dispositivoTexto = existente.dispositivo ? `<br><br><span style="font-size:0.78rem; color:#64748b; word-break:break-word;">${existente.dispositivo}</span>` : '';
+            const forzar = await showModal({
+                title: '⛔ Sesión activa en otro equipo',
+                message: `Esta cuenta ya tiene una sesión activa en otro equipo o pestaña.${dispositivoTexto}<br><br>Si estás seguro de que no la tienes abierta en ningún otro lugar (por ejemplo, se cerró sin avisar por un corte de luz), puedes cerrarla y continuar acá.`,
+                icon: '⛔',
+                confirmText: '🔓 Cerrar esa sesión y continuar aquí',
+                cancelText: 'Cancelar',
+                type: 'danger'
+            });
+
+            if (!forzar) {
+                await auth.signOut();
+                currentUser = null;
+                currentUserEmail = '';
+                currentUserRol = '';
+                mostrarLoginStatus('Inicio de sesión cancelado.', 'error');
+                return false;
+            }
+            // Continúa abajo: se sobreescribe sesionActiva con la de este equipo.
         }
 
         await ref.set({
