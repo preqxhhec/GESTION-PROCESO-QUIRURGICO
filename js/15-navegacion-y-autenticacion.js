@@ -277,16 +277,56 @@
             }
         });
 
+        // 👀 Vigilancia en vivo: hasta acá, "sesión única" solo evitaba que
+        // se BLOQUEARA un inicio de sesión nuevo — si esta pestaña ya
+        // estaba adentro y otra reclamaba la cuenta después (ej. alguien
+        // usa "Cerrar esa sesión y continuar aquí" desde otro equipo), esta
+        // pestaña seguía funcionando sin enterarse. Con este listener, en
+        // cuanto sesionActiva cambia a OTRO sessionId, esta pestaña se
+        // cierra sola. El primer valor que llega es el que se acaba de
+        // escribir arriba (mismo sessionId, no hace nada).
+        ref.on('value', function(snap) {
+            const val = snap.val();
+            if (val && val.sessionId && val.sessionId !== miSessionId) {
+                ref.off('value');
+                cerrarSesionPorTomaDeControl();
+            }
+        });
+
         return true;
     }
 
     async function liberarSesionActiva() {
         if (!refSesionActiva) return;
         try {
+            refSesionActiva.off('value');
             await refSesionActiva.remove();
         } catch (error) {
             console.error('❌ Error al liberar la sesión activa:', error);
         }
+    }
+
+    // Se dispara cuando OTRA pestaña/equipo toma la cuenta mientras esta
+    // seguía adentro. A diferencia de cerrarSesionInterna(), NO borra
+    // sesionActiva — ya no es de esta sesión, es de la que la reclamó.
+    async function cerrarSesionPorTomaDeControl() {
+        detenerSincronizacionTiempoReal();
+        detenerAutoSave();
+        detenerTemporizadoresInactividad();
+        refSesionActiva = null;
+        await auth.signOut();
+
+        currentUser = null;
+        currentUserEmail = '';
+        currentUserRol = '';
+
+        document.getElementById('userInfo').style.display = 'none';
+        loginContainer.style.display = 'flex';
+        appContainer.style.display = 'none';
+        appContainer.classList.remove('visible');
+        document.getElementById('weekContent').innerHTML = '';
+
+        mostrarLoginStatus('⚠️ Se inició sesión con esta cuenta desde otro equipo, así que esta sesión se cerró.', 'error');
     }
 
     // =============================================================
