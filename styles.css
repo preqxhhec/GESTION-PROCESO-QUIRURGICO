@@ -542,7 +542,12 @@ td:has(input[data-col="Hora_de_salida"]) input, td:has(input[data-col="T_QX"]) i
     display: flex;
     align-items: center;
     justify-content: center;
-    z-index: 9999;
+    /* 🔝 Por encima de TODO lo demás (incluido #loginContainer, que usa
+       99999) menos .rotate-overlay (999999) — un modal mostrado durante el
+       login (ej. el aviso de sesión activa en otro equipo) antes quedaba
+       dibujado detrás de la pantalla de login, invisible, esperando un
+       clic que nadie podía dar ("se queda verificando y no avanza"). */
+    z-index: 999998;
     padding: 20px;
     animation: modalOverlayIn 0.3s cubic-bezier(0.16, 1, 0.3, 1);
 }
