@@ -56,6 +56,7 @@ function renderToolbarPresentacionTabla() {
             </div>
             <button id="btnPresentacionTabla" type="button" style="background:#0b2a4f; color:white; border:none; padding:7px 16px; border-radius:20px; font-size:0.8rem; cursor:pointer; font-weight:600;">🎥 Presentación</button>
             <button id="btnDescargarPptTabla" type="button" style="background:#c0392b; color:white; border:none; padding:7px 16px; border-radius:20px; font-size:0.8rem; cursor:pointer; font-weight:600;">⬇️ Descargar PPT</button>
+            <button id="btnDescargarImagenesTabla" type="button" style="background:#7c3aed; color:white; border:none; padding:7px 16px; border-radius:20px; font-size:0.8rem; cursor:pointer; font-weight:600;">🖼️ Descargar Imágenes</button>
         </div>
     `;
 }
@@ -117,6 +118,7 @@ function inicializarToolbarPresentacionTabla() {
 
     document.getElementById('btnPresentacionTabla')?.addEventListener('click', abrirPresentacionTabla);
     document.getElementById('btnDescargarPptTabla')?.addEventListener('click', descargarPptTabla);
+    document.getElementById('btnDescargarImagenesTabla')?.addEventListener('click', descargarImagenesTabla);
 }
 
 // -------------------------------------------------------------
@@ -377,6 +379,207 @@ async function descargarPptTabla() {
         if (boton) {
             boton.disabled = false;
             boton.textContent = '⬇️ Descargar PPT';
+        }
+    }
+}
+
+// -------------------------------------------------------------
+// 🖼️ EXPORTAR IMÁGENES — dos modos, a elección del usuario:
+// - Separadas: una PNG por lámina (día), comprimidas en un .zip.
+// - Una por semana: Lunes a Viernes de cada semana seleccionada, apilados
+//   verticalmente en una sola imagen (sin Sábado/Domingo — así cabe más
+//   resolución por día dentro del límite de tamaño de Google Sheets).
+// Reutiliza capturarLaminaDiaTabla() — misma lámina que se ve en Presentación
+// y se inserta en el PPT, solo que acá se entrega suelta en vez de incrustada.
+// -------------------------------------------------------------
+async function descargarImagenesTabla() {
+    const laminas = obtenerLaminasTablaSeleccionadas();
+    if (laminas.length === 0) {
+        showModal({
+            title: '⚠️ Sin semanas seleccionadas',
+            message: 'Selecciona al menos una semana para descargar las imágenes.',
+            icon: '⚠️',
+            confirmText: 'Aceptar'
+        });
+        return;
+    }
+
+    const combinarPorSemana = await showModal({
+        title: '🖼️ Descargar Imágenes',
+        message: '¿Cómo quieres las imágenes?<br><br>' +
+            '<strong>🗂️ Separadas:</strong> una imagen por cada día.<br>' +
+            '<strong>📅 Una por semana:</strong> Lunes a Viernes de cada semana, apilados en una sola imagen.',
+        icon: '🖼️',
+        confirmText: '📅 Una por semana',
+        cancelText: '🗂️ Separadas'
+    });
+
+    if (combinarPorSemana) {
+        await descargarImagenesTablaPorSemana(laminas);
+    } else {
+        await descargarImagenesTablaSeparadas(laminas);
+    }
+}
+
+function descargarBlobComoArchivo(blob, nombreArchivo) {
+    const url = URL.createObjectURL(blob);
+    const a = document.createElement('a');
+    a.href = url;
+    a.download = nombreArchivo;
+    document.body.appendChild(a);
+    a.click();
+    document.body.removeChild(a);
+    URL.revokeObjectURL(url);
+}
+
+// Apila verticalmente varias capturas {dataUrl, width, height} (mismo ancho,
+// ya que todas salen de la misma plantilla) en un solo canvas/PNG.
+async function combinarCapturasVerticalmente(capturas, anchoMaximo = 2000) {
+    const imagenes = await Promise.all(capturas.map(c => new Promise((resolve, reject) => {
+        const img = new Image();
+        img.onload = () => resolve(img);
+        img.onerror = reject;
+        img.src = c.dataUrl;
+    })));
+
+    const anchoOriginal = Math.max(...capturas.map(c => c.width));
+    // 🖼️ El usuario necesita agrandar la imagen DENTRO de Sheets sin que se
+    // pixele, y eso solo se resuelve con más píxeles reales — ninguna
+    // compresión lo arregla (por eso PNG y no JPEG, ver el toDataURL de más
+    // abajo). Con las 7 láminas (Lun-Dom) ni "en la celda" ni "sobre las
+    // celdas" aceptaban el archivo aunque fuera sin recorte; ahora que
+    // descargarImagenesTablaPorSemana() solo arma Lunes-Viernes (5 láminas,
+    // no 7) hay margen para subir el ancho sin volver a pasarse del límite.
+
+    const factor = anchoOriginal > anchoMaximo ? anchoMaximo / anchoOriginal : 1;
+    const ancho = Math.round(anchoOriginal * factor);
+    const alto = Math.round(capturas.reduce((suma, c) => suma + c.height, 0) * factor);
+
+    const canvas = document.createElement('canvas');
+    canvas.width = ancho;
+    canvas.height = alto;
+    const ctx = canvas.getContext('2d');
+    ctx.fillStyle = '#ffffff';
+    ctx.fillRect(0, 0, ancho, alto);
+
+    let y = 0;
+    imagenes.forEach((img, i) => {
+        const alturaCaptura = Math.round(capturas[i].height * factor);
+        ctx.drawImage(img, 0, y, ancho, alturaCaptura);
+        y += alturaCaptura;
+    });
+
+    return { dataUrl: canvas.toDataURL('image/png'), width: ancho, height: alto };
+}
+
+async function descargarImagenesTablaSeparadas(laminas) {
+    const boton = document.getElementById('btnDescargarImagenesTabla');
+    if (boton) {
+        boton.disabled = true;
+        boton.textContent = '⏳ Generando...';
+    }
+
+    tablaPresentacionCache = {};
+
+    try {
+        if (typeof JSZip === 'undefined') throw new Error('JSZip no está disponible');
+
+        const zip = new JSZip();
+
+        for (let i = 0; i < laminas.length; i++) {
+            const lamina = laminas[i];
+            const captura = await capturarLaminaDiaTabla(lamina.semanaIdx, lamina.diaIdx);
+            const nombreDia = NOMBRES_DIAS_LARGOS_TABLA[DIAS[lamina.diaIdx]] || DIAS[lamina.diaIdx];
+            const nombreArchivo = `${String(i + 1).padStart(2, '0')}_${nombreDia}_Semana${lamina.semanaIdx + 1}.png`;
+            const base64 = captura.dataUrl.split(',')[1];
+            zip.file(nombreArchivo, base64, { base64: true });
+        }
+
+        const blob = await zip.generateAsync({ type: 'blob' });
+        const fechaStr = new Date().toISOString().slice(0, 10);
+        descargarBlobComoArchivo(blob, `Tabla_Quirurgica_Imagenes_${fechaStr}.zip`);
+
+    } catch (error) {
+        console.error('❌ Error al descargar imágenes de la Tabla Quirúrgica:', error);
+        showModal({
+            title: '❌ Error',
+            message: 'Hubo un problema al generar el archivo con las imágenes.<br>Intenta nuevamente.',
+            icon: '❌',
+            confirmText: 'Aceptar'
+        });
+    } finally {
+        if (boton) {
+            boton.disabled = false;
+            boton.textContent = '🖼️ Descargar Imágenes';
+        }
+    }
+}
+
+async function descargarImagenesTablaPorSemana(laminas) {
+    const boton = document.getElementById('btnDescargarImagenesTabla');
+    if (boton) {
+        boton.disabled = true;
+        boton.textContent = '⏳ Generando...';
+    }
+
+    tablaPresentacionCache = {};
+
+    try {
+        // Agrupar las láminas por semana (ya vienen ordenadas Lunes→Domingo
+        // dentro de cada semana, ver obtenerLaminasTablaSeleccionadas()).
+        // 🗓️ Solo Lunes a Viernes: sin Sábado/Domingo caben más píxeles por
+        // día dentro del límite de tamaño que acepta Google Sheets.
+        const porSemana = new Map();
+        laminas.forEach(lamina => {
+            if (lamina.diaIdx > 4) return; // 0=LUN ... 4=VIE, 5=SAB, 6=DOM
+            if (!porSemana.has(lamina.semanaIdx)) porSemana.set(lamina.semanaIdx, []);
+            porSemana.get(lamina.semanaIdx).push(lamina);
+        });
+        const semanasOrdenadas = Array.from(porSemana.keys()).sort((a, b) => a - b);
+
+        const combinadas = [];
+        for (const semanaIdx of semanasOrdenadas) {
+            const capturas = [];
+            for (const lamina of porSemana.get(semanaIdx)) {
+                capturas.push(await capturarLaminaDiaTabla(lamina.semanaIdx, lamina.diaIdx));
+            }
+            const combinada = await combinarCapturasVerticalmente(capturas);
+            combinadas.push({ semanaIdx, dataUrl: combinada.dataUrl });
+        }
+
+        const fechaStr = new Date().toISOString().slice(0, 10);
+
+        if (combinadas.length === 1) {
+            // Una sola semana: se descarga la imagen directo, sin .zip.
+            const a = document.createElement('a');
+            a.href = combinadas[0].dataUrl;
+            a.download = `Tabla_Quirurgica_Semana${combinadas[0].semanaIdx + 1}_${fechaStr}.png`;
+            document.body.appendChild(a);
+            a.click();
+            document.body.removeChild(a);
+        } else {
+            if (typeof JSZip === 'undefined') throw new Error('JSZip no está disponible');
+            const zip = new JSZip();
+            combinadas.forEach((img, i) => {
+                const base64 = img.dataUrl.split(',')[1];
+                zip.file(`${String(i + 1).padStart(2, '0')}_Semana${img.semanaIdx + 1}.png`, base64, { base64: true });
+            });
+            const blob = await zip.generateAsync({ type: 'blob' });
+            descargarBlobComoArchivo(blob, `Tabla_Quirurgica_Semanas_${fechaStr}.zip`);
+        }
+
+    } catch (error) {
+        console.error('❌ Error al generar la imagen combinada de la Tabla Quirúrgica:', error);
+        showModal({
+            title: '❌ Error',
+            message: 'Hubo un problema al generar la imagen combinada.<br>Intenta nuevamente.',
+            icon: '❌',
+            confirmText: 'Aceptar'
+        });
+    } finally {
+        if (boton) {
+            boton.disabled = false;
+            boton.textContent = '🖼️ Descargar Imágenes';
         }
     }
 }
