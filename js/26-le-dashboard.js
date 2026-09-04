@@ -531,7 +531,7 @@ function actualizarTablaLlamadosPendientes() {
         tr.innerHTML = `
             <td><strong>${patient.nombreApellido || '-'}</strong></td>
             <td>${patient.rut || '-'}</td>
-            <td>${patient.nContacto || '-'}</td>
+            <td>${leObtenerContactosPaciente(patient).join(', ') || '-'}</td>
             <td>${patient.especialidad || '-'}</td>
             <td><strong>${formatDate(patient.fechaProximoLlamado)}</strong></td>
             <td><strong style="color:${estadoColor};">${estadoTexto}</strong></td>

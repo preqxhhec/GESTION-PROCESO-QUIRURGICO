@@ -56,7 +56,7 @@ function downloadExcel() {
         "Fecha Indicación Qx": p.fechaIndQx || '', "Nombre y Apellido": p.nombreApellido || '', "RUT": p.rut || '',
         "Fecha Nacimiento": p.fechaNac || '', "Edad": p.edad || '', "Patologías Crónicas": p.patologiasCronicas || '',
         "Medicamentos Crónicos": p.medicamentosCronicos || '', "Comuna": p.comuna || '', "Dirección": p.direccion || '',
-        "N° Contacto": p.nContacto || '', "Email": p.emailPaciente || '', "Especialidad": p.especialidad || '',
+        "N° Contacto": leObtenerContactosPaciente(p).join(', '), "Email": p.emailPaciente || '', "Especialidad": p.especialidad || '',
         "Médico Tratante": p.medicoTratante || '', "Diagnóstico (CIE10)": p.diagnostico || '', "Lateralidad": p.lateralidad || '',
         "Intervención": p.intervencion || '', "Estatus EPA": p.estatusEpa || '', "Anestesiólogo": p.anestesiologo || '',
         "Fecha EPA": p.fechaEpa || '', "GES": p.ges || '', "TACO": p.taco || '', "ASA": p.asa || '', "EKG": p.ekg || '',
@@ -133,7 +133,7 @@ function printPatient() {
                 <p><span class="label">Fecha Nacimiento:</span> ${formatDate(p.fechaNac)}</p>
                 <p><span class="label">Comuna:</span> ${p.comuna || '-'}</p>
                 <p><span class="label">Dirección:</span> ${p.direccion || '-'}</p>
-                <p><span class="label">N° Contacto:</span> ${p.nContacto || '-'}</p>
+                <p><span class="label">N° Contacto:</span> ${leObtenerContactosPaciente(p).join(', ') || '-'}</p>
                 <p><span class="label">Email:</span> ${p.emailPaciente || '-'}</p>
             </div>
             <hr>
@@ -363,7 +363,7 @@ async function leRecopilarLlamadasFiltradas() {
 
             todasLasLlamadas.push({
                 rut: patientCompleto.rut || '', nombre: patientCompleto.nombreApellido || '',
-                telefono: patientCompleto.nContacto || '', especialidad: patientCompleto.especialidad || '',
+                telefono: leObtenerContactosPaciente(patientCompleto).join(', '), especialidad: patientCompleto.especialidad || '',
                 fechaLlamada: fechaLlamadaFormateada, motivo: llamada.motivo || '', receptor: llamada.nombreRec || '',
                 rutReceptor: llamada.rutRec || '', parentesco: llamada.parentesco || '', respuesta: llamada.respuesta || '',
                 observaciones: (llamada.observaciones || '').toString().substring(0, 100), proximoLlamado: fechaProximoFormateada,
@@ -483,7 +483,7 @@ function imprimirTodasLasLlamadas() {
     patients.forEach(patient => {
         if (!patient.historialLlamadas) return;
         Object.values(patient.historialLlamadas).forEach(llamada => {
-            todasLasLlamadas.push({ paciente: patient.nombreApellido, rut: patient.rut, telefono: patient.nContacto, ...llamada });
+            todasLasLlamadas.push({ paciente: patient.nombreApellido, rut: patient.rut, telefono: leObtenerContactosPaciente(patient).join(', '), ...llamada });
         });
     });
 

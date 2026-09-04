@@ -91,7 +91,8 @@ function leRenderNuevoPacienteHTML() {
             <div class="form-row">
                 <div class="form-group">
                     <label>N° Contacto</label>
-                    <input type="tel" id="nContacto">
+                    <div id="contactosContainer"></div>
+                    <button type="button" onclick="leAgregarCampoContacto()" title="Agregar otro número" style="background:#16a34a; color:white; border:none; width:26px; height:26px; border-radius:50%; font-size:1.1rem; font-weight:700; cursor:pointer; line-height:1; padding:0;">+</button>
                 </div>
                 <div class="form-group">
                     <label>E-mail</label>
@@ -191,9 +192,51 @@ function leRenderNuevoPacienteHTML() {
     `;
 }
 
+// -------------------------------------------------------------
+// 📞 CAMPOS DINÁMICOS DE N° CONTACTO (uno o varios números)
+// El paciente puede tener más de un número (ej. el suyo y el de un
+// familiar) — cada uno vive en su propio <input> dentro de
+// #contactosContainer, con un botón "+" verde para agregar otro. Se
+// guardan como patients/{key}.contactos (array), y el primero también
+// queda en patients/{key}.nContacto por compatibilidad con fichas viejas
+// y con todas las pantallas que todavía solo leen ese campo (ver
+// leObtenerContactosPaciente() en js/23).
+// -------------------------------------------------------------
+function leAgregarCampoContacto(valor = '') {
+    const container = document.getElementById('contactosContainer');
+    if (!container) return;
+    const row = document.createElement('div');
+    row.className = 'contacto-row';
+    row.style.cssText = 'display:flex; gap:6px; margin-bottom:6px; align-items:center;';
+    row.innerHTML = `
+        <input type="tel" class="contacto-input" value="${valor}" placeholder="Ej: +56 9 1234 5678" style="flex:1;">
+        <button type="button" onclick="this.closest('.contacto-row').remove()" title="Quitar este número" style="background:#fee2e2; color:#dc2626; border:none; width:24px; height:24px; border-radius:50%; font-size:0.9rem; font-weight:700; cursor:pointer; line-height:1; flex-shrink:0; padding:0;">✕</button>
+    `;
+    container.appendChild(row);
+}
+
+// Lee todos los <input class="contacto-input"> con valor, en orden.
+function leObtenerContactosDelFormulario() {
+    return Array.from(document.querySelectorAll('#contactosContainer .contacto-input'))
+        .map(input => input.value.trim())
+        .filter(v => v !== '');
+}
+
+// Reconstruye #contactosContainer desde una lista de números (siempre deja
+// al menos un campo vacío si la lista viene vacía, para que el "+" tenga
+// dónde partir).
+function leEstablecerContactosEnFormulario(lista) {
+    const container = document.getElementById('contactosContainer');
+    if (!container) return;
+    container.innerHTML = '';
+    const valores = (lista && lista.length > 0) ? lista : [''];
+    valores.forEach(v => leAgregarCampoContacto(v));
+}
+
 function leInicializarSeccionNuevoPaciente(container) {
     container.innerHTML = leRenderNuevoPacienteHTML();
     leCargarDesplegablesFormularioPaciente();
+    leEstablecerContactosEnFormulario([]);
 
     document.getElementById('patientForm').addEventListener('submit', leGuardarPaciente);
     document.getElementById('btnCancelarEdicion').addEventListener('click', leCancelarEdicionPaciente);
@@ -349,6 +392,11 @@ async function leGuardarPaciente(e) {
     isSubmittingPaciente = true;
     leMostrarCargando();
 
+    // El primero queda además en nContacto — compatibilidad con fichas
+    // viejas y pantallas que todavía solo leen ese campo (ver
+    // leObtenerContactosPaciente() en js/23).
+    const contactosFormulario = leObtenerContactosDelFormulario();
+
     const patientData = {
         id: document.getElementById('patientId').value || Date.now().toString().slice(-6),
         estatusTabla: document.getElementById('estatusTabla').value,
@@ -361,7 +409,8 @@ async function leGuardarPaciente(e) {
         medicamentosCronicos: document.getElementById('medicamentosCronicos').value,
         comuna: document.getElementById('comuna').value,
         direccion: document.getElementById('direccion').value,
-        nContacto: document.getElementById('nContacto').value,
+        nContacto: contactosFormulario[0] || '',
+        contactos: contactosFormulario,
         emailPaciente: document.getElementById('emailPaciente').value,
         especialidad: document.getElementById('especialidad').value,
         medicoTratante: document.getElementById('medicoTratante').value,
@@ -393,10 +442,15 @@ async function leGuardarPaciente(e) {
             const oldData = currentModalPatient || {};
             let cambios = [];
 
+            // Los arrays (por ahora solo "contactos") se comparan como texto
+            // separado por ", " en vez del toString() por defecto (que junta
+            // con comas sin espacio) — mismo criterio en ambos lados.
+            const aTexto = (v) => Array.isArray(v) ? v.join(', ') : (v || '').toString();
+
             Object.keys(patientData).forEach(key => {
                 if (['timestamp', 'registro'].includes(key)) return;
-                const oldVal = (oldData[key] || '').toString().trim();
-                const newVal = (patientData[key] || '').toString().trim();
+                const oldVal = aTexto(oldData[key]).trim();
+                const newVal = aTexto(patientData[key]).trim();
                 if (oldVal !== newVal) {
                     if (key === 'observaciones' || key === 'indicacionesAnest') {
                         const agregado = newVal.replace(oldVal, '').trim();
@@ -450,6 +504,10 @@ async function leGuardarPaciente(e) {
 function leResetFormularioPaciente() {
     const form = document.getElementById('patientForm');
     if (form) form.reset();
+    // form.reset() no sabe de las filas de contacto agregadas con el "+"
+    // (no son parte del formulario original) — se reconstruye a mano,
+    // volviendo a un solo campo vacío.
+    leEstablecerContactosEnFormulario([]);
     currentPatientKey = null;
     const btnCancelar = document.getElementById('btnCancelarEdicion');
     if (btnCancelar) btnCancelar.style.display = 'none';
@@ -480,7 +538,7 @@ function leRellenarFormularioParaEdicion() {
 
     const campos = [
         'patientId', 'estatusTabla', 'fechaIndQx', 'nombreApellido', 'rut', 'fechaNac',
-        'patologiasCronicas', 'medicamentosCronicos', 'comuna', 'direccion', 'nContacto',
+        'patologiasCronicas', 'medicamentosCronicos', 'comuna', 'direccion',
         'emailPaciente', 'especialidad', 'medicoTratante', 'diagnostico', 'lateralidad',
         'intervencion', 'estatusEpa', 'anestesiologo', 'fechaEpa', 'ges', 'taco', 'asa',
         'ekg', 'rx', 'eco', 'prioridad', 'observaciones', 'indicacionesAnest', 'folio',
@@ -491,6 +549,11 @@ function leRellenarFormularioParaEdicion() {
         const elemento = document.getElementById(key);
         if (elemento) elemento.value = currentModalPatient[key] || '';
     });
+
+    // 'nContacto' salió del loop genérico de arriba: ahora son N campos
+    // dinámicos, no un solo <input> — se reconstruyen desde "contactos" (o
+    // desde el viejo "nContacto" si la ficha es de antes de este cambio).
+    leEstablecerContactosEnFormulario(leObtenerContactosPaciente(currentModalPatient));
 
     // 'patientId' del formulario en realidad guarda el campo "id" del
     // paciente (mismo comportamiento que el original).

@@ -143,6 +143,23 @@ function leYaEstaEnTabla(paciente) {
     return LE_ESTADOS_YA_EN_TABLA.includes(estatus);
 }
 
+// 📞 Números de contacto de un paciente, como array — el campo nuevo
+// "contactos" (varios números, agregado desde el formulario con el botón
+// "+") es la fuente de verdad; se cae a "nContacto" (el campo viejo, un
+// solo número) para fichas creadas antes de este cambio. Centralizado acá
+// porque lo usan el formulario (js/24), el modal de detalle (js/25), el
+// dashboard (js/26), el registro de llamadas (js/27), las exportaciones
+// (js/28) y el envío de WhatsApp (js/32) — todos deben mostrar/elegir
+// entre TODOS los números guardados, no solo el primero.
+function leObtenerContactosPaciente(paciente) {
+    if (!paciente) return [];
+    if (Array.isArray(paciente.contactos) && paciente.contactos.length > 0) {
+        return paciente.contactos.filter(n => (n || '').toString().trim() !== '');
+    }
+    if (paciente.nContacto) return [paciente.nContacto];
+    return [];
+}
+
 // Datos de pacientes (patients/{key} en Firebase) y estado de navegación
 // del formulario/modal — compartidos por js/24 (alta) y js/25 (lista/modal).
 let patients = [];

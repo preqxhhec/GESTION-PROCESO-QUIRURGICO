@@ -571,7 +571,7 @@ function abrirModalRegistroLlamada(patientKey) {
 
     document.getElementById('llamadaPacienteNombre').textContent = patient.nombreApellido || '-';
     document.getElementById('llamadaPacienteRut').textContent = patient.rut || '-';
-    document.getElementById('llamadaPacienteContacto').textContent = patient.nContacto || '-';
+    document.getElementById('llamadaPacienteContacto').textContent = leObtenerContactosPaciente(patient).join(', ') || '-';
     document.getElementById('llamadaPacienteObservaciones').innerHTML = patient.observaciones || 'Sin observaciones registradas';
     document.getElementById('llamadaPacienteIndicaciones').innerHTML = patient.indicacionesAnest || 'Sin indicaciones registradas';
 

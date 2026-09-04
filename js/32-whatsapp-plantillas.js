@@ -120,15 +120,63 @@ async function mostrarModalWhatsApp(rowKey) {
     }
 
     const pacienteLE = buscarPacienteListaEsperaParaFila(fila);
-    const telefonoEncontrado = (pacienteLE && pacienteLE.nContacto) ? pacienteLE.nContacto : '';
+    const numerosGuardados = leObtenerContactosPaciente(pacienteLE);
 
-    let telefono = telefonoEncontrado;
-    if (!telefono) {
+    let telefono;
+    if (numerosGuardados.length === 0) {
         telefono = await pedirTelefonoManual(fila, pacienteLE);
+        if (!telefono) return; // canceló
+    } else if (numerosGuardados.length === 1) {
+        telefono = numerosGuardados[0];
+    } else {
+        telefono = await pedirNumeroWhatsApp(numerosGuardados, fila, pacienteLE);
         if (!telefono) return; // canceló
     }
 
     await mostrarModalElegirPlantilla(rowKey, fila, pabName, telefono, pacienteLE);
+}
+
+// -------------------------------------------------------------
+// 🪟 MODAL 0 (solo si hay 2+ números guardados): elegir a cuál enviar
+// -------------------------------------------------------------
+function pedirNumeroWhatsApp(numeros, fila, pacienteLE) {
+    return new Promise((resolve) => {
+        const overlay = document.createElement('div');
+        overlay.className = 'modal-overlay';
+        overlay.innerHTML = `
+            <div class="modal-box" style="max-width: 420px;">
+                <span class="modal-icon">📱</span>
+                <div class="modal-title">Elegir número</div>
+                <div class="modal-message" style="margin-bottom:12px;">
+                    <strong>${(pacienteLE && pacienteLE.nombreApellido) || fila['Nombre_Paciente'] || 'Este paciente'}</strong> tiene más de un número guardado. ¿A cuál enviar el mensaje?
+                </div>
+                <div id="whatsappListaNumeros" style="display:flex; flex-direction:column; gap:6px; margin-bottom:16px;">
+                    ${numeros.map((num, i) => `
+                        <button class="whatsapp-numero-btn" data-idx="${i}" style="text-align:left; padding:10px 14px; border:2px solid #e2e8f0; border-radius:10px; background:#f8fafc; cursor:pointer; font-size:0.9rem; font-weight:600; color:#1e293b;">
+                            📞 ${num}
+                        </button>
+                    `).join('')}
+                </div>
+                <div class="modal-actions">
+                    <button class="modal-btn modal-btn-cancel" id="whatsappNumeroCancelar">Cancelar</button>
+                </div>
+            </div>
+        `;
+        document.body.appendChild(overlay);
+
+        function cerrar(valor) {
+            overlay.remove();
+            resolve(valor);
+        }
+
+        overlay.querySelectorAll('.whatsapp-numero-btn').forEach(btn => {
+            btn.addEventListener('click', function() {
+                cerrar(numeros[parseInt(this.dataset.idx, 10)]);
+            });
+        });
+        overlay.querySelector('#whatsappNumeroCancelar').addEventListener('click', () => cerrar(null));
+        overlay.addEventListener('click', function(e) { if (e.target === overlay) cerrar(null); });
+    });
 }
 
 function pedirTelefonoManual(fila, pacienteLE) {
@@ -175,7 +223,11 @@ function pedirTelefonoManual(fila, pacienteLE) {
             const chkGuardar = overlay.querySelector('#whatsappGuardarEnLE');
             if (pacienteLE && chkGuardar && chkGuardar.checked) {
                 try {
-                    await database.ref('patients/' + pacienteLE.firebaseKey).update({ nContacto: valor });
+                    // Este modal solo se abre cuando el paciente no tenía
+                    // NINGÚN número guardado (ver mostrarModalWhatsApp), así
+                    // que "contactos" también parte vacío — se deja como el
+                    // primer y único número, igual que nContacto.
+                    await database.ref('patients/' + pacienteLE.firebaseKey).update({ nContacto: valor, contactos: [valor] });
                 } catch (error) {
                     console.error('❌ Error al guardar teléfono en Lista de Espera:', error);
                 }

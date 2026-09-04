@@ -782,7 +782,7 @@ function leShowPatientModal(key) {
             <p><strong>Edad:</strong> ${currentModalPatient.edad || '-'} años</p>
             <p><strong>Comuna:</strong> ${currentModalPatient.comuna || '-'}</p>
             <p><strong>Dirección:</strong> ${currentModalPatient.direccion || '-'}</p>
-            <p><strong>N° Contacto:</strong> ${currentModalPatient.nContacto || '-'}</p>
+            <p><strong>N° Contacto:</strong> ${leObtenerContactosPaciente(currentModalPatient).join(', ') || '-'}</p>
             <p><strong>Email:</strong> ${currentModalPatient.emailPaciente || '-'}</p>
         </div>
         <h3 style="color:#1e40af; background:#f1f5f9; padding:12px 20px; border-radius:8px; margin-bottom:18px;">🩺 Datos Clínicos</h3>
