@@ -37,6 +37,7 @@ function leRenderListaPacientesHTML() {
             <div class="filter-group"><label>Especialidad</label><select id="filterEspecialidad" onchange="leActualizarFiltroMedicos(); leFilterPatients();"></select></div>
             <div class="filter-group"><label>Médico Tratante</label><select id="filterMedico" onchange="leFilterPatients()"><option value="">Todos los Médicos</option></select></div>
             <div class="filter-group"><label>Estatus Tabla</label><select id="filterEstatus" onchange="leFilterPatients()"></select></div>
+            <div class="filter-group"><label>Estatus EPA</label><select id="filterEstatusEpa" onchange="leFilterPatients()"></select></div>
             <div class="filter-group">
                 <label>Prioridad</label>
                 <select id="filterPrioridad" onchange="leFilterPatients()">
@@ -126,6 +127,12 @@ function leCargarFiltrosListaPacientes() {
     if (filterEstatus) {
         filterEstatus.innerHTML = '<option value="">Todos los Estatus</option>' +
             estatusTablaLista.map(opt => `<option value="${opt}">${opt}</option>`).join('');
+    }
+
+    const filterEstatusEpa = document.getElementById('filterEstatusEpa');
+    if (filterEstatusEpa) {
+        filterEstatusEpa.innerHTML = '<option value="">Todos los Estatus EPA</option>' +
+            estatusEpaLista.map(opt => `<option value="${opt}">${opt}</option>`).join('');
     }
 
     const filterComuna = document.getElementById('filterComuna');
@@ -276,6 +283,7 @@ function leFilterPatients() {
     const especialidad = document.getElementById('filterEspecialidad')?.value || '';
     const medico = document.getElementById('filterMedico')?.value || '';
     const estatus = document.getElementById('filterEstatus')?.value || '';
+    const estatusEpa = document.getElementById('filterEstatusEpa')?.value || '';
     const prioridad = document.getElementById('filterPrioridad')?.value || '';
     const ges = document.getElementById('filterGes')?.value || '';
     const comuna = document.getElementById('filterComuna')?.value || '';
@@ -293,6 +301,7 @@ function leFilterPatients() {
         if (especialidad && p.especialidad !== especialidad) pasa = false;
         if (medico && p.medicoTratante !== medico) pasa = false;
         if (estatus && p.estatusTabla !== estatus) pasa = false;
+        if (estatusEpa && p.estatusEpa !== estatusEpa) pasa = false;
         if (prioridad && p.prioridad !== prioridad) pasa = false;
         if (ges && p.ges !== ges) pasa = false;
         if (comuna && p.comuna !== comuna) pasa = false;
@@ -366,6 +375,7 @@ function leGetCurrentFilteredData() {
     const especialidad = document.getElementById('filterEspecialidad')?.value || '';
     const medico = document.getElementById('filterMedico')?.value || '';
     const estatus = document.getElementById('filterEstatus')?.value || '';
+    const estatusEpa = document.getElementById('filterEstatusEpa')?.value || '';
     const prioridad = document.getElementById('filterPrioridad')?.value || '';
     const ges = document.getElementById('filterGes')?.value || '';
     const comuna = document.getElementById('filterComuna')?.value || '';
@@ -380,6 +390,7 @@ function leGetCurrentFilteredData() {
     if (especialidad) filtered = filtered.filter(p => p.especialidad === especialidad);
     if (medico) filtered = filtered.filter(p => p.medicoTratante === medico);
     if (estatus) filtered = filtered.filter(p => p.estatusTabla === estatus);
+    if (estatusEpa) filtered = filtered.filter(p => p.estatusEpa === estatusEpa);
     if (prioridad) filtered = filtered.filter(p => p.prioridad === prioridad);
     if (ges) filtered = filtered.filter(p => p.ges === ges);
     if (comuna) filtered = filtered.filter(p => p.comuna === comuna);
@@ -465,6 +476,7 @@ function leObtenerTextoFiltros() {
     const especialidad = document.getElementById('filterEspecialidad')?.value || '';
     const medico = document.getElementById('filterMedico')?.value || '';
     const estatus = document.getElementById('filterEstatus')?.value || '';
+    const estatusEpa = document.getElementById('filterEstatusEpa')?.value || '';
     const prioridad = document.getElementById('filterPrioridad')?.value || '';
     const ges = document.getElementById('filterGes')?.value || '';
     const comuna = document.getElementById('filterComuna')?.value || '';
@@ -476,6 +488,7 @@ function leObtenerTextoFiltros() {
     if (especialidad) filtros.push(`🏥 Especialidad: ${especialidad}`);
     if (medico) filtros.push(`👨‍⚕️ Médico: ${medico}`);
     if (estatus) filtros.push(`📊 Estatus: ${estatus}`);
+    if (estatusEpa) filtros.push(`🔬 Estatus EPA: ${estatusEpa}`);
     if (prioridad) filtros.push(`⚠️ Prioridad: ${prioridad}`);
     if (ges) filtros.push(`✅ GES: ${ges}`);
     if (comuna) filtros.push(`🏠 Comuna: ${comuna}`);
@@ -573,7 +586,7 @@ function leClearFilters() {
     filtroPercentil = '';
     mostrarMultiEspecialidad = false;
 
-    ['busquedaGeneral', 'filterEspecialidad', 'filterMedico', 'filterEstatus', 'filterPrioridad',
+    ['busquedaGeneral', 'filterEspecialidad', 'filterMedico', 'filterEstatus', 'filterEstatusEpa', 'filterPrioridad',
         'filterGes', 'filterComuna', 'filterFechaDesde', 'filterFechaHasta', 'filterPercentil'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.value = '';
@@ -628,6 +641,7 @@ function leGuardarFiltrosEnStorage() {
         filterEspecialidad: document.getElementById('filterEspecialidad')?.value || '',
         filterMedico: document.getElementById('filterMedico')?.value || '',
         filterEstatus: document.getElementById('filterEstatus')?.value || '',
+        filterEstatusEpa: document.getElementById('filterEstatusEpa')?.value || '',
         filterPrioridad: document.getElementById('filterPrioridad')?.value || '',
         filterGes: document.getElementById('filterGes')?.value || '',
         filterComuna: document.getElementById('filterComuna')?.value || '',
@@ -648,7 +662,7 @@ function leRestaurarFiltros() {
     leCargarFiltrosDesdeStorage();
 
     setTimeout(() => {
-        ['busquedaGeneral', 'filterEspecialidad', 'filterMedico', 'filterEstatus', 'filterPrioridad',
+        ['busquedaGeneral', 'filterEspecialidad', 'filterMedico', 'filterEstatus', 'filterEstatusEpa', 'filterPrioridad',
             'filterGes', 'filterComuna', 'filterFechaDesde', 'filterFechaHasta', 'filterPercentil'].forEach(id => {
             const el = document.getElementById(id);
             if (el) el.value = leLastFilters[id] || '';
