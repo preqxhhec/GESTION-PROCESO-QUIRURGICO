@@ -38,6 +38,7 @@
         weekContent.style.display = 'none';
         diferidosContent.style.display = 'none';
         libroContent.style.display = 'none';
+        if (oftalmologiaContent) oftalmologiaContent.style.display = 'none';
         if (estadisticasContent) estadisticasContent.style.display = 'none';
         adminContent.style.display = 'none';
         manualContent.style.display = 'none';
@@ -77,6 +78,15 @@
             if (daysGrid) daysGrid.style.display = 'none';
             if (weekContainer) weekContainer.style.display = 'none';
             cargarLibroQuirofano();
+
+        } else if (seccion === 'oftalmologia') {
+            if (oftalmologiaContent) oftalmologiaContent.style.display = 'block';
+            if (navOftalmologia) navOftalmologia.classList.add('active');
+            seccionActiva = 'oftalmologia';
+            if (tabContainer) tabContainer.style.display = 'none';
+            if (daysGrid) daysGrid.style.display = 'none';
+            if (weekContainer) weekContainer.style.display = 'none';
+            cargarTablaOftalmologia();
 
         } else if (seccion === 'estadisticas') {
             estadisticasContent.style.display = 'block';
@@ -696,6 +706,12 @@
         });
     }
 
+    if (navOftalmologia) {
+        navOftalmologia.addEventListener('click', function() {
+            cambiarSeccion('oftalmologia');
+        });
+    }
+
     if (navEstadisticas) {
         navEstadisticas.addEventListener('click', function() {
             cambiarSeccion('estadisticas');
@@ -775,6 +791,7 @@
         { key: 'registro', label: '📋 Tabla Quirúrgica', grupoIds: ['tabContainer', 'weekContent'], cargar: () => renderWeekView() },
         { key: 'diferidos', label: '📤 Pacientes Diferidos', grupoIds: ['diferidosContent'], cargar: () => cargarPacientesDiferidos() },
         { key: 'libro', label: '📘 Libro de Quirófano', grupoIds: ['libroContent'], cargar: () => cargarLibroQuirofano() },
+        { key: 'oftalmologia', label: '👁️ Tabla Oftalmología', grupoIds: ['oftalmologiaContent'], cargar: () => cargarTablaOftalmologia() },
         { key: 'estadisticas', label: '📊 Estadísticas', grupoIds: ['estadisticasContent'], cargar: () => cargarEstadisticas() },
         { key: 'admin', label: '⚙️ Administrador', grupoIds: ['adminContent'], cargar: () => cargarAdmin() },
         { key: 'manual', label: '📖 Manual de Usuario', grupoIds: ['manualContent'], cargar: () => cargarManual() },
@@ -883,6 +900,7 @@
         weekContent.style.display = 'none';
         diferidosContent.style.display = 'none';
         libroContent.style.display = 'none';
+        if (oftalmologiaContent) oftalmologiaContent.style.display = 'none';
         if (estadisticasContent) estadisticasContent.style.display = 'none';
         adminContent.style.display = 'none';
         manualContent.style.display = 'none';

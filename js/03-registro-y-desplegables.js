@@ -659,6 +659,15 @@ async function cargarDatosDesdeFirebase() {
         console.error('❌ Error en sincronización de libro:', error);
     });
 
+    database.ref('registros_oftalmologia').on('value', function(snapshot) {
+        if (seccionEstaVisible('oftalmologia')) {
+            console.log('🔄 Actualizando Tabla Oftalmología...');
+            cargarTablaOftalmologia();
+        }
+    }, function(error) {
+        console.error('❌ Error en sincronización de Tabla Oftalmología:', error);
+    });
+
     // ✅ SINCRONIZACIÓN DE DESPLEGABLES EN TIEMPO REAL
     const keysDesplegables = ['Jornada', 'ESTADO_DE_IQx', 'DESTINO', 'Especialidad', 'Anestesista'];
     keysDesplegables.forEach(key => {
@@ -789,6 +798,7 @@ function aplicarAvisosEdicionEnCurso() {
     database.ref('registros_quirurgicos').off();
     database.ref('pacientes_diferidos').off();
     database.ref('registros_definitivos').off();
+    database.ref('registros_oftalmologia').off();
     database.ref('edicion_en_curso').off();
     database.ref('.info/serverTimeOffset').off();
     detenerEscuchaEdicionEnCurso();

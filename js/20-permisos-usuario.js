@@ -10,6 +10,7 @@ const SECCIONES_APP = [
     { key: 'registro', label: '📋 Tabla Quirúrgica' },
     { key: 'diferidos', label: '📤 Pacientes Diferidos' },
     { key: 'libro', label: '📘 Libro de Quirófano' },
+    { key: 'oftalmologia', label: '👁️ Tabla Oftalmología' },
     { key: 'estadisticas', label: '📊 Estadísticas' },
     { key: 'manual', label: '📖 Manual de Usuario' },
     { key: 'listaEspera', label: '🩺 Lista de Espera' }
@@ -45,7 +46,8 @@ const ACCIONES_POR_SECCION = {
         { key: 'registro_diferir', label: '⏩ Diferir' },
         { key: 'registro_reubicar', label: '🔄 Reubicar' },
         { key: 'registro_eliminarFila', label: '🗑️ Eliminar Fila' },
-        { key: 'registro_whatsapp', label: '💬 Enviar WhatsApp' }
+        { key: 'registro_whatsapp', label: '💬 Enviar WhatsApp' },
+        { key: 'registro_tablaOftalmologia', label: '👁️ Tabla Oftalmología (botón por día)' }
     ],
     libro: [
         { key: 'libro_exportarExcel', label: '📊 Exportar a Excel' }
@@ -53,6 +55,9 @@ const ACCIONES_POR_SECCION = {
     diferidos: [
         { key: 'diferidos_reintegrar', label: '↩️ Reintegrar' },
         { key: 'diferidos_eliminar', label: '🗑️ Eliminar' }
+    ],
+    oftalmologia: [
+        { key: 'oftalmologia_eliminar', label: '🗑️ Eliminar registro' }
     ],
     estadisticas: [
         { key: 'estadisticas_presentacionPpt', label: '🎥 Presentación / ⬇️ Descargar PPT' }
@@ -94,6 +99,7 @@ function obtenerPrimeraSeccionAccesible() {
 function aplicarPermisosNavegacion() {
     const botonesPorSeccion = {
         registro: 'navRegistro', diferidos: 'navDiferidos', libro: 'navLibro',
+        oftalmologia: 'navOftalmologia',
         estadisticas: 'navEstadisticas', manual: 'navManual', listaEspera: 'navListaEspera'
     };
     const navReunionTabla = document.getElementById('navReunionTabla');
@@ -133,7 +139,7 @@ function mostrarSinAccesoSecciones() {
             <p>Contacta al administrador para que te asigne permisos.</p>
         </div>
     `;
-    ['diferidosContent', 'libroContent', 'estadisticasContent', 'adminContent', 'manualContent', 'listaEsperaContent'].forEach(id => {
+    ['diferidosContent', 'libroContent', 'oftalmologiaContent', 'estadisticasContent', 'adminContent', 'manualContent', 'listaEsperaContent'].forEach(id => {
         const el = document.getElementById(id);
         if (el) el.style.display = 'none';
     });

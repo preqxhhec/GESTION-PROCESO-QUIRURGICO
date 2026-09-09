@@ -5,12 +5,14 @@
     const navRegistro = document.getElementById('navRegistro');
     const navDiferidos = document.getElementById('navDiferidos');
     const navLibro = document.getElementById('navLibro');
+    const navOftalmologia = document.getElementById('navOftalmologia');
     const navEstadisticas = document.getElementById('navEstadisticas');
     const navAdmin = document.getElementById('navAdmin');
     const navManual = document.getElementById('navManual');
     const navListaEspera = document.getElementById('navListaEspera');
     const diferidosContent = document.getElementById('diferidosContent');
     const libroContent = document.getElementById('libroContent');
+    const oftalmologiaContent = document.getElementById('oftalmologiaContent');
     const estadisticasContent = document.getElementById('estadisticasContent');
     const adminContent = document.getElementById('adminContent');
     const manualContent = document.getElementById('manualContent');

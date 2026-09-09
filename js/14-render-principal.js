@@ -241,6 +241,15 @@ async function renderWeekView(esAutoSave = false) {
         });
     });
 
+    document.querySelectorAll('#weekContent [data-action="tablaOftalmologia"]').forEach(btn => {
+        btn.addEventListener('click', function() {
+            const dayKey = this.dataset.daykey;
+            if (dayKey) {
+                abrirTablaOftalmologia(dayKey);
+            }
+        });
+    });
+
     // 🎯 CAUSAL Y MOTIVO DE SUSPENSIÓN
     document.querySelectorAll('#weekContent .causal-select').forEach(select => {
         select.addEventListener('change', function() {

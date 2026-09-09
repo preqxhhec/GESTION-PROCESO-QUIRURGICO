@@ -82,11 +82,14 @@ async function renderDayTable(dayData, semanaIdx, diaIdx) {
         `<button class="btn-sm btn-save" data-action="saveDay" data-daykey="${dayKey}">💾 Guardar Día</button>` : '';
     const mostrarLimpiarDia = usuarioTieneAccesoSeccion('registro_limpiar') ?
         `<button class="btn-sm btn-clear" data-action="clearDay" data-daykey="${dayKey}">🗑️ Limpiar Día</button>` : '';
+    const mostrarTablaOftalmologia = usuarioTieneAccesoSeccion('registro_tablaOftalmologia') ?
+        `<button class="btn-sm" data-action="tablaOftalmologia" data-daykey="${dayKey}" style="background:#0b2a4f; color:white; border:none; padding:6px 16px; border-radius:30px; font-size:0.7rem; font-weight:500; cursor:pointer;">👁️ Tabla Oftalmología</button>` : '';
 
     html += `<div class="day-title">
         <span>📋 ${dia}</span>
         <div class="btn-group">
             ${mostrarImprimirDia}
+            ${mostrarTablaOftalmologia}
             ${mostrarGuardarDia}
             ${mostrarRegistrar}
             ${mostrarLimpiarDia}
