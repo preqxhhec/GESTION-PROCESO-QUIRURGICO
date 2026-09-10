@@ -160,7 +160,11 @@ function aplicarSoloLecturaTabla() {
 
     document.querySelectorAll('.day-table-container').forEach(cont => {
         cont.querySelectorAll('input, textarea, select, button').forEach(el => {
-            if (el.dataset.action === 'printDay') return;
+            // 🖨️ Imprimir Día y 👁️ Tabla Oftalmología quedan habilitados en
+            // solo lectura — el segundo abre un modal aparte (fuera de esta
+            // zona bloqueada) que es un módulo propio, no edición de la
+            // Tabla Quirúrgica.
+            if (el.dataset.action === 'printDay' || el.dataset.action === 'tablaOftalmologia') return;
             el.disabled = true;
         });
     });
