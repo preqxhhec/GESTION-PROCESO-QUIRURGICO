@@ -331,15 +331,33 @@ async function leSincronizarEstatusDesdeFila(fila, ubicacionTexto) {
 // simplemente deja de tener fila en la Tabla. Sin esto, Lista de Espera se
 // quedaría mostrando "Programado en Tabla" (u otro estatus viejo) para
 // siempre, y el botón "Cargar a la Tabla" no volvería a aparecer.
+//
+// ⚠️ OJO: no se puede resetear TODO a "En Lista de Espera" a ciegas — si la
+// fila ya tenía un resultado FINAL (ESTADO_DE_IQx = "OPERADO..." o
+// "PERIANALGESIA (PARTO)", ver leCalcularEstatusDesdeEstado()), Registrar
+// Día la está archivando en Libro de Quirófano en este mismo momento: el
+// paciente SÍ fue operado. Resetear a "En Lista de Espera" ahí no solo era
+// incorrecto — "En Lista de Espera" no está en LE_ESTADOS_YA_EN_TABLA (ver
+// js/23), así que además reaparecía el botón "Cargar a la Tabla" para un
+// paciente ya operado, con riesgo real de duplicarlo en la tabla. Por eso
+// el único caso que se preserva es OPERADO; cualquier otro resultado
+// (vacío, SUSPENDIDO, CONDICIONAL, URGENCIA) sí vuelve a "En Lista de
+// Espera" porque ahí la fila se pierde sin trasladar el vínculo a ningún
+// otro lugar — el paciente debe quedar disponible para reprogramarse.
 async function leResetearVinculosAntesDeLimpiar(rows) {
     if (!rows || typeof leActualizarEstatusPaciente !== 'function') return;
     for (const row of rows) {
         if (row && row['LE_PacienteKey']) {
+            const estatusCalculado = leCalcularEstatusDesdeEstado(row['ESTADO_DE_IQx']);
+            const esResultadoFinal = estatusCalculado === 'OPERADO';
+            const nuevoEstatus = esResultadoFinal ? 'OPERADO' : 'En Lista de Espera';
             await leActualizarEstatusPaciente(
                 row['LE_PacienteKey'],
-                'En Lista de Espera',
+                nuevoEstatus,
                 'Fila limpiada/eliminada de la Tabla Quirúrgica',
-                'Sin ubicación en la tabla'
+                esResultadoFinal
+                    ? `Resultado ya registrado (${(row['ESTADO_DE_IQx'] || '').toString().trim()}), sin ubicación en la tabla`
+                    : 'Sin ubicación en la tabla'
             );
         }
     }
