@@ -179,6 +179,7 @@ function cerrarModalGuardando(overlay) {
             dropdown.classList.remove('active');
             guardarColorFila(rowKey, color);
             actualizarFilaColor(rowKey, color);
+            triggerAutoSave(rowKey, 'Color');
         });
         dropdown.appendChild(emptyOption);
 
@@ -199,6 +200,7 @@ function cerrarModalGuardando(overlay) {
                 dropdown.classList.remove('active');
                 guardarColorFila(rowKey, selectedColor);
                 actualizarFilaColor(rowKey, selectedColor);
+                triggerAutoSave(rowKey, 'Color');
                 document.querySelectorAll('.color-option').forEach(opt => opt.classList.remove('selected'));
                 this.classList.add('selected');
             });
