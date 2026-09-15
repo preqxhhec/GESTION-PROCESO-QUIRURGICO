@@ -85,12 +85,15 @@
             }
         }
 
-        // Último recurso: dejar que el motor de JS intente parsear
-        const fechaParseada = new Date(texto);
-        if (!isNaN(fechaParseada)) {
-            return `${fechaParseada.getFullYear()}-${String(fechaParseada.getMonth() + 1).padStart(2, '0')}-${String(fechaParseada.getDate()).padStart(2, '0')}`;
-        }
-
+        // ⚠️ A propósito NO hay un "último recurso" que le pase el texto
+        // crudo a `new Date(texto)`: para valores ambiguos que no calzan con
+        // ninguno de los formatos de arriba (ej. "1", "10", "100" — basura
+        // de una importación, o un campo mal llenado), el parser nativo de
+        // fechas de JS los interpreta como años/meses sin ningún sentido
+        // ("1" → año 2001, "100" → año 100), lo que rompía el orden por
+        // FECHA (esos valores terminaban agrupados de forma arbitraria en
+        // vez de ignorarse). Si no es un formato de fecha real y reconocido,
+        // se trata como "sin fecha", no como una adivinanza.
         return '';
     }
 
