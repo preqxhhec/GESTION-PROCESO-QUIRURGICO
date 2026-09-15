@@ -96,6 +96,9 @@
                         </td>
                         <td style="padding:8px 10px; text-align:center; white-space:nowrap;">
                             <button class="btn-ver-bitacora" data-uid="${uid}" data-email="${email}" title="Ver bitácora de accesos" style="background:transparent; border:1px solid #64748b; border-radius:4px; padding:2px 8px; cursor:pointer; color:#64748b; font-size:0.8rem; margin-right:4px;">🕐</button>
+                            ${!esUsuarioActual ?
+                                `<button class="btn-resetear-clave" data-uid="${uid}" data-email="${email}" title="Enviar correo para restablecer contraseña" style="background:transparent; border:1px solid #3b82f6; border-radius:4px; padding:2px 8px; cursor:pointer; color:#3b82f6; font-size:0.8rem; margin-right:4px;">🔑</button>` : ''
+                            }
                             ${esSuperAdministrador() ?
                                 `<button class="btn-liberar-sesion" data-uid="${uid}" data-email="${email}" title="Liberar sesión activa (por si quedó bloqueada)" style="background:transparent; border:1px solid #d97706; border-radius:4px; padding:2px 8px; cursor:pointer; color:#d97706; font-size:0.8rem; margin-right:4px;">🔓</button>` : ''
                             }
@@ -164,6 +167,13 @@
                 });
             });
 
+            document.querySelectorAll('.btn-resetear-clave').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const email = this.dataset.email;
+                    resetearClaveUsuario(email);
+                });
+            });
+
         } catch (error) {
             console.error('❌ Error al cargar usuarios:', error);
             contenedor.innerHTML = `
@@ -212,6 +222,63 @@
             showModal({
                 title: '❌ Error',
                 message: 'Hubo un problema al liberar la sesión.<br>Intenta nuevamente.',
+                icon: '❌',
+                confirmText: 'Aceptar'
+            });
+        }
+    }
+
+    // 🔑 Cambiar la clave de un usuario desde Administrador: Firebase Auth
+    // no deja que nadie (ni un superadministrador autenticado) fije
+    // directamente la contraseña de otra cuenta desde el navegador — eso
+    // requeriría un servidor propio (Cloud Functions) que este proyecto no
+    // tiene. La única vía disponible del lado del cliente es la misma que
+    // usa el link "¿Olvidaste tu contraseña?" del login (ver js/15):
+    // auth.sendPasswordResetEmail(email). Acá el superadministrador la
+    // dispara en nombre del usuario, en vez de que el usuario tenga que
+    // encontrar y usar ese link por su cuenta.
+    async function resetearClaveUsuario(email) {
+        if (!currentUser || !esSuperAdministrador()) {
+            showModal({
+                title: '⛔ Acceso denegado',
+                message: 'Solo el superadministrador puede restablecer contraseñas.',
+                icon: '⛔',
+                confirmText: 'Aceptar'
+            });
+            return;
+        }
+
+        const confirmed = await showModal({
+            title: '🔑 Restablecer contraseña',
+            message: `¿Enviar un correo de restablecimiento de contraseña a <strong>${email}</strong>?<br><br>El usuario recibirá un enlace para elegir una contraseña nueva.`,
+            icon: '🔑',
+            confirmText: 'Enviar',
+            cancelText: 'Cancelar'
+        });
+
+        if (!confirmed) return;
+
+        try {
+            await auth.sendPasswordResetEmail(email);
+            showModal({
+                title: '✅ Correo enviado',
+                message: `Se envió un correo a <strong>${email}</strong> con instrucciones para restablecer su contraseña.`,
+                icon: '✅',
+                confirmText: 'Aceptar'
+            });
+        } catch (error) {
+            console.error('❌ Error al enviar correo de restablecimiento:', error);
+            let mensaje = 'Hubo un problema al enviar el correo.<br>Intenta nuevamente.';
+            if (error.code === 'auth/user-not-found') {
+                mensaje = 'No hay ninguna cuenta de acceso (Firebase Auth) con ese correo.';
+            } else if (error.code === 'auth/invalid-email') {
+                mensaje = 'Ese correo no es válido.';
+            } else if (error.code === 'auth/too-many-requests') {
+                mensaje = 'Demasiados intentos. Espera un momento e intenta de nuevo.';
+            }
+            showModal({
+                title: '❌ Error',
+                message: mensaje,
                 icon: '❌',
                 confirmText: 'Aceptar'
             });
