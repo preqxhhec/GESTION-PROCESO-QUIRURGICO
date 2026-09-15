@@ -6,6 +6,46 @@
     let paginaActualLibroQuirofano = 1;
 
     // =============================================================
+    // 🔃 ORDENAR POR COLUMNA (clic en encabezado) — mismo patrón de
+    // interacción que Lista de Pacientes en Lista de Espera
+    // (leMakeTableSortable() en js/25-le-lista-pacientes.js): un clic
+    // ordena ascendente, un segundo clic en la misma columna invierte a
+    // descendente, un tercero limpia el orden. Persiste entre cambios de
+    // filtro/página (variables de módulo, igual que paginaActualLibroQuirofano)
+    // hasta que se elige otra columna o se limpia.
+    // =============================================================
+    let libroSortColumn = null;
+    let libroSortOrder = 'asc';
+    let libroSortActive = false;
+
+    function libroOrdenarDatos(data) {
+        if (!libroSortActive || !libroSortColumn) return data;
+        const copia = [...data];
+        copia.sort((a, b) => {
+            let valA, valB;
+            if (libroSortColumn === 'FECHA') {
+                valA = normalizarFechaComparable(a.FECHA) || '';
+                valB = normalizarFechaComparable(b.FECHA) || '';
+            } else {
+                valA = (a[libroSortColumn] || '').toString().toLowerCase();
+                valB = (b[libroSortColumn] || '').toString().toLowerCase();
+            }
+            if (valA < valB) return libroSortOrder === 'asc' ? -1 : 1;
+            if (valA > valB) return libroSortOrder === 'asc' ? 1 : -1;
+            return 0;
+        });
+        return copia;
+    }
+
+    // Genera un <th> ordenable con su flecha ↑/↓ si es la columna activa —
+    // el clic real se conecta después del render, en el mismo setTimeout()
+    // que ya conecta los botones de Ver detalle/Paginación más abajo.
+    function libroThOrdenable(campo, label) {
+        const flecha = (libroSortActive && libroSortColumn === campo) ? (libroSortOrder === 'asc' ? ' ↑' : ' ↓') : '';
+        return `<th data-campo-orden="${campo}" style="cursor:pointer;">${label}${flecha}</th>`;
+    }
+
+    // =============================================================
     // 📊 EXPORTAR A EXCEL
     // =============================================================
     function exportarLibroAExcel() {
@@ -552,6 +592,8 @@
             }
         });
 
+        datosFiltrados = libroOrdenarDatos(datosFiltrados);
+
         // --- Paginación: 15 registros por página ---
         const totalFiltrados = datosFiltrados.length;
         const totalPaginasLibro = Math.max(1, Math.ceil(totalFiltrados / REGISTROS_POR_PAGINA_LIBRO));
@@ -581,14 +623,14 @@
                         <thead>
                             <tr>
                                 <th>#</th>
-                                <th>FECHA</th>
-                                <th>Nombre Paciente</th>
-                                <th>RUT</th>
-                                <th>Especialidad</th>
-                                <th>ESTADO_DE_IQx</th>
-                                <th>Intervención Realizada</th>
-                                <th>DESTINO</th>
-                                <th style="text-align:center;">Acciones</th>
+                                ${libroThOrdenable('FECHA', 'FECHA')}
+                                ${libroThOrdenable('Nombre_Paciente', 'Nombre Paciente')}
+                                ${libroThOrdenable('RUT', 'RUT')}
+                                ${libroThOrdenable('Especialidad', 'Especialidad')}
+                                ${libroThOrdenable('ESTADO_DE_IQx', 'ESTADO_DE_IQx')}
+                                ${libroThOrdenable('1ra_Intervencion_Qx_Realizada', 'Intervención Realizada')}
+                                ${libroThOrdenable('DESTINO', 'DESTINO')}
+                                <th style="text-align:center; cursor:default;">Acciones</th>
                             </tr>
                         </thead>
                         <tbody>
@@ -649,6 +691,33 @@
                     const nuevaPagina = parseInt(this.dataset.pagina, 10);
                     if (!nuevaPagina || nuevaPagina === paginaActualLibroQuirofano) return;
                     paginaActualLibroQuirofano = nuevaPagina;
+                    const container = document.getElementById('libroTablaContainer');
+                    if (container) {
+                        container.innerHTML = renderizarTablaLibro(registros, filtros);
+                    }
+                });
+            });
+
+            // 🔃 Clic en encabezado ordena — mismo ciclo que Lista de
+            // Espera: asc → desc → sin orden. Vuelve siempre a la página 1
+            // (el orden cambia qué queda en cada página).
+            document.querySelectorAll('#libroTablaContainer table thead th[data-campo-orden]').forEach(th => {
+                th.addEventListener('click', function() {
+                    const campo = this.dataset.campoOrden;
+                    if (libroSortColumn === campo) {
+                        if (libroSortOrder === 'asc') {
+                            libroSortOrder = 'desc';
+                        } else {
+                            libroSortActive = false;
+                            libroSortColumn = null;
+                            libroSortOrder = 'asc';
+                        }
+                    } else {
+                        libroSortColumn = campo;
+                        libroSortOrder = 'asc';
+                        libroSortActive = true;
+                    }
+                    paginaActualLibroQuirofano = 1;
                     const container = document.getElementById('libroTablaContainer');
                     if (container) {
                         container.innerHTML = renderizarTablaLibro(registros, filtros);

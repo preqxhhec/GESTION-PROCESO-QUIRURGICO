@@ -237,6 +237,33 @@ th {
     white-space: nowrap;
 }
 
+/* 📘 LIBRO DE QUIRÓFANO — mismo estilo de encabezado que Lista de
+   Pacientes en Lista de Espera (#patientsTable th en
+   style-lista-espera.css: azul, texto blanco, clic para ordenar). Con su
+   propio selector (no toca la regla "th" genérica de arriba, que sigue
+   usando la Tabla Quirúrgica) para no afectar ninguna otra tabla de la
+   app. */
+#libroTablaContainer table th {
+    background: #1e40af;
+    color: white;
+    font-weight: 500;
+    font-size: 0.78rem;
+    text-transform: none;
+    letter-spacing: normal;
+    text-align: left;
+    white-space: normal;
+    padding: 10px 8px;
+    border-bottom: none;
+    position: sticky;
+    top: 0;
+}
+#libroTablaContainer table th:hover {
+    background: #1e3a8a;
+}
+#libroTablaContainer table tbody tr:hover td {
+    background: #f0f9ff;
+}
+
 /* ============================================ */
 /* INPUTS Y SELECTS GENERALES                    */
 /* ============================================ */
