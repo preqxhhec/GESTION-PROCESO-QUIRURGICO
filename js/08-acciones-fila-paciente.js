@@ -347,11 +347,18 @@ function imprimirDia(dayKey) {
         // para siempre ni oculte el botón "Cargar a la Tabla".
         const filaAEliminar = rows[f];
         if (filaAEliminar && filaAEliminar['LE_PacienteKey'] && typeof leActualizarEstatusPaciente === 'function') {
+            // Preserva OPERADO si la fila ya cerró con resultado; si no,
+            // vuelve a su estatus previo a entrar en la tabla (nunca a un
+            // valor inventado como "En Lista de Espera" — ver
+            // leCalcularEstatusAlPerderFila() en js/31).
+            const nuevoEstatus = leCalcularEstatusAlPerderFila(filaAEliminar);
             await leActualizarEstatusPaciente(
                 filaAEliminar['LE_PacienteKey'],
-                'En Lista de Espera',
+                nuevoEstatus,
                 'Fila eliminada de la Tabla Quirúrgica',
-                'Sin ubicación en la tabla'
+                nuevoEstatus === 'OPERADO'
+                    ? `Resultado ya registrado (${(filaAEliminar['ESTADO_DE_IQx'] || '').toString().trim()}), sin ubicación en la tabla`
+                    : 'Sin ubicación en la tabla — vuelve a su estatus previo a entrar en la tabla'
             );
         }
 

@@ -209,6 +209,16 @@ async function leCargarPacienteATabla(key, semanaIdx, diaIdx, pabIdx, filaIdx, p
         // el listener de ESTADO_DE_IQx en js/02) para poder sincronizar el
         // estatus de este paciente en tiempo real desde la Tabla.
         filaDestino['LE_PacienteKey'] = key;
+        // 🩺 Estatus real que tenía ANTES de entrar a la tabla (normalmente
+        // "PROGRAMABLE") — se necesita para poder devolvérselo tal cual si
+        // más adelante se pierde la fila sin resultado (ver
+        // leCalcularEstatusAlPerderFila() más abajo). Nunca puede ser vacío:
+        // si por algo raro no tenía estatus previo, PROGRAMABLE es el valor
+        // por defecto real de la taxonomía (ver estatusTablaLista en
+        // js/29-le-admin-listas.js), no un valor inventado como
+        // "En Lista de Espera" — todo paciente en esta colección está, por
+        // definición, en la lista de espera; eso no es un estatus.
+        filaDestino['LE_EstatusAnterior'] = paciente.estatusTabla || 'PROGRAMABLE';
 
         const rowKey = `${semanaIdx}-${diaIdx}-${pabIdx}-${filaIdx}`;
         await guardarFilaEnFirebase(rowKey, filaDestino);
@@ -325,39 +335,52 @@ async function leSincronizarEstatusDesdeFila(fila, ubicacionTexto) {
     await leActualizarEstatusPaciente(key, nuevoEstatus, 'Estatus actualizado automáticamente desde la Tabla Quirúrgica', ubicacionTexto);
 }
 
+// Calcula a qué estatus debe volver un paciente cuando su fila se pierde
+// SIN trasladar el vínculo a otro lado (Eliminar Fila en js/08, Limpiar
+// Pabellón/Día/Registrar Día más abajo) — a diferencia de Reubicar/Diferir,
+// que sí trasladan el vínculo (y con él, LE_EstatusAnterior — ver
+// CAMPOS_A_COPIAR en js/03).
+//
+// - Si la fila ya cerró con un resultado FINAL (OPERADO o
+//   "PERIANALGESIA (PARTO)", que leCalcularEstatusDesdeEstado() mapea a
+//   'OPERADO'), ese resultado se preserva SIEMPRE: el paciente de verdad
+//   fue operado, perder la fila (o archivarla en Libro de Quirófano vía
+//   Registrar Día) no debe borrar eso. "OPERADO" no está en
+//   LE_ESTADOS_YA_EN_TABLA por accidente (ver js/23) — justamente bloquea
+//   "Cargar a la Tabla" para siempre, evitando duplicar a un paciente ya
+//   operado.
+// - En cualquier otro caso (nunca se definió resultado, o quedó
+//   SUSPENDIDO/CONDICIONAL/URGENCIA sin haberse diferido/reubicado antes de
+//   perder la fila) vuelve al estatus que tenía ANTES de entrar a la tabla,
+//   guardado en LE_EstatusAnterior por leCargarPacienteATabla() (normalmente
+//   "PROGRAMABLE"). NUNCA "En Lista de Espera" — ese no es un estatus real
+//   de la taxonomía (ver estatusTablaLista en js/29): todo paciente en esta
+//   colección está, por definición, en la lista de espera.
+function leCalcularEstatusAlPerderFila(fila) {
+    const estatusCalculado = leCalcularEstatusDesdeEstado(fila['ESTADO_DE_IQx']);
+    if (estatusCalculado === 'OPERADO') return 'OPERADO';
+    return fila['LE_EstatusAnterior'] || 'PROGRAMABLE';
+}
+
 // Se llama ANTES de limpiar/vaciar un grupo de filas (Limpiar Pabellón,
 // Limpiar Día, Registrar Día) — a diferencia de Reubicar/Diferir, estas
 // acciones no trasladan el vínculo a ningún otro lugar: el paciente
 // simplemente deja de tener fila en la Tabla. Sin esto, Lista de Espera se
 // quedaría mostrando "Programado en Tabla" (u otro estatus viejo) para
 // siempre, y el botón "Cargar a la Tabla" no volvería a aparecer.
-//
-// ⚠️ OJO: no se puede resetear TODO a "En Lista de Espera" a ciegas — si la
-// fila ya tenía un resultado FINAL (ESTADO_DE_IQx = "OPERADO..." o
-// "PERIANALGESIA (PARTO)", ver leCalcularEstatusDesdeEstado()), Registrar
-// Día la está archivando en Libro de Quirófano en este mismo momento: el
-// paciente SÍ fue operado. Resetear a "En Lista de Espera" ahí no solo era
-// incorrecto — "En Lista de Espera" no está en LE_ESTADOS_YA_EN_TABLA (ver
-// js/23), así que además reaparecía el botón "Cargar a la Tabla" para un
-// paciente ya operado, con riesgo real de duplicarlo en la tabla. Por eso
-// el único caso que se preserva es OPERADO; cualquier otro resultado
-// (vacío, SUSPENDIDO, CONDICIONAL, URGENCIA) sí vuelve a "En Lista de
-// Espera" porque ahí la fila se pierde sin trasladar el vínculo a ningún
-// otro lugar — el paciente debe quedar disponible para reprogramarse.
 async function leResetearVinculosAntesDeLimpiar(rows) {
     if (!rows || typeof leActualizarEstatusPaciente !== 'function') return;
     for (const row of rows) {
         if (row && row['LE_PacienteKey']) {
-            const estatusCalculado = leCalcularEstatusDesdeEstado(row['ESTADO_DE_IQx']);
-            const esResultadoFinal = estatusCalculado === 'OPERADO';
-            const nuevoEstatus = esResultadoFinal ? 'OPERADO' : 'En Lista de Espera';
+            const nuevoEstatus = leCalcularEstatusAlPerderFila(row);
+            const esResultadoFinal = nuevoEstatus === 'OPERADO';
             await leActualizarEstatusPaciente(
                 row['LE_PacienteKey'],
                 nuevoEstatus,
                 'Fila limpiada/eliminada de la Tabla Quirúrgica',
                 esResultadoFinal
                     ? `Resultado ya registrado (${(row['ESTADO_DE_IQx'] || '').toString().trim()}), sin ubicación en la tabla`
-                    : 'Sin ubicación en la tabla'
+                    : 'Sin ubicación en la tabla — vuelve a su estatus previo a entrar en la tabla'
             );
         }
     }

@@ -733,7 +733,7 @@ function construirManualContenidos() {
             <p style="color:#dc2626; font-size:0.9rem; margin-top:8px;">⚠️ Estos dos botones nuevos comparten el mismo permiso que "🖨️ Imprimir Dashboard Completo" (ver 7.4).</p>
 
             <h2 style="font-size:1.3rem; color:#0b2a4f; margin-top:24px; margin-bottom:12px;">9.5 Nuevo Paciente</h2>
-            <p style="color:#475569; line-height:1.7; margin-bottom:12px;">Formulario con los datos del paciente: identificación, fechas (indicación, nacimiento), diagnóstico, intervención, especialidad, médico tratante, GES, Prioridad, exámenes preoperatorios (TACO/ASA/EKG/RX/ECO), indicaciones del anestesista, teléfono, comuna y observaciones. Al guardar, el paciente queda con estatus inicial <strong>"En Lista de Espera"</strong>.</p>
+            <p style="color:#475569; line-height:1.7; margin-bottom:12px;">Formulario con los datos del paciente: identificación, fechas (indicación, nacimiento), diagnóstico, intervención, especialidad, médico tratante, GES, Prioridad, exámenes preoperatorios (TACO/ASA/EKG/RX/ECO), indicaciones del anestesista, teléfono, comuna y observaciones. Al guardar, el paciente queda con el estatus que elijas en ese momento (por ejemplo <strong>PROGRAMABLE</strong>).</p>
 
             <h2 style="font-size:1.3rem; color:#0b2a4f; margin-top:24px; margin-bottom:12px;">9.6 Lista de Pacientes</h2>
             <p style="color:#475569; line-height:1.7; margin-bottom:12px;">Tabla con todos los pacientes registrados, con filtros por especialidad, estatus, prioridad, GES y búsqueda por nombre/RUT. Cada fila tiene dos acciones posibles:</p>
@@ -777,7 +777,7 @@ function construirManualContenidos() {
             <ul style="color:#475569; line-height:1.8; padding-left:24px; margin-bottom:16px;">
                 <li>Si en la tabla cambias el <strong>ESTADO_DE_IQx</strong> de esa fila (por ejemplo a OPERADO, SUSPENDIDO, CONDICIONAL, etc.), el estatus en Lista de Espera se actualiza automáticamente para reflejarlo</li>
                 <li>Si el paciente se <strong>difiere</strong> o se <strong>reubica</strong> (incluyendo el caso SUSPENDIDO/CONDICIONAL que preserva la fila, ver 3.2), el vínculo sigue al paciente</li>
-                <li>Si la fila se <strong>elimina</strong> o se <strong>limpia</strong> (Limpiar Pabellón/Día) sin transferir el paciente a otro lado, su estatus en Lista de Espera vuelve a <strong>"En Lista de Espera"</strong> — nunca se pierde el registro</li>
+                <li>Si la fila se <strong>elimina</strong>, se <strong>limpia</strong> (Limpiar Pabellón/Día) o se <strong>Registra el Día</strong> sin transferir el paciente a otro lado: si ya tenía resultado OPERADO, ese estatus se conserva; si no, vuelve al estatus que tenía antes de cargarlo a la tabla (normalmente <strong>PROGRAMABLE</strong>) — nunca se pierde el registro</li>
                 <li>Cada uno de estos cambios queda además registrado en el <strong>historial</strong> de la ficha del paciente</li>
             </ul>
             <p style="color:#64748b; font-style:italic; margin-top:8px;">💡 Mientras un paciente esté cargado en la tabla, el botón 📋 desaparece de su fila en Lista de Pacientes (para no cargarlo dos veces). Vuelve a aparecer si el vínculo se libera por alguno de los motivos de arriba.</p>

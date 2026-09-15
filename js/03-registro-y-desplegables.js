@@ -43,7 +43,15 @@ const CAMPOS_A_COPIAR = [
     // Reintegrar lo trasladen junto con el resto de los datos de la fila;
     // en filas que nunca vinieron de Lista de Espera simplemente viaja
     // vacío, sin efecto.
-    'LE_PacienteKey'
+    'LE_PacienteKey',
+    // 🩺 Estatus que tenía el paciente en Lista de Espera justo ANTES de
+    // cargarlo a la Tabla (ej. "PROGRAMABLE"), guardado por
+    // leCargarPacienteATabla() en js/31. Viaja junto con LE_PacienteKey por
+    // el mismo motivo: si la fila se reubica, hay que poder devolverle este
+    // mismo estatus (no el que tenía cuando llegó a la fila NUEVA) si al
+    // final se pierde el vínculo sin resultado — ver
+    // leCalcularEstatusAlPerderFila() en js/31.
+    'LE_EstatusAnterior'
 ];
 
 // =============================================================
