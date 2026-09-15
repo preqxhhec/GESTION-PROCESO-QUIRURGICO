@@ -533,11 +533,20 @@
             'Causal_de_suspension', 'Motivo', 'Observaciones'
         ];
 
+        // 🪪 El RUT se guarda ya limpio (sin puntos ni guion — ver
+        // registrarDefinitivo() en js/03), así que compara solo dígitos/K
+        // de ambos lados: da igual si el filtro se escribe con puntos y
+        // guion ("12.345.678-9"), sin ellos, o con espacios.
+        const limpiarRut = (s) => (s || '').toString().replace(/[^0-9kK]/gi, '').toLowerCase();
+
         camposFiltro.forEach(campo => {
             const valor = filtros[campo] || '';
             if (valor && valor !== '') {
                 datosFiltrados = datosFiltrados.filter(r => {
                     const val = r[campo] || '';
+                    if (campo === 'RUT') {
+                        return limpiarRut(val).includes(limpiarRut(valor));
+                    }
                     return val.toLowerCase().includes(valor.toLowerCase());
                 });
             }
