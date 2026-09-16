@@ -753,6 +753,21 @@ function imprimirDia(dayKey) {
                     filaVacia['LE_PacienteKey'] = '';
                     filaVacia['WhatsApp_Enviado'] = false;
                     filaVacia['WhatsApp_UltimoEnvio'] = null;
+                    // 🛟 Sin esto, metadata.ultimo_editor se queda con el valor
+                    // de quien editó la fila por última vez ANTES de diferirla
+                    // (update() hace merge, no toca lo que no se incluye acá).
+                    // El listener en tiempo real (js/03) compara ese campo
+                    // contra el email de cada usuario para no pisarle una
+                    // edición propia sin guardar — si por casualidad coincide
+                    // con quien esté mirando la tabla ahora, su navegador cree
+                    // "esta fila la edité yo último" y descarta la limpieza,
+                    // dejándola con los datos viejos hasta que recarga la
+                    // página a mano.
+                    filaVacia['metadata'] = {
+                        ultimo_editor: currentUserEmail,
+                        ultima_modificacion: firebase.database.ServerValue.TIMESTAMP,
+                        estado: 'temporal'
+                    };
                     await database.ref('registros_quirurgicos/' + docId).update(filaVacia);
                     console.log(`✅ Fila ${docId} limpiada en Firebase`);
                 }
