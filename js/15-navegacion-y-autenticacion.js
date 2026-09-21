@@ -162,6 +162,7 @@
         detenerSincronizacionTiempoReal();
         detenerAutoSave();
         detenerTemporizadoresInactividad();
+        detenerEscuchaRecargaForzada();
         await liberarSesionActiva();
         await auth.signOut();
 
@@ -323,6 +324,7 @@
         detenerSincronizacionTiempoReal();
         detenerAutoSave();
         detenerTemporizadoresInactividad();
+        detenerEscuchaRecargaForzada();
         refSesionActiva = null;
         await auth.signOut();
 
@@ -337,6 +339,45 @@
         document.getElementById('weekContent').innerHTML = '';
 
         mostrarLoginStatus('⚠️ Se inició sesión con esta cuenta desde otro equipo, así que esta sesión se cerró.', 'error');
+    }
+
+    // =============================================================
+    // 🔄 RECARGA FORZADA REMOTA
+    // =============================================================
+    // Subir una corrección a js/*.js no garantiza que el navegador de cada
+    // usuario pida el archivo nuevo — puede seguir sirviendo una copia
+    // vieja desde caché por horas (el ?v= de index.html solo ayuda una vez
+    // que el propio index.html se vuelve a cargar). Esto le permite al
+    // superadministrador (ver forzarRecargaGlobal() en js/11) empujar una
+    // recarga real a todos los equipos conectados en ese momento, en vez
+    // de tener que avisarle a cada usuario uno por uno.
+    let recargaForzadaValorConocido = undefined;
+
+    function escucharRecargaForzada() {
+        database.ref('sistema/forzarRecarga').on('value', function (snap) {
+            const val = snap.val();
+            if (recargaForzadaValorConocido === undefined) {
+                // Primer valor recibido al conectar: es el estado ya
+                // existente, no una orden nueva — solo se guarda como
+                // referencia para detectar el próximo cambio real.
+                recargaForzadaValorConocido = val;
+                return;
+            }
+            if (val === recargaForzadaValorConocido) return;
+            recargaForzadaValorConocido = val;
+
+            const aviso = document.createElement('div');
+            aviso.style.cssText = 'position:fixed; inset:0; background:rgba(15,23,42,0.92); color:white; z-index:99999; display:flex; flex-direction:column; align-items:center; justify-content:center; text-align:center; padding:20px; font-size:1.1rem; gap:8px;';
+            aviso.innerHTML = '🔄 El administrador actualizó la aplicación.<br>La página se va a recargar automáticamente en unos segundos...';
+            document.body.appendChild(aviso);
+
+            setTimeout(() => location.reload(), 4000);
+        });
+    }
+
+    function detenerEscuchaRecargaForzada() {
+        database.ref('sistema/forzarRecarga').off();
+        recargaForzadaValorConocido = undefined;
     }
 
     // =============================================================
@@ -621,6 +662,7 @@
             await cargarMedicosPorEspecialidadCache();
             await cargarWhatsappPlantillasCache();
             iniciarSincronizacionTiempoReal();
+            escucharRecargaForzada();
             iniciarAutoSave();
             reiniciarTemporizadoresInactividad();
 

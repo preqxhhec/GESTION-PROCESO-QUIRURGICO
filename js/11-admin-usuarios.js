@@ -285,6 +285,54 @@
         }
     }
 
+    // =============================================================
+    // 🔄 FORZAR RECARGA REMOTA A TODOS LOS EQUIPOS CONECTADOS
+    // =============================================================
+    // El listener que reacciona a esto vive en escucharRecargaForzada()
+    // (js/15-navegacion-y-autenticacion.js) — se arma después de cada
+    // login, así que solo alcanza a equipos con sesión iniciada en ese
+    // momento (no a la pantalla de login).
+    async function forzarRecargaGlobal() {
+        if (!currentUser || !esSuperAdministrador()) {
+            showModal({
+                title: '⛔ Acceso denegado',
+                message: 'Solo el superadministrador puede forzar una recarga global.',
+                icon: '⛔',
+                confirmText: 'Aceptar'
+            });
+            return;
+        }
+
+        const confirmed = await showModal({
+            title: '🔄 Forzar recarga a todos los equipos',
+            message: 'Esto va a recargar automáticamente la app en TODOS los equipos que la tengan abierta ahora mismo (van a perder cualquier cambio sin guardar en formularios abiertos).<br><br>Úsalo solo después de subir una corrección importante al código. ¿Continuar?',
+            icon: '🔄',
+            confirmText: 'Sí, forzar recarga a todos',
+            cancelText: 'Cancelar',
+            type: 'danger'
+        });
+
+        if (!confirmed) return;
+
+        try {
+            await database.ref('sistema/forzarRecarga').set(firebase.database.ServerValue.TIMESTAMP);
+            showModal({
+                title: '✅ Señal enviada',
+                message: 'Los equipos conectados ahora mismo se van a recargar solos en los próximos segundos.',
+                icon: '✅',
+                confirmText: 'Aceptar'
+            });
+        } catch (error) {
+            console.error('❌ Error al enviar la señal de recarga forzada:', error);
+            showModal({
+                title: '❌ Error',
+                message: 'Hubo un problema al enviar la señal de recarga. Intenta nuevamente.',
+                icon: '❌',
+                confirmText: 'Aceptar'
+            });
+        }
+    }
+
     async function cambiarRolUsuario(uid, nuevoRol) {
         if (!currentUser || !esSuperAdministrador()) {
             showModal({

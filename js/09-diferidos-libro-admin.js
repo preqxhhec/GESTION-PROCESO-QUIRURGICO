@@ -732,7 +732,7 @@
                     </div>
                 </div>
 
-                <div style="background:white; border-radius:12px; border:1px solid #e2e8f0; padding:16px;">
+                <div style="background:white; border-radius:12px; border:1px solid #e2e8f0; padding:16px; margin-bottom:16px;">
                     <div style="font-size:1.1rem; font-weight:600; margin-bottom:4px;">
                         💬 Plantillas de WhatsApp
                     </div>
@@ -742,6 +742,16 @@
                     <div id="whatsappPlantillasLista">
                         <p style="color:#94a3b8; text-align:center; padding:20px;">Cargando plantillas...</p>
                     </div>
+                </div>
+
+                <div style="background:white; border-radius:12px; border:1px solid #e2e8f0; padding:16px;">
+                    <div style="font-size:1.1rem; font-weight:600; margin-bottom:4px;">
+                        🔄 Sistema
+                    </div>
+                    <div style="font-size:0.75rem; color:#64748b; margin-bottom:12px;">
+                        Fuerza a que todos los equipos con sesión iniciada en este momento recarguen la app automáticamente — útil después de subir una corrección al código, para no depender de que cada usuario haga un refresco manual.
+                    </div>
+                    <button class="btn-sm" id="forzarRecargaBtn" style="background:#dc2626; color:white; border:none; padding:8px 18px; border-radius:30px; cursor:pointer;">🔄 Forzar recarga a todos los equipos</button>
                 </div>
             </div>
         `;
@@ -754,5 +764,8 @@
 
         document.getElementById('crearUsuarioBtn')?.addEventListener('click', function() {
             mostrarModalCrearUsuario();
+        });
+        document.getElementById('forzarRecargaBtn')?.addEventListener('click', function() {
+            forzarRecargaGlobal();
         });
     }
