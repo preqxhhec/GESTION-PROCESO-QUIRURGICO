@@ -29,7 +29,11 @@ function leRenderListaPacientesHTML() {
     return `
         <h2 style="margin-bottom:16px;">Lista de Pacientes</h2>
 
-        <div class="filters sticky-filters">
+        <div style="display:flex; align-items:center; justify-content:space-between; cursor:pointer; padding:8px 14px; background:#eef2ff; border-radius:10px 10px 0 0; user-select:none;" id="leFiltrosToggleHeader">
+            <span style="font-weight:600; color:#1e3a8a; font-size:0.9rem;">🔍 Filtros</span>
+            <span id="leFiltrosToggleIcono" style="color:#1e3a8a; font-weight:700;">▲</span>
+        </div>
+        <div class="filters sticky-filters" id="leFiltrosPanelBody" style="border-radius:0 0 10px 10px;">
             <div class="filter-group" style="flex:2; min-width:200px;">
                 <label>🔍 Búsqueda General</label>
                 <input type="text" id="busquedaGeneral" placeholder="Buscar por nombre, RUT, diagnóstico, intervención..." onkeyup="leFilterPatients()" style="width:100%;">
@@ -107,6 +111,43 @@ function leInicializarSeccionListaPacientes(container) {
     leCargarFiltrosListaPacientes();
     leCargarFiltrosDesdeStorage();
     leRestaurarFiltros();
+    leInicializarColapsoFiltros();
+}
+
+// =============================================================
+// 🔽 COLAPSAR/EXPANDIR EL PANEL DE FILTROS — el panel de filtros de
+// Lista de Pacientes es largo (más de 10 campos y varios botones), así
+// que se puede plegar para dejar más espacio a la tabla. El estado
+// elegido se recuerda entre sesiones (localStorage), igual que ya se
+// recuerdan los valores de los filtros (leGuardarFiltrosEnStorage()).
+// =============================================================
+const LE_FILTROS_COLAPSADOS_STORAGE_KEY = 'le_filtros_panel_colapsado';
+
+function leInicializarColapsoFiltros() {
+    const header = document.getElementById('leFiltrosToggleHeader');
+    if (!header) return;
+
+    let colapsado = false;
+    try {
+        colapsado = localStorage.getItem(LE_FILTROS_COLAPSADOS_STORAGE_KEY) === 'true';
+    } catch (e) { /* localStorage no disponible — se queda expandido */ }
+
+    leAplicarColapsoFiltros(colapsado);
+    header.addEventListener('click', function() {
+        const body = document.getElementById('leFiltrosPanelBody');
+        const estaColapsado = body && body.style.display === 'none';
+        leAplicarColapsoFiltros(!estaColapsado);
+        try {
+            localStorage.setItem(LE_FILTROS_COLAPSADOS_STORAGE_KEY, (!estaColapsado).toString());
+        } catch (e) { /* localStorage no disponible — no se guarda la preferencia */ }
+    });
+}
+
+function leAplicarColapsoFiltros(colapsado) {
+    const body = document.getElementById('leFiltrosPanelBody');
+    const icono = document.getElementById('leFiltrosToggleIcono');
+    if (body) body.style.display = colapsado ? 'none' : '';
+    if (icono) icono.textContent = colapsado ? '▼' : '▲';
 }
 
 // =============================================================
