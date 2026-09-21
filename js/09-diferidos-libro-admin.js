@@ -41,6 +41,50 @@
     // =============================================================
     // 📋 CARGAR PACIENTES DIFERIDOS
     // =============================================================
+    // =============================================================
+    // 🔃 PAGINACIÓN + ORDEN DE PACIENTES DIFERIDOS — mismo patrón que
+    // Libro de Quirófano (js/13: libroOrdenarDatos()/libroThOrdenable()) y
+    // que Lista de Pacientes en Lista de Espera: clic en un encabezado
+    // ordena ascendente, otro clic en la misma columna invierte a
+    // descendente, un tercero limpia el orden.
+    // =============================================================
+    const REGISTROS_POR_PAGINA_DIFERIDOS = 15;
+    let diferidosPaginaActual = 1;
+    let diferidosSortColumn = null;
+    let diferidosSortOrder = 'asc';
+    let diferidosSortActive = false;
+
+    // 🪪 Mismo criterio que el filtro de RUT en Libro de Quirófano (js/13):
+    // compara solo dígitos/K de ambos lados, así el filtro funciona con o
+    // sin puntos y guion.
+    function diferidosLimpiarRut(s) {
+        return (s || '').toString().replace(/[^0-9kK]/gi, '').toLowerCase();
+    }
+
+    function diferidosOrdenarDatos(data) {
+        if (!diferidosSortActive || !diferidosSortColumn) return data;
+        const copia = [...data];
+        copia.sort((a, b) => {
+            let valA, valB;
+            if (diferidosSortColumn === 'FECHA') {
+                valA = normalizarFechaComparable(a.FECHA) || '';
+                valB = normalizarFechaComparable(b.FECHA) || '';
+            } else {
+                valA = (a[diferidosSortColumn] || '').toString().toLowerCase();
+                valB = (b[diferidosSortColumn] || '').toString().toLowerCase();
+            }
+            if (valA < valB) return diferidosSortOrder === 'asc' ? -1 : 1;
+            if (valA > valB) return diferidosSortOrder === 'asc' ? 1 : -1;
+            return 0;
+        });
+        return copia;
+    }
+
+    function diferidosThOrdenable(campo, label) {
+        const flecha = (diferidosSortActive && diferidosSortColumn === campo) ? (diferidosSortOrder === 'asc' ? ' ↑' : ' ↓') : '';
+        return `<th data-campo-orden="${campo}" style="cursor:pointer;">${label}${flecha}</th>`;
+    }
+
     async function cargarPacientesDiferidos() {
         if (!currentUser) {
             diferidosContent.innerHTML = `
@@ -65,109 +109,22 @@
                 return;
             }
 
-            let html = `
+            const registros = Object.keys(data).map(key => ({ id: key, ...data[key] }));
+
+            diferidosContent.innerHTML = `
                 <div style="background:#fafcff; border-radius:20px; border:1px solid #e2e8f0; padding:16px; margin-top:8px;">
                     <div style="font-size:1.3rem; font-weight:700; margin-bottom:12px;">
-                        📤 Pacientes Diferidos (${Object.keys(data).length})
+                        📤 Pacientes Diferidos (${registros.length})
                     </div>
-                    <div class="table-wrap">
-                        <table>
-                            <thead>
-                                <tr>
-                                    <th>#</th>
-                                    <th>FECHA</th>
-                                    <th>T_Qx</th>
-                                    <th>Jornada</th>
-                                    <th>Cirujano</th>
-                                    <th>Especialidad</th>
-                                    <th>Anestesista</th>
-                                    <th>Nombre Paciente</th>
-                                    <th>RUT</th>
-                                    <th>Edad</th>
-                                    <th>FICHA</th>
-                                    <th>Diagnostico</th>
-                                    <th>Intervención</th>
-                                    <th>Condicion LE</th>
-                                    <th>ESTADO_DE_IQx</th>
-                                    <th>Motivo</th>
-                                    <th>Diferido por</th>
-                                    <th>Fecha</th>
-                                    <th style="text-align:center;">Acciones</th>
-                                </tr>
-                            </thead>
-                            <tbody>
-            `;
-
-            let index = 0;
-            Object.keys(data).forEach(key => {
-                const item = data[key];
-                const metadata = item.metadata || {};
-                index++;
-
-                let fechaDiferido = '';
-                if (metadata.fecha_diferido) {
-                    const d = new Date(metadata.fecha_diferido);
-                    fechaDiferido = d.toLocaleDateString('es-CL') + ' ' + d.toLocaleTimeString('es-CL');
-                }
-
-                html += `
-                    <tr>
-                        <td style="text-align:center;">${index}</td>
-                        <td>${item.FECHA || ''}</td>
-                        <td>${item.T_Qx || ''}</td>
-                        <td>${item.Jornada || ''}</td>
-                        <td>${item.Cirujano || ''}</td>
-                        <td>${item.Especialidad || ''}</td>
-                        <td>${item.Anestesista || ''}</td>
-                        <td><strong>${item.Nombre_Paciente || ''}</strong></td>
-                        <td>${item.RUT || ''}</td>
-                        <td>${item.Edad || ''}</td>
-                        <td>${item.FICHA || ''}</td>
-                        <td>${item.Diagnostico || ''}</td>
-                        <td>${item.Intervencion_propuesta || ''}</td>
-                        <td>${item.Condicion_LE || ''}</td>
-                        <td>${item.ESTADO_DE_IQx || ''}</td>
-                        <td>${item.Motivo || ''}</td>
-                        <td style="font-size:0.7rem;">${metadata.diferido_por || ''}</td>
-                        <td style="font-size:0.7rem;">${fechaDiferido}</td>
-                        <td style="text-align:center; white-space:nowrap;">
-                            ${usuarioTieneAccesoSeccion('diferidos_reintegrar') ? `<button class="btn-reintegrar" data-key="${key}" title="Reintegrar a la tabla" style="background:transparent; border:1px solid #10b981; border-radius:4px; padding:2px 6px; cursor:pointer; color:#10b981; font-size:1rem; margin-right:4px;">
-                                ↩️
-                            </button>` : ''}
-                            ${usuarioTieneAccesoSeccion('diferidos_eliminar') ? `<button class="btn-eliminar-diferido" data-key="${key}" title="Eliminar registro" style="background:transparent; border:1px solid #ef4444; border-radius:4px; padding:2px 6px; cursor:pointer; color:#ef4444; font-size:1rem;">
-                                🗑️
-                            </button>` : ''}
-                        </td>
-                    </tr>
-                `;
-            });
-
-            html += `
-                            </tbody>
-                        </table>
-                    </div>
+                    <div id="diferidosFiltrosContainer"></div>
+                    <div id="diferidosTablaContainer"></div>
                 </div>
             `;
 
-            diferidosContent.innerHTML = html;
-
-            document.querySelectorAll('.btn-eliminar-diferido').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const key = this.dataset.key;
-                    if (key) {
-                        eliminarPacienteDiferido(key);
-                    }
-                });
-            });
-
-            document.querySelectorAll('.btn-reintegrar').forEach(btn => {
-                btn.addEventListener('click', function() {
-                    const key = this.dataset.key;
-                    if (key) {
-                        mostrarModalReintegrar(key);
-                    }
-                });
-            });
+            document.getElementById('diferidosFiltrosContainer').innerHTML = generarPanelFiltrosDiferidos(registros);
+            diferidosPaginaActual = 1;
+            document.getElementById('diferidosTablaContainer').innerHTML = renderizarTablaDiferidos(registros, {});
+            inicializarFiltrosDiferidos(registros);
 
         } catch (error) {
             console.error('❌ Error al cargar pacientes diferidos:', error);
@@ -177,6 +134,220 @@
                 </div>
             `;
         }
+    }
+
+    function generarPanelFiltrosDiferidos(registros) {
+        const especialidades = new Set();
+        registros.forEach(r => { if (r.Especialidad) especialidades.add(r.Especialidad); });
+        const especialidadesList = Array.from(especialidades).sort();
+
+        return `
+            <div style="display:flex; gap:10px; flex-wrap:wrap; align-items:center; margin-bottom:14px; background:#f8fafc; border-radius:12px; padding:12px;">
+                <input type="text" id="diferidosFiltroGeneral" placeholder="🔍 Nombre o RUT..." style="padding:7px 12px; border:1px solid #d1d9e6; border-radius:20px; font-size:0.82rem; flex:1; min-width:180px;">
+                <select id="diferidosFiltroEspecialidad" style="padding:7px 12px; border:1px solid #d1d9e6; border-radius:20px; font-size:0.82rem;">
+                    <option value="">Todas las especialidades</option>
+                    ${especialidadesList.map(e => `<option value="${e}">${e}</option>`).join('')}
+                </select>
+                <button id="diferidosBtnLimpiarFiltros" style="background:#f1f5f9; border:1px solid #d1d9e6; padding:7px 14px; border-radius:20px; font-size:0.8rem; cursor:pointer;">Limpiar</button>
+            </div>
+        `;
+    }
+
+    function renderizarTablaDiferidos(registros, filtros) {
+        let datosFiltrados = registros;
+
+        if (filtros.general) {
+            datosFiltrados = datosFiltrados.filter(r => {
+                const texto = `${r.Nombre_Paciente || ''}`.toLowerCase();
+                if (texto.includes(filtros.general.toLowerCase())) return true;
+                return diferidosLimpiarRut(r.RUT).includes(diferidosLimpiarRut(filtros.general));
+            });
+        }
+        if (filtros.especialidad) {
+            datosFiltrados = datosFiltrados.filter(r => r.Especialidad === filtros.especialidad);
+        }
+
+        datosFiltrados = diferidosOrdenarDatos(datosFiltrados);
+
+        if (datosFiltrados.length === 0) {
+            return `<div style="text-align:center; padding:30px; color:#94a3b8; font-style:italic;">No hay pacientes diferidos que coincidan con los filtros.</div>`;
+        }
+
+        const totalPaginas = Math.max(1, Math.ceil(datosFiltrados.length / REGISTROS_POR_PAGINA_DIFERIDOS));
+        if (diferidosPaginaActual > totalPaginas) diferidosPaginaActual = totalPaginas;
+        if (diferidosPaginaActual < 1) diferidosPaginaActual = 1;
+        const inicioPagina = (diferidosPaginaActual - 1) * REGISTROS_POR_PAGINA_DIFERIDOS;
+        const datosPagina = datosFiltrados.slice(inicioPagina, inicioPagina + REGISTROS_POR_PAGINA_DIFERIDOS);
+
+        let html = `
+            <div style="font-size:0.85rem; color:#64748b; margin-bottom:8px;">
+                Mostrando <strong>${inicioPagina + 1}-${Math.min(inicioPagina + REGISTROS_POR_PAGINA_DIFERIDOS, datosFiltrados.length)}</strong> de <strong>${datosFiltrados.length}</strong> pacientes diferidos (${registros.length} en total)
+            </div>
+            <div id="diferidosTablaContainerScroll" class="table-wrap">
+                <table>
+                    <thead>
+                        <tr>
+                            <th>#</th>
+                            ${diferidosThOrdenable('FECHA', 'FECHA')}
+                            <th>T_Qx</th>
+                            <th>Jornada</th>
+                            <th>Cirujano</th>
+                            ${diferidosThOrdenable('Especialidad', 'Especialidad')}
+                            <th>Anestesista</th>
+                            ${diferidosThOrdenable('Nombre_Paciente', 'Nombre Paciente')}
+                            ${diferidosThOrdenable('RUT', 'RUT')}
+                            ${diferidosThOrdenable('Edad', 'Edad')}
+                            <th>FICHA</th>
+                            <th>Diagnostico</th>
+                            <th>Intervención</th>
+                            <th>Condicion LE</th>
+                            ${diferidosThOrdenable('ESTADO_DE_IQx', 'ESTADO_DE_IQx')}
+                            <th>Motivo</th>
+                            <th>Diferido por</th>
+                            <th>Fecha</th>
+                            <th style="text-align:center; cursor:default;">Acciones</th>
+                        </tr>
+                    </thead>
+                    <tbody>
+        `;
+
+        datosPagina.forEach((item, index) => {
+            const metadata = item.metadata || {};
+            let fechaDiferido = '';
+            if (metadata.fecha_diferido) {
+                const d = new Date(metadata.fecha_diferido);
+                fechaDiferido = d.toLocaleDateString('es-CL') + ' ' + d.toLocaleTimeString('es-CL');
+            }
+
+            html += `
+                <tr>
+                    <td style="text-align:center;">${inicioPagina + index + 1}</td>
+                    <td>${item.FECHA || ''}</td>
+                    <td>${item.T_Qx || ''}</td>
+                    <td>${item.Jornada || ''}</td>
+                    <td>${item.Cirujano || ''}</td>
+                    <td>${item.Especialidad || ''}</td>
+                    <td>${item.Anestesista || ''}</td>
+                    <td><strong>${item.Nombre_Paciente || ''}</strong></td>
+                    <td>${item.RUT || ''}</td>
+                    <td>${item.Edad || ''}</td>
+                    <td>${item.FICHA || ''}</td>
+                    <td>${item.Diagnostico || ''}</td>
+                    <td>${item.Intervencion_propuesta || ''}</td>
+                    <td>${item.Condicion_LE || ''}</td>
+                    <td>${item.ESTADO_DE_IQx || ''}</td>
+                    <td>${item.Motivo || ''}</td>
+                    <td style="font-size:0.7rem;">${metadata.diferido_por || ''}</td>
+                    <td style="font-size:0.7rem;">${fechaDiferido}</td>
+                    <td style="text-align:center; white-space:nowrap;">
+                        ${usuarioTieneAccesoSeccion('diferidos_reintegrar') ? `<button class="btn-reintegrar" data-key="${item.id}" title="Reintegrar a la tabla" style="background:transparent; border:1px solid #10b981; border-radius:4px; padding:2px 6px; cursor:pointer; color:#10b981; font-size:1rem; margin-right:4px;">
+                            ↩️
+                        </button>` : ''}
+                        ${usuarioTieneAccesoSeccion('diferidos_eliminar') ? `<button class="btn-eliminar-diferido" data-key="${item.id}" title="Eliminar registro" style="background:transparent; border:1px solid #ef4444; border-radius:4px; padding:2px 6px; cursor:pointer; color:#ef4444; font-size:1rem;">
+                            🗑️
+                        </button>` : ''}
+                    </td>
+                </tr>
+            `;
+        });
+
+        html += `
+                    </tbody>
+                </table>
+            </div>
+            ${generarControlesPaginacionDiferidos(totalPaginas)}
+        `;
+
+        setTimeout(() => {
+            document.querySelectorAll('.btn-eliminar-diferido').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const key = this.dataset.key;
+                    if (key) eliminarPacienteDiferido(key);
+                });
+            });
+
+            document.querySelectorAll('.btn-reintegrar').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    const key = this.dataset.key;
+                    if (key) mostrarModalReintegrar(key);
+                });
+            });
+
+            document.querySelectorAll('.btn-pagina-diferidos').forEach(btn => {
+                btn.addEventListener('click', function() {
+                    if (this.disabled) return;
+                    const nuevaPagina = parseInt(this.dataset.pagina, 10);
+                    if (!nuevaPagina || nuevaPagina === diferidosPaginaActual) return;
+                    diferidosPaginaActual = nuevaPagina;
+                    const container = document.getElementById('diferidosTablaContainer');
+                    if (container) container.innerHTML = renderizarTablaDiferidos(registros, filtros);
+                });
+            });
+
+            document.querySelectorAll('#diferidosTablaContainer table thead th[data-campo-orden]').forEach(th => {
+                th.addEventListener('click', function() {
+                    const campo = this.dataset.campoOrden;
+                    if (diferidosSortColumn === campo) {
+                        if (diferidosSortOrder === 'asc') {
+                            diferidosSortOrder = 'desc';
+                        } else {
+                            diferidosSortActive = false;
+                            diferidosSortColumn = null;
+                            diferidosSortOrder = 'asc';
+                        }
+                    } else {
+                        diferidosSortColumn = campo;
+                        diferidosSortOrder = 'asc';
+                        diferidosSortActive = true;
+                    }
+                    diferidosPaginaActual = 1;
+                    const container = document.getElementById('diferidosTablaContainer');
+                    if (container) container.innerHTML = renderizarTablaDiferidos(registros, filtros);
+                });
+            });
+        }, 50);
+
+        return html;
+    }
+
+    function generarControlesPaginacionDiferidos(totalPaginas) {
+        if (totalPaginas <= 1) return '';
+        const paginaActual = diferidosPaginaActual;
+        const estiloBoton = (deshabilitado) => `background:${deshabilitado ? '#f1f5f9' : 'white'}; border:1px solid #d1d9e6; border-radius:6px; padding:6px 14px; font-size:0.8rem; font-weight:500; color:${deshabilitado ? '#cbd5e1' : '#334155'}; cursor:${deshabilitado ? 'not-allowed' : 'pointer'};`;
+        return `
+            <div style="display:flex; justify-content:center; align-items:center; gap:10px; margin-top:14px;">
+                <button class="btn-pagina-diferidos" data-pagina="${paginaActual - 1}" ${paginaActual <= 1 ? 'disabled' : ''} style="${estiloBoton(paginaActual <= 1)}">‹ Anterior</button>
+                <span style="font-size:0.8rem; color:#64748b;">Página <strong>${paginaActual}</strong> de <strong>${totalPaginas}</strong></span>
+                <button class="btn-pagina-diferidos" data-pagina="${paginaActual + 1}" ${paginaActual >= totalPaginas ? 'disabled' : ''} style="${estiloBoton(paginaActual >= totalPaginas)}">Siguiente ›</button>
+            </div>
+        `;
+    }
+
+    function inicializarFiltrosDiferidos(registros) {
+        let debounceTimeout = null;
+        function aplicar() {
+            diferidosPaginaActual = 1;
+            const filtros = {
+                general: (document.getElementById('diferidosFiltroGeneral')?.value || '').trim(),
+                especialidad: document.getElementById('diferidosFiltroEspecialidad')?.value || ''
+            };
+            const container = document.getElementById('diferidosTablaContainer');
+            if (container) container.innerHTML = renderizarTablaDiferidos(registros, filtros);
+        }
+
+        document.getElementById('diferidosFiltroGeneral')?.addEventListener('input', function() {
+            clearTimeout(debounceTimeout);
+            debounceTimeout = setTimeout(aplicar, 300);
+        });
+        document.getElementById('diferidosFiltroEspecialidad')?.addEventListener('change', aplicar);
+
+        document.getElementById('diferidosBtnLimpiarFiltros')?.addEventListener('click', function() {
+            const general = document.getElementById('diferidosFiltroGeneral');
+            const especialidad = document.getElementById('diferidosFiltroEspecialidad');
+            if (general) general.value = '';
+            if (especialidad) especialidad.value = '';
+            aplicar();
+        });
     }
 
     async function eliminarPacienteDiferido(key) {
