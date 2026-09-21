@@ -281,7 +281,11 @@ function obtenerFechaFinEsperaCongelada(patient) {
 
     if (estatus === 'RECHAZO') {
         const llamadas = patient.historialLlamadas ? Object.values(patient.historialLlamadas) : [];
-        const rechazos = llamadas.filter(l => (l.respuesta || '').toString().trim().toUpperCase() === 'RECHAZA' && l.fechaLlamada);
+        const rechazos = llamadas.filter(l =>
+            (l.respuesta || '').toString().trim().toUpperCase() === 'RECHAZA' &&
+            (l.motivo || '').toString().trim().toUpperCase() === 'FECHA CIRUGIA' &&
+            l.fechaLlamada
+        );
         if (rechazos.length === 0) return null;
         rechazos.sort((a, b) => new Date(a.fechaLlamada) - new Date(b.fechaLlamada));
         return rechazos[0].fechaLlamada;
