@@ -12,11 +12,14 @@
 // especiales: cualquiera con acceso a la sección puede exportar/imprimir.
 // =============================================================
 
-function calcularDiasEspera(fechaStr) {
+// `hasta` (opcional): igual que en calculateWaitingDays() (js/23) — se le
+// pasa obtenerFechaFinEsperaCongelada(p) para que OPERADO/RECHAZO/EGRESO/
+// REALIZADA EN EXTRASISTEMA no sigan sumando días en los CSV/Excel.
+function calcularDiasEspera(fechaStr, hasta) {
     if (!fechaStr) return '-';
     try {
         const fecha = new Date(fechaStr);
-        const hoy = new Date();
+        const hoy = hasta ? new Date(hasta) : new Date();
         const diffDays = Math.ceil((hoy - fecha) / (1000 * 60 * 60 * 24));
         return diffDays > 0 ? diffDays : 0;
     } catch (e) {
@@ -34,7 +37,7 @@ function downloadCSV() {
 
     let csvContent = "ID;Estatus Tabla;T.Espera;Fecha Ind Qx;Nombre y Apellido;RUT;Edad;Comuna;Especialidad;Médico Tratante;Diagnóstico;Intervención;Fecha Cirugía;Observaciones\n";
     data.forEach(p => {
-        const tEspera = calcularDiasEspera(p.fechaIndQx);
+        const tEspera = calcularDiasEspera(p.fechaIndQx, obtenerFechaFinEsperaCongelada(p));
         csvContent += `"${p.id || ''}";"${p.estatusTabla || ''}";"${tEspera}";"${p.fechaIndQx || ''}";"${p.nombreApellido || ''}";"${p.rut || ''}";"${p.edad || ''}";"${p.comuna || ''}";"${p.especialidad || ''}";"${p.medicoTratante || ''}";"${p.diagnostico || ''}";"${p.intervencion || ''}";"${p.fechaCirugia || ''}";"${(p.observaciones || '').replace(/"/g, '""')}"\n`;
     });
 
@@ -52,7 +55,7 @@ function downloadExcel() {
     if (data.length === 0) return alert("No hay datos para descargar con los filtros actuales.");
 
     const excelData = data.map(p => ({
-        "ID": p.id || '', "Estatus Tabla": p.estatusTabla || '', "T. Espera (días)": calcularDiasEspera(p.fechaIndQx),
+        "ID": p.id || '', "Estatus Tabla": p.estatusTabla || '', "T. Espera (días)": calcularDiasEspera(p.fechaIndQx, obtenerFechaFinEsperaCongelada(p)),
         "Fecha Indicación Qx": p.fechaIndQx || '', "Nombre y Apellido": p.nombreApellido || '', "RUT": p.rut || '',
         "Fecha Nacimiento": p.fechaNac || '', "Edad": p.edad || '', "Patologías Crónicas": p.patologiasCronicas || '',
         "Medicamentos Crónicos": p.medicamentosCronicos || '', "Comuna": p.comuna || '', "Dirección": p.direccion || '',
@@ -62,7 +65,7 @@ function downloadExcel() {
         "Fecha EPA": p.fechaEpa || '', "GES": p.ges || '', "TACO": p.taco || '', "ASA": p.asa || '', "EKG": p.ekg || '',
         "RX": p.rx || '', "ECO": p.eco || '', "Prioridad": p.prioridad || '', "Observaciones": p.observaciones || '',
         "Indicaciones Anestesiólogo": p.indicacionesAnest || '', "Folio": p.folio || '',
-        "Fecha Estatus Program": p.fechaEstatusProgram || '', "T. Espera Programación": calcularDiasEspera(p.fechaEstatusProgram),
+        "Fecha Estatus Program": p.fechaEstatusProgram || '', "T. Espera Programación": calcularDiasEspera(p.fechaEstatusProgram, obtenerFechaFinEsperaCongelada(p)),
         "Fecha de Cirugía": p.fechaCirugia || '', "Registrado por": p.registro || ''
     }));
 
@@ -121,8 +124,8 @@ function printPatient() {
             <hr>
             <h2>⏱️ Tiempos de Espera</h2>
             <div class="grid">
-                <p><span class="label">T. Espera Actual:</span> ${calculateWaitingDays(p.fechaIndQx)} días</p>
-                <p><span class="label">Espera Programación:</span> ${calculateWaitingDays(p.fechaEstatusProgram)} días</p>
+                <p><span class="label">T. Espera Actual:</span> ${calculateWaitingDays(p.fechaIndQx, obtenerFechaFinEsperaCongelada(p))} días</p>
+                <p><span class="label">Espera Programación:</span> ${calculateWaitingDays(p.fechaEstatusProgram, obtenerFechaFinEsperaCongelada(p))} días</p>
             </div>
             <hr>
             <h2>👤 Datos del Paciente</h2>
@@ -192,7 +195,7 @@ function printPatientList() {
         alert("❌ No hay pacientes en la lista actual. Revisa los filtros aplicados.");
         return;
     }
-    filtered.sort((a, b) => calculateWaitingDays(a.fechaIndQx) - calculateWaitingDays(b.fechaIndQx));
+    filtered.sort((a, b) => calculateWaitingDays(a.fechaIndQx, obtenerFechaFinEsperaCongelada(a)) - calculateWaitingDays(b.fechaIndQx, obtenerFechaFinEsperaCongelada(b)));
 
     const printWindow = window.open('', '_blank');
     const textoFiltros = leObtenerTextoFiltros();
@@ -223,7 +226,7 @@ function printPatientList() {
     `;
 
     filtered.forEach(patient => {
-        const diasEspera = calculateWaitingDays(patient.fechaIndQx);
+        const diasEspera = calculateWaitingDays(patient.fechaIndQx, obtenerFechaFinEsperaCongelada(patient));
         const diagnosticoCorto = (patient.diagnostico || '-').substring(0, 50) + ((patient.diagnostico || '').length > 50 ? '...' : '');
         tablaHTML += `
             <tr>

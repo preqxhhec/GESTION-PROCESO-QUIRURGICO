@@ -541,6 +541,8 @@ function leAbrirModalRegistroLlamada() {
                         <option value="POSTERGA">POSTERGA</option>
                         <option value="NO RESPONDE LLAMADA">NO RESPONDE LLAMADA</option>
                         <option value="ENTREGARA INFORMACION">ENTREGARA INFORMACION</option>
+                        <option value="EGRESO">EGRESO</option>
+                        <option value="REALIZADA EN EXTRASISTEMA">REALIZADA EN EXTRASISTEMA</option>
                     </select>
                 </div>
                 <div class="form-group"><label>📝 Observaciones de la Llamada</label><textarea id="llamadaObservaciones" rows="3" style="width:100%; padding:10px;" placeholder="Detalles específicos de la conversación..."></textarea></div>
@@ -772,6 +774,8 @@ function leAbrirModalEditarLlamada() {
                         <option value="POSTERGA">POSTERGA</option>
                         <option value="NO RESPONDE LLAMADA">NO RESPONDE LLAMADA</option>
                         <option value="ENTREGARA INFORMACION">ENTREGARA INFORMACION</option>
+                        <option value="EGRESO">EGRESO</option>
+                        <option value="REALIZADA EN EXTRASISTEMA">REALIZADA EN EXTRASISTEMA</option>
                     </select>
                 </div>
                 <div class="form-group"><label>📝 Observaciones de la Llamada</label><textarea id="editLlamadaObservaciones" rows="3" style="width:100%; padding:10px;"></textarea></div>

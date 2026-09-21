@@ -219,7 +219,7 @@ function leRenderPatientsTable(data) {
                 case 'tEspera':
                     valA = getDiasEspera(a, 'lista'); valB = getDiasEspera(b, 'lista'); break;
                 case 'esperaProgram':
-                    valA = calculateWaitingDays(a.fechaEstatusProgram); valB = calculateWaitingDays(b.fechaEstatusProgram); break;
+                    valA = calculateWaitingDays(a.fechaEstatusProgram, obtenerFechaFinEsperaCongelada(a)); valB = calculateWaitingDays(b.fechaEstatusProgram, obtenerFechaFinEsperaCongelada(b)); break;
                 case 'fechaIndQx':
                     valA = new Date(a.fechaIndQx || 0); valB = new Date(b.fechaIndQx || 0); break;
                 case 'edad':
@@ -251,7 +251,7 @@ function leRenderPatientsTable(data) {
             <td>${patient.estatusTabla || '-'}</td>
             <td>${fechaFormateada}</td>
             <td><strong>${diasEspera}</strong></td>
-            <td>${patient.fechaEstatusProgram ? calculateWaitingDays(patient.fechaEstatusProgram) : '-'}</td>
+            <td>${patient.fechaEstatusProgram ? calculateWaitingDays(patient.fechaEstatusProgram, obtenerFechaFinEsperaCongelada(patient)) : '-'}</td>
             <td>${patient.nombreApellido || ''}</td>
             <td>${patient.rut || ''}</td>
             <td>${patient.edad || ''}</td>
@@ -865,7 +865,7 @@ function leShowPatientModal(key) {
             <p><strong>Estatus Tabla:</strong> ${currentModalPatient.estatusTabla || '-'}</p>
             <p><strong>Folio:</strong> ${currentModalPatient.folio || '-'}</p>
             <p><strong>Fecha Indicación Qx:</strong> ${fechaIndQxFmt}</p>
-            <p><strong>Tiempo de Espera:</strong> ${calculateWaitingDays(currentModalPatient.fechaIndQx)} días</p>
+            <p><strong>Tiempo de Espera:</strong> ${calculateWaitingDays(currentModalPatient.fechaIndQx, obtenerFechaFinEsperaCongelada(currentModalPatient))} días</p>
         </div>
         <h3 style="color:#1e40af; background:#f1f5f9; padding:12px 20px; border-radius:8px; margin-bottom:18px;">👤 Datos del Paciente</h3>
         <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px,1fr)); gap:14px 40px; margin-bottom:35px;">
@@ -903,7 +903,7 @@ function leShowPatientModal(key) {
         <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(220px,1fr)); gap:14px 40px; margin-bottom:35px;">
             <p><strong>Fecha Estatus Program:</strong> ${fechaEstatusProgFmt}</p>
             <p><strong>Fecha de Cirugía:</strong> ${fechaCirugiaFmt}</p>
-            <p><strong>Espera Programación:</strong> ${calculateWaitingDays(currentModalPatient.fechaEstatusProgram)} días</p>
+            <p><strong>Espera Programación:</strong> ${calculateWaitingDays(currentModalPatient.fechaEstatusProgram, obtenerFechaFinEsperaCongelada(currentModalPatient))} días</p>
             <p><strong>📞 Próximo Llamado:</strong> ${currentModalPatient.fechaProximoLlamado ? formatDate(currentModalPatient.fechaProximoLlamado) : 'No programado'}</p>
         </div>
         <h3 style="color:#1e40af; background:#f1f5f9; padding:12px 20px; border-radius:8px; margin-bottom:18px;">📝 Observaciones</h3>

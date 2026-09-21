@@ -119,7 +119,7 @@ const LE_RDLL_DB_PATH = 'rdll_historico';
 // Estatus que se consideran "cerrados" (el paciente ya no se gestiona
 // activamente en la lista de espera). Centralizado acá porque el original
 // repetía este mismo array literal en más de 8 lugares distintos.
-const LE_ESTADOS_NO_GESTIONABLES = ["EGRESO", "RECHAZO", "TRASLADO INTERNO", "OPERADO"];
+const LE_ESTADOS_NO_GESTIONABLES = ["EGRESO", "RECHAZO", "TRASLADO INTERNO", "OPERADO", "REALIZADA EN EXTRASISTEMA"];
 
 function esGestionable(paciente) {
     if (!paciente || !paciente.estatusTabla) return true;
@@ -237,10 +237,14 @@ function calculateAge(birthDate) {
     return age;
 }
 
-function calculateWaitingDays(startDate) {
+// `hasta` (opcional): fecha límite a usar en vez de "hoy" — la usan los
+// pacientes OPERADO/RECHAZO/EGRESO/REALIZADA EN EXTRASISTEMA para
+// "congelar" su tiempo de espera (ver obtenerFechaFinEsperaCongelada() más
+// abajo) en vez de seguir sumando días para siempre.
+function calculateWaitingDays(startDate, hasta) {
     if (!startDate) return 0;
 
-    const today = new Date();
+    const today = hasta ? new Date(hasta) : new Date();
     today.setHours(0, 0, 0, 0);
 
     let start;
@@ -255,12 +259,53 @@ function calculateWaitingDays(startDate) {
     return Math.ceil((today - start) / (1000 * 60 * 60 * 24));
 }
 
+// Fecha en la que se debe "congelar" el conteo de días de espera de un
+// paciente, según su estatus actual — o null si no aplica (su tiempo de
+// espera sigue corriendo normalmente hasta hoy):
+//   - OPERADO: la Fecha de Cirugía.
+//   - RECHAZO: la fecha (fechaLlamada) del Registro de Llamada más antiguo
+//     con Respuesta = RECHAZA.
+//   - EGRESO: la fecha del historial más antigua en que el estatus se
+//     cambió a EGRESO.
+// Si el estatus es uno de estos pero no hay evidencia (ej. OPERADO sin
+// Fecha de Cirugía cargada, o RECHAZO sin ninguna llamada RECHAZA
+// registrada), se retorna null y el tiempo de espera sigue corriendo hasta
+// hoy — es preferible eso a "congelar" en una fecha que no corresponde.
+function obtenerFechaFinEsperaCongelada(patient) {
+    if (!patient) return null;
+    const estatus = (patient.estatusTabla || '').toString().trim().toUpperCase();
+
+    if (estatus === 'OPERADO') {
+        return patient.fechaCirugia || null;
+    }
+
+    if (estatus === 'RECHAZO') {
+        const llamadas = patient.historialLlamadas ? Object.values(patient.historialLlamadas) : [];
+        const rechazos = llamadas.filter(l => (l.respuesta || '').toString().trim().toUpperCase() === 'RECHAZA' && l.fechaLlamada);
+        if (rechazos.length === 0) return null;
+        rechazos.sort((a, b) => new Date(a.fechaLlamada) - new Date(b.fechaLlamada));
+        return rechazos[0].fechaLlamada;
+    }
+
+    if (estatus === 'EGRESO') {
+        const historial = patient.historial ? Object.values(patient.historial) : [];
+        const cambiosAEgreso = historial.filter(h => {
+            if (!h.cambios) return false;
+            const arr = Array.isArray(h.cambios) ? h.cambios : [h.cambios];
+            return arr.some(c => /estatusTabla<\/strong>:\s*".*?"\s*→\s*"EGRESO"/i.test(c));
+        });
+        if (cambiosAEgreso.length === 0) return null;
+        cambiosAEgreso.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+        return cambiosAEgreso[0].fecha;
+    }
+
+    return null;
+}
+
 function getDiasEspera(patient, tipo = 'lista') {
     const fuente = tipo === 'dashboard' ? fuentePercentilDashboard : fuentePercentilLista;
-    if (fuente === 'fechaEstatusProgram') {
-        return calculateWaitingDays(patient.fechaEstatusProgram);
-    }
-    return calculateWaitingDays(patient.fechaIndQx);
+    const fechaInicio = fuente === 'fechaEstatusProgram' ? patient.fechaEstatusProgram : patient.fechaIndQx;
+    return calculateWaitingDays(fechaInicio, obtenerFechaFinEsperaCongelada(patient));
 }
 
 // Formatea una fecha a DD/MM/AAAA. Soporta: fecha serial de Excel (número),

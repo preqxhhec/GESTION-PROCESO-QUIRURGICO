@@ -140,7 +140,7 @@ async function leCargarConfiguracionFiltros() {
 
         if (especialidadesLista.length === 0) especialidadesLista = Object.keys(LE_ESPECIALISTAS_DEFECTO);
         if (Object.keys(medicosPorEspecialidad).length === 0) medicosPorEspecialidad = JSON.parse(JSON.stringify(LE_ESPECIALISTAS_DEFECTO));
-        if (estatusTablaLista.length === 0) estatusTablaLista = ['PROGRAMABLE', 'PENDIENTE EPA', 'NO PROGRAMABLE', 'ACTUALIZAR', 'CARTA CERTIFICADA', 'OPERADO', 'EGRESO', 'TRASLADO INTERNO', 'RECHAZO', 'EXCEPTUADO TRANSITORIO', 'EXCEPTUADO POR RECHAZO', 'EXCEPTUADO INUBICABLE'];
+        if (estatusTablaLista.length === 0) estatusTablaLista = ['PROGRAMABLE', 'PENDIENTE EPA', 'NO PROGRAMABLE', 'ACTUALIZAR', 'CARTA CERTIFICADA', 'OPERADO', 'EGRESO', 'TRASLADO INTERNO', 'RECHAZO', 'REALIZADA EN EXTRASISTEMA', 'EXCEPTUADO TRANSITORIO', 'EXCEPTUADO POR RECHAZO', 'EXCEPTUADO INUBICABLE'];
 
         // 🩺 "Programado en Tabla" lo pone el sistema solo, con esta
         // capitalización EXACTA (ver leCargarPacienteATabla() en js/31) —
@@ -628,7 +628,7 @@ async function adminRestablecerDefault() {
 
     especialidadesLista = Object.keys(LE_ESPECIALISTAS_DEFECTO);
     medicosPorEspecialidad = JSON.parse(JSON.stringify(LE_ESPECIALISTAS_DEFECTO));
-    estatusTablaLista = ['PROGRAMABLE', 'PENDIENTE EPA', 'NO PROGRAMABLE', 'ACTUALIZAR', 'CARTA CERTIFICADA', 'OPERADO', 'EGRESO', 'TRASLADO INTERNO', 'RECHAZO', 'EXCEPTUADO TRANSITORIO', 'EXCEPTUADO POR RECHAZO', 'EXCEPTUADO INUBICABLE'];
+    estatusTablaLista = ['PROGRAMABLE', 'PENDIENTE EPA', 'NO PROGRAMABLE', 'ACTUALIZAR', 'CARTA CERTIFICADA', 'OPERADO', 'EGRESO', 'TRASLADO INTERNO', 'RECHAZO', 'REALIZADA EN EXTRASISTEMA', 'EXCEPTUADO TRANSITORIO', 'EXCEPTUADO POR RECHAZO', 'EXCEPTUADO INUBICABLE'];
     estatusEpaLista = ['PENDIENTE', 'AGENDADO', 'REALIZADO', 'NO APLICA'];
     anestesiologosLista = ['DR. DANILO NAVA', 'DR. PEDRO GOLES', 'DRA. MARIANGEL YANES', 'DRA. RAQUEL VALERO', 'DRA. MARINELA RICCOBONO', 'DR. ROBERTO OROZCO', 'DR. DANIEL RIQUELME', 'DR. ANGEL MONTIEL'];
     comunasLista = ['ILLAPEL', 'CANELA', 'LOS VILOS', 'SALAMANCA'];
