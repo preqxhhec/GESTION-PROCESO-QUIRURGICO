@@ -128,7 +128,7 @@ function leRefrescarVistaActual() {
         leCargarEspecialidadesEnFiltroDashboard();
     } else if (leSeccionActiva === 'listaPacientes' && document.getElementById('tableBody')) {
         leMakeTableSortable();
-        leFilterPatients();
+        leFilterPatients(false); // actualización en segundo plano: no debe resetear la página actual
     }
     // nuevoPaciente / historicoRdll / adminListas no dependen de este
     // listener para su propio render.

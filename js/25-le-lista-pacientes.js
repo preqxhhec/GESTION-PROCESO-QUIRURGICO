@@ -13,6 +13,9 @@
 // es de este módulo, ya que localStorage es compartido por todo el origen).
 // =============================================================
 
+const LE_REGISTROS_POR_PAGINA_LISTA = 15;
+let lePaginaActualLista = 1;
+
 let leLastFilters = {
     busquedaGeneral: '', filterEspecialidad: '', filterMedico: '', filterEstatus: '',
     filterPrioridad: '', filterGes: '', filterComuna: '', filterFechaDesde: '', filterFechaHasta: '',
@@ -103,6 +106,7 @@ function leRenderListaPacientesHTML() {
                 <tbody id="tableBody"></tbody>
             </table>
         </div>
+        <div id="lePaginacionContainer"></div>
     `;
 }
 
@@ -230,7 +234,14 @@ function leRenderPatientsTable(data) {
         });
     }
 
-    data.forEach((patient) => {
+    const totalPaginas = Math.max(1, Math.ceil(data.length / LE_REGISTROS_POR_PAGINA_LISTA));
+    if (lePaginaActualLista > totalPaginas) lePaginaActualLista = totalPaginas;
+    if (lePaginaActualLista < 1) lePaginaActualLista = 1;
+
+    const inicio = (lePaginaActualLista - 1) * LE_REGISTROS_POR_PAGINA_LISTA;
+    const datosPagina = data.slice(inicio, inicio + LE_REGISTROS_POR_PAGINA_LISTA);
+
+    datosPagina.forEach((patient) => {
         const fechaFormateada = patient.fechaIndQx ? formatDate(patient.fechaIndQx) : '-';
         const diasEspera = getDiasEspera(patient, 'lista');
 
@@ -254,6 +265,45 @@ function leRenderPatientsTable(data) {
         `;
         tbody.appendChild(tr);
     });
+
+    leGenerarControlesPaginacionLista(totalPaginas, data.length);
+}
+
+function leGenerarControlesPaginacionLista(totalPaginas, totalRegistros) {
+    const cont = document.getElementById('lePaginacionContainer');
+    if (!cont) return;
+
+    if (totalRegistros === 0) {
+        cont.innerHTML = '';
+        return;
+    }
+
+    cont.innerHTML = `
+        <div style="display:flex; align-items:center; justify-content:center; gap:14px; padding:12px 0;">
+            <button id="lePaginaAnterior" ${lePaginaActualLista <= 1 ? 'disabled' : ''} style="padding:6px 14px; border-radius:6px; border:1px solid #1e3a8a; background:${lePaginaActualLista <= 1 ? '#e2e8f0' : '#1e3a8a'}; color:${lePaginaActualLista <= 1 ? '#94a3b8' : 'white'}; cursor:${lePaginaActualLista <= 1 ? 'not-allowed' : 'pointer'};">⬅️ Anterior</button>
+            <span style="font-weight:600; color:#1e3a8a;">Página ${lePaginaActualLista} de ${totalPaginas}</span>
+            <button id="lePaginaSiguiente" ${lePaginaActualLista >= totalPaginas ? 'disabled' : ''} style="padding:6px 14px; border-radius:6px; border:1px solid #1e3a8a; background:${lePaginaActualLista >= totalPaginas ? '#e2e8f0' : '#1e3a8a'}; color:${lePaginaActualLista >= totalPaginas ? '#94a3b8' : 'white'}; cursor:${lePaginaActualLista >= totalPaginas ? 'not-allowed' : 'pointer'};">Siguiente ➡️</button>
+        </div>
+    `;
+
+    const btnAnterior = document.getElementById('lePaginaAnterior');
+    const btnSiguiente = document.getElementById('lePaginaSiguiente');
+    if (btnAnterior) {
+        btnAnterior.onclick = () => {
+            if (lePaginaActualLista > 1) {
+                lePaginaActualLista--;
+                leFilterPatients(false);
+            }
+        };
+    }
+    if (btnSiguiente) {
+        btnSiguiente.onclick = () => {
+            if (lePaginaActualLista < totalPaginas) {
+                lePaginaActualLista++;
+                leFilterPatients(false);
+            }
+        };
+    }
 }
 
 function leMakeTableSortable() {
@@ -319,7 +369,9 @@ function leMakeTableSortable() {
 // 🔍 FILTRADO PRINCIPAL
 // =============================================================
 
-function leFilterPatients() {
+function leFilterPatients(resetPage = true) {
+    if (resetPage) lePaginaActualLista = 1;
+
     const busqueda = (document.getElementById('busquedaGeneral')?.value || '').toLowerCase().trim();
     const especialidad = document.getElementById('filterEspecialidad')?.value || '';
     const medico = document.getElementById('filterMedico')?.value || '';
