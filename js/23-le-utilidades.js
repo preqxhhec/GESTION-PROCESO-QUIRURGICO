@@ -186,6 +186,7 @@ let mostrarDuplicados = false;
 let mostrarMultiEspecialidad = false;
 let soloSinProgramacion = false;
 let ocultarNoGestionables = false;
+let soloOperadoSinFechaCirugia = false;
 let filtroPercentil = '';
 let percentilesGlobales = { p25: 0, p50: 0, p75: 0, p90: 0 };
 

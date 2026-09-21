@@ -20,7 +20,7 @@ let leLastFilters = {
     busquedaGeneral: '', filterEspecialidad: '', filterMedico: '', filterEstatus: '',
     filterPrioridad: '', filterGes: '', filterComuna: '', filterFechaDesde: '', filterFechaHasta: '',
     filterPercentil: '', soloSinFolio: false, mostrarDuplicados: false, soloSinProgramacion: false,
-    ocultarNoGestionables: false, mostrarMultiEspecialidad: false,
+    ocultarNoGestionables: false, mostrarMultiEspecialidad: false, soloOperadoSinFechaCirugia: false,
     fuentePercentilLista: 'fechaIndQx'
 };
 
@@ -84,6 +84,7 @@ function leRenderListaPacientesHTML() {
             <button onclick="leToggleSinFolio()" id="btnSinFolio" class="btn-secondary">Sin Folio</button>
             <button onclick="leToggleSinProgramacion()" id="btnSinProgramacion" class="btn-secondary">📅 Sin Fecha Prog</button>
             <button onclick="leToggleNoGestionables()" id="btnNoGestionables" class="btn-secondary" style="background:#64748b; color:white;">🚫 Ocultar No Gestionables</button>
+            <button onclick="leToggleOperadoSinFechaCirugia()" id="btnOperadoSinFechaCirugia" class="btn-secondary">🗓️ Operado Sin Fecha Cirugía</button>
             ${usuarioTieneAccesoSeccion('listaEspera_exportar') ? `
             <button onclick="downloadCSV()" class="btn-secondary" style="background:#10b981; color:white;">📥 Descargar CSV</button>
             <button onclick="downloadExcel()" class="btn-secondary" style="background:#2563eb; color:white;">📊 Descargar Excel</button>
@@ -410,6 +411,11 @@ function leFilterPatients(resetPage = true) {
 
         if (ocultarNoGestionables && !esGestionable(p)) pasa = false;
 
+        if (soloOperadoSinFechaCirugia) {
+            const esOperado = (p.estatusTabla || '').toString().trim().toUpperCase() === 'OPERADO';
+            if (!esOperado || (p.fechaCirugia || '').toString().trim() !== '') pasa = false;
+        }
+
         if (filtroPercentil) {
             const dias = getDiasEspera(p, 'lista');
             if (dias <= 0) pasa = false;
@@ -500,6 +506,12 @@ function leGetCurrentFilteredData() {
     if (soloSinFolio) filtered = filtered.filter(p => (p.folio || '').toString().trim() === '');
     if (soloSinProgramacion) filtered = filtered.filter(p => (p.fechaEstatusProgram || '').toString().trim() === '');
     if (ocultarNoGestionables) filtered = filtered.filter(esGestionable);
+    if (soloOperadoSinFechaCirugia) {
+        filtered = filtered.filter(p =>
+            (p.estatusTabla || '').toString().trim().toUpperCase() === 'OPERADO' &&
+            (p.fechaCirugia || '').toString().trim() === ''
+        );
+    }
 
     if (filtroPercentil) {
         filtered = filtered.filter(p => {
@@ -590,6 +602,7 @@ function leObtenerTextoFiltros() {
     if (soloSinFolio) filtros.push(`📄 Solo sin folio`);
     if (soloSinProgramacion) filtros.push(`📅 Solo sin fecha programación`);
     if (ocultarNoGestionables) filtros.push(`🚫 Ocultando No Gestionables`);
+    if (soloOperadoSinFechaCirugia) filtros.push(`🗓️ Solo OPERADO sin Fecha de Cirugía`);
     if (mostrarDuplicados) filtros.push(`🔄 Mostrando duplicados`);
     if (mostrarMultiEspecialidad) filtros.push(`🔀 Multi-Especialidad`);
     if (filtroPercentil) {
@@ -638,6 +651,12 @@ function leToggleSinProgramacion() {
     leFilterPatients();
 }
 
+function leToggleOperadoSinFechaCirugia() {
+    soloOperadoSinFechaCirugia = !soloOperadoSinFechaCirugia;
+    leActualizarBotonesFiltrosVisuales();
+    leFilterPatients();
+}
+
 function leActualizarBotonesFiltrosVisuales() {
     const btnSinFolio = document.getElementById('btnSinFolio');
     if (btnSinFolio) {
@@ -663,6 +682,12 @@ function leActualizarBotonesFiltrosVisuales() {
         btnNoGestionables.style.color = 'white';
         btnNoGestionables.textContent = ocultarNoGestionables ? '✅ Ocultando No Gestionables' : '🚫 Ocultar No Gestionables';
     }
+    const btnOperadoSinFechaCirugia = document.getElementById('btnOperadoSinFechaCirugia');
+    if (btnOperadoSinFechaCirugia) {
+        btnOperadoSinFechaCirugia.style.background = soloOperadoSinFechaCirugia ? '#eab308' : '';
+        btnOperadoSinFechaCirugia.style.color = soloOperadoSinFechaCirugia ? 'black' : '';
+        btnOperadoSinFechaCirugia.textContent = soloOperadoSinFechaCirugia ? '✅ Solo OPERADO Sin Fecha Cirugía' : '🗓️ Operado Sin Fecha Cirugía';
+    }
     const btnMulti = document.getElementById('btnMultiEspecialidad');
     if (btnMulti) {
         btnMulti.style.background = mostrarMultiEspecialidad ? '#8b5cf6' : '';
@@ -678,6 +703,7 @@ function leClearFilters() {
     soloSinProgramacion = false;
     filtroPercentil = '';
     mostrarMultiEspecialidad = false;
+    soloOperadoSinFechaCirugia = false;
 
     ['busquedaGeneral', 'filterEspecialidad', 'filterMedico', 'filterEstatus', 'filterEstatusEpa', 'filterPrioridad',
         'filterGes', 'filterComuna', 'filterFechaDesde', 'filterFechaHasta', 'filterPercentil'].forEach(id => {
@@ -724,6 +750,7 @@ function leCargarFiltrosDesdeStorage() {
     soloSinProgramacion = !!leLastFilters.soloSinProgramacion;
     ocultarNoGestionables = !!leLastFilters.ocultarNoGestionables;
     mostrarMultiEspecialidad = !!leLastFilters.mostrarMultiEspecialidad;
+    soloOperadoSinFechaCirugia = !!leLastFilters.soloOperadoSinFechaCirugia;
     filtroPercentil = leLastFilters.filtroPercentil || '';
     fuentePercentilLista = leLastFilters.fuentePercentilLista || 'fechaIndQx';
 }
@@ -746,6 +773,7 @@ function leGuardarFiltrosEnStorage() {
         soloSinProgramacion: !!soloSinProgramacion,
         ocultarNoGestionables: !!ocultarNoGestionables,
         mostrarMultiEspecialidad: !!mostrarMultiEspecialidad,
+        soloOperadoSinFechaCirugia: !!soloOperadoSinFechaCirugia,
         fuentePercentilLista: fuentePercentilLista || 'fechaIndQx'
     };
     localStorage.setItem('le_prequirurgico_filtros', JSON.stringify(leLastFilters));
