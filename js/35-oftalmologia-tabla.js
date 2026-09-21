@@ -746,51 +746,130 @@ async function mostrarDetalleOftalmologia(key) {
 
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
-    overlay.innerHTML = `
-        <div class="modal-box" style="max-width: 480px;">
-            <span class="modal-icon">👁️</span>
-            <div class="modal-title">${registro.Nombre_Paciente || 'Paciente'}</div>
-            <div class="modal-message" style="text-align:left; line-height:1.8;">
-                <strong>Fecha:</strong> ${registro.FECHA || '-'}<br>
-                <strong>RUT:</strong> ${registro.RUT || '-'}<br>
-                <strong>Edad:</strong> ${registro.Edad || '-'}<br>
-                <strong>Diagnóstico:</strong> ${registro.Diagnostico || '-'}<br>
-                <strong>Ojo:</strong> ${registro.Ojo || '-'}<br>
-                <strong>Dilatación Pupilar:</strong> ${registro.DilatacionPupilar || '-'}<br>
-                <strong>Membrana:</strong> ${registro.Membrana || '-'}<br>
-                <strong>Observaciones:</strong> ${registro.Observaciones || '-'}
-            </div>
-            <div class="modal-actions">
-                ${puedeEliminar ? '<button class="modal-btn modal-btn-cancel" id="ofDetalleEliminar" style="background:#fee2e2; color:#dc2626;">🗑️ Eliminar</button>' : ''}
-                <button class="modal-btn modal-btn-success" id="ofDetalleCerrar">Cerrar</button>
-            </div>
-        </div>
-    `;
     document.body.appendChild(overlay);
-
-    overlay.querySelector('#ofDetalleCerrar').addEventListener('click', () => overlay.remove());
     overlay.addEventListener('click', function(e) { if (e.target === overlay) overlay.remove(); });
 
-    const btnEliminar = overlay.querySelector('#ofDetalleEliminar');
-    if (btnEliminar) {
-        btnEliminar.addEventListener('click', async function() {
-            const confirmado = await showModal({
-                title: '🗑️ Eliminar registro',
-                message: `¿Eliminar el registro de <strong>${registro.Nombre_Paciente || 'este paciente'}</strong>? Esta acción no se puede deshacer.`,
-                icon: '⚠️',
-                confirmText: 'Sí, eliminar',
-                cancelText: 'Cancelar',
-                type: 'danger'
+    // -------------------------------------------------------------
+    // 👁️ MODO VER — datos de solo lectura, con Editar/Eliminar/Cerrar.
+    // -------------------------------------------------------------
+    function renderModoVer() {
+        overlay.innerHTML = `
+            <div class="modal-box" style="max-width: 480px;">
+                <span class="modal-icon">👁️</span>
+                <div class="modal-title">${registro.Nombre_Paciente || 'Paciente'}</div>
+                <div class="modal-message" style="text-align:left; line-height:1.8;">
+                    <strong>Fecha:</strong> ${registro.FECHA || '-'}<br>
+                    <strong>RUT:</strong> ${registro.RUT || '-'}<br>
+                    <strong>Edad:</strong> ${registro.Edad || '-'}<br>
+                    <strong>Diagnóstico:</strong> ${registro.Diagnostico || '-'}<br>
+                    <strong>Ojo:</strong> ${registro.Ojo || '-'}<br>
+                    <strong>Dilatación Pupilar:</strong> ${registro.DilatacionPupilar || '-'}<br>
+                    <strong>Membrana:</strong> ${registro.Membrana || '-'}<br>
+                    <strong>Observaciones:</strong> ${registro.Observaciones || '-'}
+                </div>
+                <div class="modal-actions">
+                    <button class="modal-btn" id="ofDetalleEditar" style="background:#0b2a4f; color:white;">✏️ Editar</button>
+                    ${puedeEliminar ? '<button class="modal-btn modal-btn-cancel" id="ofDetalleEliminar" style="background:#fee2e2; color:#dc2626;">🗑️ Eliminar</button>' : ''}
+                    <button class="modal-btn modal-btn-success" id="ofDetalleCerrar">Cerrar</button>
+                </div>
+            </div>
+        `;
+
+        overlay.querySelector('#ofDetalleCerrar').addEventListener('click', () => overlay.remove());
+        overlay.querySelector('#ofDetalleEditar').addEventListener('click', () => renderModoEditar());
+
+        const btnEliminar = overlay.querySelector('#ofDetalleEliminar');
+        if (btnEliminar) {
+            btnEliminar.addEventListener('click', async function() {
+                const confirmado = await showModal({
+                    title: '🗑️ Eliminar registro',
+                    message: `¿Eliminar el registro de <strong>${registro.Nombre_Paciente || 'este paciente'}</strong>? Esta acción no se puede deshacer.`,
+                    icon: '⚠️',
+                    confirmText: 'Sí, eliminar',
+                    cancelText: 'Cancelar',
+                    type: 'danger'
+                });
+                if (!confirmado) return;
+                try {
+                    await database.ref('registros_oftalmologia/' + key).remove();
+                    overlay.remove();
+                    cargarTablaOftalmologia();
+                } catch (error) {
+                    console.error('❌ Error al eliminar registro de Oftalmología:', error);
+                    showModal({ title: '❌ Error', message: 'No se pudo eliminar el registro.', icon: '❌', confirmText: 'Aceptar' });
+                }
             });
-            if (!confirmado) return;
+        }
+    }
+
+    // -------------------------------------------------------------
+    // ✏️ MODO EDITAR — Nombre/RUT/Edad/Diagnóstico/Fecha quedan fijos
+    // (vienen de la Tabla Quirúrgica el día que se guardó, no tiene
+    // sentido reescribirlos acá); solo se editan los campos propios de
+    // Oftalmología.
+    // -------------------------------------------------------------
+    function renderModoEditar() {
+        overlay.innerHTML = `
+            <div class="modal-box" style="max-width: 480px;">
+                <span class="modal-icon">✏️</span>
+                <div class="modal-title">${registro.Nombre_Paciente || 'Paciente'}</div>
+                <div class="modal-message" style="text-align:left; line-height:1.6; margin-bottom:6px;">
+                    <strong>Fecha:</strong> ${registro.FECHA || '-'} · <strong>RUT:</strong> ${registro.RUT || '-'} · <strong>Edad:</strong> ${registro.Edad || '-'}<br>
+                    <strong>Diagnóstico:</strong> ${registro.Diagnostico || '-'}
+                </div>
+                <div style="text-align:left; display:flex; flex-direction:column; gap:10px;">
+                    <div>
+                        <label style="font-size:0.75rem; font-weight:600; color:#64748b; display:block; margin-bottom:3px;">Ojo</label>
+                        <select id="ofEditOjo" style="width:100%; padding:7px; border:1px solid #d1d9e6; border-radius:6px; box-sizing:border-box;">
+                            <option value="">-</option>
+                            ${OFTALMOLOGIA_OJO_OPCIONES.map(o => `<option value="${o}" ${registro.Ojo === o ? 'selected' : ''}>${o}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size:0.75rem; font-weight:600; color:#64748b; display:block; margin-bottom:3px;">Dilatación Pupilar</label>
+                        <select id="ofEditDilatacion" style="width:100%; padding:7px; border:1px solid #d1d9e6; border-radius:6px; box-sizing:border-box;">
+                            <option value="">-</option>
+                            ${OFTALMOLOGIA_DILATACION_OPCIONES.map(o => `<option value="${o}" ${registro.DilatacionPupilar === o ? 'selected' : ''}>${o}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size:0.75rem; font-weight:600; color:#64748b; display:block; margin-bottom:3px;">Membrana</label>
+                        <select id="ofEditMembrana" style="width:100%; padding:7px; border:1px solid #d1d9e6; border-radius:6px; box-sizing:border-box;">
+                            <option value="">-</option>
+                            ${OFTALMOLOGIA_MEMBRANA_OPCIONES.map(o => `<option value="${o}" ${registro.Membrana === o ? 'selected' : ''}>${o}</option>`).join('')}
+                        </select>
+                    </div>
+                    <div>
+                        <label style="font-size:0.75rem; font-weight:600; color:#64748b; display:block; margin-bottom:3px;">Observaciones</label>
+                        <textarea id="ofEditObservaciones" rows="3" style="width:100%; padding:7px; border:1px solid #d1d9e6; border-radius:6px; font-family:inherit; box-sizing:border-box; resize:vertical;">${registro.Observaciones || ''}</textarea>
+                    </div>
+                </div>
+                <div class="modal-actions">
+                    <button class="modal-btn modal-btn-cancel" id="ofEditCancelar">Cancelar</button>
+                    <button class="modal-btn modal-btn-success" id="ofEditGuardar">💾 Guardar</button>
+                </div>
+            </div>
+        `;
+
+        overlay.querySelector('#ofEditCancelar').addEventListener('click', () => renderModoVer());
+        overlay.querySelector('#ofEditGuardar').addEventListener('click', async function() {
+            const cambios = {
+                Ojo: overlay.querySelector('#ofEditOjo').value,
+                DilatacionPupilar: overlay.querySelector('#ofEditDilatacion').value,
+                Membrana: overlay.querySelector('#ofEditMembrana').value,
+                Observaciones: overlay.querySelector('#ofEditObservaciones').value
+            };
             try {
-                await database.ref('registros_oftalmologia/' + key).remove();
-                overlay.remove();
+                await database.ref('registros_oftalmologia/' + key).update(cambios);
+                Object.assign(registro, cambios);
+                renderModoVer();
                 cargarTablaOftalmologia();
             } catch (error) {
-                console.error('❌ Error al eliminar registro de Oftalmología:', error);
-                showModal({ title: '❌ Error', message: 'No se pudo eliminar el registro.', icon: '❌', confirmText: 'Aceptar' });
+                console.error('❌ Error al editar registro de Oftalmología:', error);
+                showModal({ title: '❌ Error', message: 'No se pudo guardar la edición. Intenta nuevamente.', icon: '❌', confirmText: 'Aceptar' });
             }
         });
     }
+
+    renderModoVer();
 }
