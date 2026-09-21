@@ -163,6 +163,7 @@
         detenerAutoSave();
         detenerTemporizadoresInactividad();
         detenerEscuchaRecargaForzada();
+        limpiarWidgetAvatar();
         await liberarSesionActiva();
         await auth.signOut();
 
@@ -325,6 +326,7 @@
         detenerAutoSave();
         detenerTemporizadoresInactividad();
         detenerEscuchaRecargaForzada();
+        limpiarWidgetAvatar();
         refSesionActiva = null;
         await auth.signOut();
 
@@ -645,6 +647,7 @@
             // creados antes de que existiera este sistema de permisos.
             currentUserSecciones = (userData && userData.secciones) || null;
             currentUserSoloLecturaTabla = !!(userData && userData.soloLecturaTabla);
+            currentUserAvatarActivo = !(userData && userData.avatarActivo === false);
 
             console.log('✅ Usuario autenticado:', currentUserEmail, 'Rol:', currentUserRol);
 
@@ -663,6 +666,7 @@
             await cargarWhatsappPlantillasCache();
             iniciarSincronizacionTiempoReal();
             escucharRecargaForzada();
+            inicializarAvatarMensajes();
             iniciarAutoSave();
             reiniciarTemporizadoresInactividad();
 
@@ -705,6 +709,7 @@
             currentUserRol = '';
             currentUserSecciones = null;
             currentUserSoloLecturaTabla = false;
+            currentUserAvatarActivo = true;
             detenerTemporizadoresInactividad();
             loginContainer.style.display = 'flex';
             appContainer.style.display = 'none';

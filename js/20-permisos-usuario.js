@@ -75,6 +75,7 @@ const ACCIONES_POR_SECCION = {
 
 let currentUserSecciones = null;
 let currentUserSoloLecturaTabla = false;
+let currentUserAvatarActivo = true;
 
 // Los administradores nunca están restringidos, EXCEPTO en "admin": el
 // panel Administrador es exclusivo del superadministrador — un
@@ -177,7 +178,7 @@ function aplicarSoloLecturaTabla() {
 // -------------------------------------------------------------
 // 🧰 UI DE PERMISOS — reutilizada en "Crear Usuario" y "Editar Permisos"
 // -------------------------------------------------------------
-function renderCheckboxesPermisos(seccionesActuales, soloLecturaActual) {
+function renderCheckboxesPermisos(seccionesActuales, soloLecturaActual, avatarActivoActual) {
     let html = `<div id="permisosSeccionesWrap">
         <label style="font-size:0.8rem; font-weight:600; color:#475569; display:block; margin-top:12px; margin-bottom:6px;">Secciones a las que puede acceder</label>
         <div style="display:flex; flex-direction:column; gap:6px; background:#f8fafc; border-radius:8px; padding:10px;">`;
@@ -219,6 +220,10 @@ function renderCheckboxesPermisos(seccionesActuales, soloLecturaActual) {
             <input type="checkbox" id="permSoloLecturaTabla" ${soloLecturaActual ? 'checked' : ''}>
             🔒 Solo lectura en Tabla Quirúrgica (puede navegar semanas/días e imprimir, pero no editar ni guardar nada)
         </label>
+        <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; margin-top:6px; cursor:pointer;">
+            <input type="checkbox" id="permAvatarActivo" ${avatarActivoActual !== false ? 'checked' : ''}>
+            🗣️ Mostrar el avatar con recordatorios al iniciar sesión
+        </label>
     </div>`;
 
     return html;
@@ -230,5 +235,6 @@ function leerPermisosDesdeFormulario() {
         secciones[chk.dataset.seccion] = chk.checked;
     });
     const soloLecturaTabla = document.getElementById('permSoloLecturaTabla')?.checked || false;
-    return { secciones, soloLecturaTabla };
+    const avatarActivo = document.getElementById('permAvatarActivo')?.checked !== false;
+    return { secciones, soloLecturaTabla, avatarActivo };
 }

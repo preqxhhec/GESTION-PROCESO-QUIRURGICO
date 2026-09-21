@@ -147,7 +147,7 @@
                 btn.addEventListener('click', function() {
                     const uid = this.dataset.uid;
                     const user = usuariosCache[uid] || {};
-                    mostrarModalEditarPermisos(uid, user.email || 'Sin email', user.secciones, !!user.soloLecturaTabla);
+                    mostrarModalEditarPermisos(uid, user.email || 'Sin email', user.secciones, !!user.soloLecturaTabla, user.avatarActivo !== false);
                 });
             });
 
@@ -544,7 +544,7 @@
                     </select>
 
                     <div id="nuevoUsuarioPermisosWrap">
-                        ${renderCheckboxesPermisos(null, false)}
+                        ${renderCheckboxesPermisos(null, false, true)}
                     </div>
 
                     <div id="nuevoUsuarioError" style="color:#dc2626; font-size:0.85rem; margin-top:8px; min-height:20px;"></div>
@@ -604,6 +604,7 @@
                     const permisos = leerPermisosDesdeFormulario();
                     datosUsuario.secciones = permisos.secciones;
                     datosUsuario.soloLecturaTabla = permisos.soloLecturaTabla;
+                    datosUsuario.avatarActivo = permisos.avatarActivo;
                 }
 
                 await database.ref('usuarios/' + user.uid).set(datosUsuario);
@@ -657,7 +658,7 @@
     // =============================================================
     // 🔐 EDITAR PERMISOS DE UN USUARIO EXISTENTE
     // =============================================================
-    function mostrarModalEditarPermisos(uid, email, seccionesActuales, soloLecturaActual) {
+    function mostrarModalEditarPermisos(uid, email, seccionesActuales, soloLecturaActual, avatarActivoActual) {
         const overlay = document.createElement('div');
         overlay.className = 'modal-overlay';
         overlay.innerHTML = `
@@ -665,7 +666,7 @@
                 <span class="modal-icon">🔐</span>
                 <div class="modal-title">Permisos de ${email}</div>
                 <div style="text-align:left; margin-bottom:16px;">
-                    ${renderCheckboxesPermisos(seccionesActuales, soloLecturaActual)}
+                    ${renderCheckboxesPermisos(seccionesActuales, soloLecturaActual, avatarActivoActual)}
                     <div id="editarPermisosError" style="color:#dc2626; font-size:0.85rem; margin-top:8px; min-height:20px;"></div>
                 </div>
                 <div class="modal-actions">
@@ -691,8 +692,8 @@
             errorDiv.textContent = '⏳ Guardando...';
 
             try {
-                const { secciones, soloLecturaTabla } = leerPermisosDesdeFormulario();
-                await guardarPermisosUsuario(uid, secciones, soloLecturaTabla);
+                const { secciones, soloLecturaTabla, avatarActivo } = leerPermisosDesdeFormulario();
+                await guardarPermisosUsuario(uid, secciones, soloLecturaTabla, avatarActivo);
                 cerrar();
                 cargarUsuarios();
             } catch (error) {
@@ -708,7 +709,7 @@
         });
     }
 
-    async function guardarPermisosUsuario(uid, secciones, soloLecturaTabla) {
+    async function guardarPermisosUsuario(uid, secciones, soloLecturaTabla, avatarActivo) {
         if (!currentUser || !esSuperAdministrador()) {
             showModal({
                 title: '⛔ Acceso denegado',
@@ -721,6 +722,7 @@
 
         await database.ref('usuarios/' + uid).update({
             secciones: secciones,
-            soloLecturaTabla: soloLecturaTabla
+            soloLecturaTabla: soloLecturaTabla,
+            avatarActivo: avatarActivo
         });
     }

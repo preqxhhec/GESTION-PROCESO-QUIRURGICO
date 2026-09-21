@@ -744,7 +744,7 @@
                     </div>
                 </div>
 
-                <div style="background:white; border-radius:12px; border:1px solid #e2e8f0; padding:16px;">
+                <div style="background:white; border-radius:12px; border:1px solid #e2e8f0; padding:16px; margin-bottom:16px;">
                     <div style="font-size:1.1rem; font-weight:600; margin-bottom:4px;">
                         🔄 Sistema
                     </div>
@@ -752,6 +752,30 @@
                         Fuerza a que todos los equipos con sesión iniciada en este momento recarguen la app automáticamente — útil después de subir una corrección al código, para no depender de que cada usuario haga un refresco manual.
                     </div>
                     <button class="btn-sm" id="forzarRecargaBtn" style="background:#dc2626; color:white; border:none; padding:8px 18px; border-radius:30px; cursor:pointer;">🔄 Forzar recarga a todos los equipos</button>
+                </div>
+
+                <div style="background:white; border-radius:12px; border:1px solid #e2e8f0; padding:16px; margin-bottom:16px;">
+                    <div style="font-size:1.1rem; font-weight:600; margin-bottom:4px;">
+                        🗣️ Mensajes del Avatar
+                    </div>
+                    <div style="font-size:0.75rem; color:#64748b; margin-bottom:12px;">
+                        Mensajes en video ya grabados. Elige a quién se le muestra cada uno al iniciar sesión (además, cada usuario puede activar/desactivar el avatar para sí mismo en "Editar Permisos").
+                    </div>
+                    <div id="avatarAsignacionesLista">
+                        <p style="color:#94a3b8; text-align:center; padding:20px;">Cargando...</p>
+                    </div>
+                </div>
+
+                <div style="background:white; border-radius:12px; border:1px solid #e2e8f0; padding:16px;">
+                    <div style="font-size:1.1rem; font-weight:600; margin-bottom:4px;">
+                        📝 Recordatorios de Texto
+                    </div>
+                    <div style="font-size:0.75rem; color:#64748b; margin-bottom:12px;">
+                        Se muestran como texto en el panel de recordatorios del avatar (📝, junto al avatar) — no se leen en voz alta. "Para todos" los ve cualquier usuario; "Para un usuario específico" solo el que elijas.
+                    </div>
+                    <div id="recordatoriosTextoAdminLista">
+                        <p style="color:#94a3b8; text-align:center; padding:20px;">Cargando...</p>
+                    </div>
                 </div>
             </div>
         `;
@@ -761,6 +785,8 @@
         cargarDesplegables();
         cargarMedicosPorEspecialidad();
         cargarPlantillasWhatsAppAdmin();
+        cargarAsignacionesAvatar();
+        cargarRecordatoriosTextoAdmin();
 
         document.getElementById('crearUsuarioBtn')?.addEventListener('click', function() {
             mostrarModalCrearUsuario();
