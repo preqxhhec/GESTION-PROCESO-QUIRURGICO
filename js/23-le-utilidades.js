@@ -280,10 +280,17 @@ function obtenerFechaFinEsperaCongelada(patient) {
     }
 
     if (estatus === 'RECHAZO') {
+        // Acepta FECHA CIRUGIA y ACTUALIZACION DE INFORMACION / CONTINUIDAD
+        // DEL PROCESO como motivos válidos de un rechazo real — el regex
+        // (en vez de comparar el texto exacto) tolera variantes de
+        // redacción de datos migrados de antes de que este motivo tuviera
+        // su texto actual fijo en el desplegable (ej. "CONTINUIDAD DE
+        // PROCESO" sin "DEL", o sin espacio antes de la barra "/").
+        const motivoValido = /^(FECHA CIRUGIA|ACTUALIZACION\s+DE\s+INFORMACION\s*\/?\s*CONTINUIDAD\s+DEL?\s+PROCESO)$/i;
         const llamadas = patient.historialLlamadas ? Object.values(patient.historialLlamadas) : [];
         const rechazos = llamadas.filter(l =>
             (l.respuesta || '').toString().trim().toUpperCase() === 'RECHAZA' &&
-            (l.motivo || '').toString().trim().toUpperCase() === 'FECHA CIRUGIA' &&
+            motivoValido.test((l.motivo || '').toString().trim()) &&
             l.fechaLlamada
         );
         if (rechazos.length === 0) return null;
