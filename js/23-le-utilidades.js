@@ -298,9 +298,18 @@ function obtenerFechaFinEsperaCongelada(patient) {
             const arr = Array.isArray(h.cambios) ? h.cambios : [h.cambios];
             return arr.some(c => /estatusTabla<\/strong>:\s*".*?"\s*→\s*"EGRESO"/i.test(c));
         });
-        if (cambiosAEgreso.length === 0) return null;
-        cambiosAEgreso.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
-        return cambiosAEgreso[0].fecha;
+        if (cambiosAEgreso.length > 0) {
+            cambiosAEgreso.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+            return cambiosAEgreso[0].fecha;
+        }
+        // Sin esa entrada en el historial (típico de fichas migradas en bloque
+        // desde antes de que existiera el historial automático, que ya venían
+        // con estatus EGRESO): se usa como respaldo la fecha de última
+        // modificación del registro (timestamp) — no es la fecha real del
+        // egreso, pero es la evidencia más confiable disponible ("sabemos que
+        // a esa fecha ya estaba en EGRESO"), y evita dejarlo sumando días para
+        // siempre por falta de un dato que no existe en ningún lado.
+        return patient.timestamp || null;
     }
 
     return null;
