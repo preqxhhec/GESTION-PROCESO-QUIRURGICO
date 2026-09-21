@@ -243,8 +243,14 @@ function adminCargarMedicos() {
 async function adminAgregarEspecialidad() {
     if (!esSuperAdministrador()) return;
     const nuevaEsp = document.getElementById('adminNuevaEspecialidad').value.trim().toUpperCase();
-    if (!nuevaEsp) return alert("Ingresa el nombre de la especialidad");
-    if (especialidadesLista.includes(nuevaEsp)) return alert("Esta especialidad ya existe");
+    if (!nuevaEsp) {
+        showModal({ title: '⚠️ Falta un dato', message: 'Ingresa el nombre de la especialidad.', icon: '⚠️', confirmText: 'Aceptar' });
+        return;
+    }
+    if (especialidadesLista.includes(nuevaEsp)) {
+        showModal({ title: '⚠️ Ya existe', message: 'Esta especialidad ya existe.', icon: '⚠️', confirmText: 'Aceptar' });
+        return;
+    }
 
     especialidadesLista.push(nuevaEsp);
     especialidadesLista.sort();
@@ -254,7 +260,7 @@ async function adminAgregarEspecialidad() {
     leRefrescarTodosLosSelectsFiltros();
     leCargarDatosEnPanelAdmin();
     document.getElementById('adminNuevaEspecialidad').value = '';
-    alert(`✅ Especialidad "${nuevaEsp}" agregada correctamente`);
+    showModal({ title: '✅ Agregada', message: `Especialidad "${nuevaEsp}" agregada correctamente.`, icon: '✅', confirmText: 'Aceptar' });
 }
 
 async function adminEditarEspecialidad() {
@@ -262,12 +268,29 @@ async function adminEditarEspecialidad() {
     const espAntigua = document.getElementById('adminEspSelect').value;
     const espNueva = document.getElementById('adminNuevaEspecialidad').value.trim().toUpperCase();
 
-    if (!espAntigua) return alert("❌ Selecciona una especialidad para editar");
-    if (!espNueva) return alert("❌ Ingresa el nuevo nombre de la especialidad");
-    if (espAntigua === espNueva) return alert("⚠️ El nombre es el mismo. No se realizaron cambios.");
-    if (especialidadesLista.includes(espNueva)) return alert("❌ Ya existe una especialidad con ese nombre");
+    if (!espAntigua) {
+        showModal({ title: '❌ Falta selección', message: 'Selecciona una especialidad para editar.', icon: '❌', confirmText: 'Aceptar' });
+        return;
+    }
+    if (!espNueva) {
+        showModal({ title: '❌ Falta un dato', message: 'Ingresa el nuevo nombre de la especialidad.', icon: '❌', confirmText: 'Aceptar' });
+        return;
+    }
+    if (espAntigua === espNueva) {
+        showModal({ title: '⚠️ Sin cambios', message: 'El nombre es el mismo. No se realizaron cambios.', icon: '⚠️', confirmText: 'Aceptar' });
+        return;
+    }
+    if (especialidadesLista.includes(espNueva)) {
+        showModal({ title: '❌ Ya existe', message: 'Ya existe una especialidad con ese nombre.', icon: '❌', confirmText: 'Aceptar' });
+        return;
+    }
 
-    if (!confirm(`¿Cambiar especialidad "${espAntigua}" → "${espNueva}"?\n\nEsto actualizará TODOS los pacientes que tengan esta especialidad.`)) return;
+    const confirmado = await showModal({
+        title: '🔄 Cambiar especialidad',
+        message: `¿Cambiar especialidad "${espAntigua}" → "${espNueva}"?<br><br>Esto actualizará TODOS los pacientes que tengan esta especialidad.`,
+        icon: '🔄', confirmText: 'Sí, cambiar', cancelText: 'Cancelar', type: 'danger'
+    });
+    if (!confirmado) return;
 
     leMostrarCargando();
     try {
@@ -284,10 +307,10 @@ async function adminEditarEspecialidad() {
         leRefrescarTodosLosSelectsFiltros();
         leCargarDatosEnPanelAdmin();
 
-        alert(`✅ Especialidad actualizada\n📊 Pacientes afectados: ${actualizados}`);
+        showModal({ title: '✅ Actualizada', message: `Especialidad actualizada.<br>📊 Pacientes afectados: ${actualizados}`, icon: '✅', confirmText: 'Aceptar' });
     } catch (error) {
         console.error(error);
-        alert("❌ Error al editar: " + error.message);
+        showModal({ title: '❌ Error', message: 'Error al editar: ' + error.message, icon: '❌', confirmText: 'Aceptar' });
     } finally {
         leOcultarCargando();
         document.getElementById('adminNuevaEspecialidad').value = '';
@@ -303,11 +326,20 @@ async function adminAgregarMedico() {
     const esp = document.getElementById('adminEspSelect').value;
     const nuevoMedico = document.getElementById('adminNuevoMedico').value.trim().toUpperCase();
 
-    if (!esp) return alert("Selecciona una especialidad primero");
-    if (!nuevoMedico) return alert("Ingresa el nombre del médico");
+    if (!esp) {
+        showModal({ title: '⚠️ Falta selección', message: 'Selecciona una especialidad primero.', icon: '⚠️', confirmText: 'Aceptar' });
+        return;
+    }
+    if (!nuevoMedico) {
+        showModal({ title: '⚠️ Falta un dato', message: 'Ingresa el nombre del médico.', icon: '⚠️', confirmText: 'Aceptar' });
+        return;
+    }
 
     if (!medicosPorEspecialidad[esp]) medicosPorEspecialidad[esp] = [];
-    if (medicosPorEspecialidad[esp].includes(nuevoMedico)) return alert("Este médico ya existe en esta especialidad");
+    if (medicosPorEspecialidad[esp].includes(nuevoMedico)) {
+        showModal({ title: '⚠️ Ya existe', message: 'Este médico ya existe en esta especialidad.', icon: '⚠️', confirmText: 'Aceptar' });
+        return;
+    }
 
     medicosPorEspecialidad[esp].push(nuevoMedico);
     medicosPorEspecialidad[esp].sort();
@@ -316,7 +348,7 @@ async function adminAgregarMedico() {
     leRefrescarTodosLosSelectsFiltros();
     adminCargarMedicos();
     document.getElementById('adminNuevoMedico').value = '';
-    alert(`✅ Médico "${nuevoMedico}" agregado a ${esp}`);
+    showModal({ title: '✅ Agregado', message: `Médico "${nuevoMedico}" agregado a ${esp}.`, icon: '✅', confirmText: 'Aceptar' });
 }
 
 async function adminEditarMedico() {
@@ -325,13 +357,33 @@ async function adminEditarMedico() {
     const medicoAntiguo = document.getElementById('adminMedicosList')?.value;
     const medicoNuevo = document.getElementById('adminNuevoMedico').value.trim().toUpperCase();
 
-    if (!esp) return alert("❌ Selecciona una especialidad primero");
-    if (!medicoAntiguo) return alert("❌ Selecciona un médico para editar");
-    if (!medicoNuevo) return alert("❌ Ingresa el nuevo nombre del médico");
-    if (medicoAntiguo === medicoNuevo) return alert("⚠️ El nombre es el mismo. No se realizaron cambios.");
-    if ((medicosPorEspecialidad[esp] || []).includes(medicoNuevo)) return alert("❌ Ya existe un médico con ese nombre en esta especialidad");
+    if (!esp) {
+        showModal({ title: '❌ Falta selección', message: 'Selecciona una especialidad primero.', icon: '❌', confirmText: 'Aceptar' });
+        return;
+    }
+    if (!medicoAntiguo) {
+        showModal({ title: '❌ Falta selección', message: 'Selecciona un médico para editar.', icon: '❌', confirmText: 'Aceptar' });
+        return;
+    }
+    if (!medicoNuevo) {
+        showModal({ title: '❌ Falta un dato', message: 'Ingresa el nuevo nombre del médico.', icon: '❌', confirmText: 'Aceptar' });
+        return;
+    }
+    if (medicoAntiguo === medicoNuevo) {
+        showModal({ title: '⚠️ Sin cambios', message: 'El nombre es el mismo. No se realizaron cambios.', icon: '⚠️', confirmText: 'Aceptar' });
+        return;
+    }
+    if ((medicosPorEspecialidad[esp] || []).includes(medicoNuevo)) {
+        showModal({ title: '❌ Ya existe', message: 'Ya existe un médico con ese nombre en esta especialidad.', icon: '❌', confirmText: 'Aceptar' });
+        return;
+    }
 
-    if (!confirm(`¿Cambiar médico "${medicoAntiguo}" → "${medicoNuevo}"?\n\nEsto actualizará TODOS los pacientes que tengan este médico.`)) return;
+    const confirmado = await showModal({
+        title: '🔄 Cambiar médico',
+        message: `¿Cambiar médico "${medicoAntiguo}" → "${medicoNuevo}"?<br><br>Esto actualizará TODOS los pacientes que tengan este médico.`,
+        icon: '🔄', confirmText: 'Sí, cambiar', cancelText: 'Cancelar', type: 'danger'
+    });
+    if (!confirmado) return;
 
     leMostrarCargando();
     try {
@@ -345,10 +397,10 @@ async function adminEditarMedico() {
         leRefrescarTodosLosSelectsFiltros();
         adminCargarMedicos();
 
-        alert(`✅ Médico actualizado\n📊 Pacientes afectados: ${actualizados}`);
+        showModal({ title: '✅ Actualizado', message: `Médico actualizado.<br>📊 Pacientes afectados: ${actualizados}`, icon: '✅', confirmText: 'Aceptar' });
     } catch (error) {
         console.error(error);
-        alert("❌ Error al editar: " + error.message);
+        showModal({ title: '❌ Error', message: 'Error al editar: ' + error.message, icon: '❌', confirmText: 'Aceptar' });
     } finally {
         leOcultarCargando();
         document.getElementById('adminNuevoMedico').value = '';
@@ -360,8 +412,16 @@ async function adminEliminarMedico() {
     const esp = document.getElementById('adminEspSelect').value;
     const medicoSeleccionado = document.getElementById('adminMedicosList')?.value;
 
-    if (!esp || !medicoSeleccionado) return alert("Selecciona un médico para eliminar");
-    if (!confirm(`¿Eliminar al médico "${medicoSeleccionado}" de ${esp}?`)) return;
+    if (!esp || !medicoSeleccionado) {
+        showModal({ title: '⚠️ Falta selección', message: 'Selecciona un médico para eliminar.', icon: '⚠️', confirmText: 'Aceptar' });
+        return;
+    }
+    const confirmado = await showModal({
+        title: '🗑️ Eliminar médico',
+        message: `¿Eliminar al médico "${medicoSeleccionado}" de ${esp}?`,
+        icon: '🗑️', confirmText: 'Sí, eliminar', cancelText: 'Cancelar', type: 'danger'
+    });
+    if (!confirmado) return;
 
     const index = medicosPorEspecialidad[esp].indexOf(medicoSeleccionado);
     if (index !== -1) medicosPorEspecialidad[esp].splice(index, 1);
@@ -369,7 +429,7 @@ async function adminEliminarMedico() {
     await leGuardarConfiguracionFiltros();
     leRefrescarTodosLosSelectsFiltros();
     adminCargarMedicos();
-    alert(`✅ Médico "${medicoSeleccionado}" eliminado`);
+    showModal({ title: '✅ Eliminado', message: `Médico "${medicoSeleccionado}" eliminado.`, icon: '✅', confirmText: 'Aceptar' });
 }
 
 // =============================================================
@@ -381,8 +441,14 @@ async function adminEliminarMedico() {
 async function adminAgregarEstatus() {
     if (!esSuperAdministrador()) return;
     const nuevoEstatus = document.getElementById('adminNuevoEstatus').value.trim().toUpperCase();
-    if (!nuevoEstatus) return alert("Ingresa un nuevo estatus");
-    if (estatusTablaLista.includes(nuevoEstatus)) return alert("Este estatus ya existe");
+    if (!nuevoEstatus) {
+        showModal({ title: '⚠️ Falta un dato', message: 'Ingresa un nuevo estatus.', icon: '⚠️', confirmText: 'Aceptar' });
+        return;
+    }
+    if (estatusTablaLista.includes(nuevoEstatus)) {
+        showModal({ title: '⚠️ Ya existe', message: 'Este estatus ya existe.', icon: '⚠️', confirmText: 'Aceptar' });
+        return;
+    }
 
     estatusTablaLista.push(nuevoEstatus);
     estatusTablaLista.sort();
@@ -390,7 +456,7 @@ async function adminAgregarEstatus() {
     leRefrescarTodosLosSelectsFiltros();
     leCargarDatosEnPanelAdmin();
     document.getElementById('adminNuevoEstatus').value = '';
-    alert(`✅ Estatus "${nuevoEstatus}" agregado correctamente`);
+    showModal({ title: '✅ Agregado', message: `Estatus "${nuevoEstatus}" agregado correctamente.`, icon: '✅', confirmText: 'Aceptar' });
 }
 
 async function adminEditarEstatus() {
@@ -398,12 +464,29 @@ async function adminEditarEstatus() {
     const estatusAntiguo = document.getElementById('adminEstatusList')?.value;
     const estatusNuevo = document.getElementById('adminNuevoEstatus').value.trim().toUpperCase();
 
-    if (!estatusAntiguo) return alert("❌ Selecciona un estatus para editar");
-    if (!estatusNuevo) return alert("❌ Ingresa el nuevo nombre del estatus");
-    if (estatusAntiguo === estatusNuevo) return alert("⚠️ El nombre es el mismo. No se realizaron cambios.");
-    if (estatusTablaLista.includes(estatusNuevo)) return alert("❌ Ya existe un estatus con ese nombre");
+    if (!estatusAntiguo) {
+        showModal({ title: '❌ Falta selección', message: 'Selecciona un estatus para editar.', icon: '❌', confirmText: 'Aceptar' });
+        return;
+    }
+    if (!estatusNuevo) {
+        showModal({ title: '❌ Falta un dato', message: 'Ingresa el nuevo nombre del estatus.', icon: '❌', confirmText: 'Aceptar' });
+        return;
+    }
+    if (estatusAntiguo === estatusNuevo) {
+        showModal({ title: '⚠️ Sin cambios', message: 'El nombre es el mismo. No se realizaron cambios.', icon: '⚠️', confirmText: 'Aceptar' });
+        return;
+    }
+    if (estatusTablaLista.includes(estatusNuevo)) {
+        showModal({ title: '❌ Ya existe', message: 'Ya existe un estatus con ese nombre.', icon: '❌', confirmText: 'Aceptar' });
+        return;
+    }
 
-    if (!confirm(`¿Cambiar estatus "${estatusAntiguo}" → "${estatusNuevo}"?\n\nEsto actualizará TODOS los pacientes con este estatus.`)) return;
+    const confirmado = await showModal({
+        title: '🔄 Cambiar estatus',
+        message: `¿Cambiar estatus "${estatusAntiguo}" → "${estatusNuevo}"?<br><br>Esto actualizará TODOS los pacientes con este estatus.`,
+        icon: '🔄', confirmText: 'Sí, cambiar', cancelText: 'Cancelar', type: 'danger'
+    });
+    if (!confirmado) return;
 
     leMostrarCargando();
     try {
@@ -414,10 +497,10 @@ async function adminEditarEstatus() {
         await leGuardarConfiguracionFiltros();
         leRefrescarTodosLosSelectsFiltros();
         leCargarDatosEnPanelAdmin();
-        alert(`✅ Estatus actualizado\n📊 Pacientes afectados: ${actualizados}`);
+        showModal({ title: '✅ Actualizado', message: `Estatus actualizado.<br>📊 Pacientes afectados: ${actualizados}`, icon: '✅', confirmText: 'Aceptar' });
     } catch (error) {
         console.error(error);
-        alert("❌ Error al editar: " + error.message);
+        showModal({ title: '❌ Error', message: 'Error al editar: ' + error.message, icon: '❌', confirmText: 'Aceptar' });
     } finally {
         leOcultarCargando();
         document.getElementById('adminNuevoEstatus').value = '';
@@ -427,8 +510,16 @@ async function adminEditarEstatus() {
 async function adminEliminarEstatus() {
     if (!esSuperAdministrador()) return;
     const estatusSeleccionado = document.getElementById('adminEstatusList')?.value;
-    if (!estatusSeleccionado) return alert("Selecciona un estatus para eliminar");
-    if (!confirm(`¿Eliminar el estatus "${estatusSeleccionado}"?`)) return;
+    if (!estatusSeleccionado) {
+        showModal({ title: '⚠️ Falta selección', message: 'Selecciona un estatus para eliminar.', icon: '⚠️', confirmText: 'Aceptar' });
+        return;
+    }
+    const confirmado = await showModal({
+        title: '🗑️ Eliminar estatus',
+        message: `¿Eliminar el estatus "${estatusSeleccionado}"?`,
+        icon: '🗑️', confirmText: 'Sí, eliminar', cancelText: 'Cancelar', type: 'danger'
+    });
+    if (!confirmado) return;
 
     const index = estatusTablaLista.indexOf(estatusSeleccionado);
     if (index !== -1) estatusTablaLista.splice(index, 1);
@@ -436,14 +527,20 @@ async function adminEliminarEstatus() {
     await leGuardarConfiguracionFiltros();
     leRefrescarTodosLosSelectsFiltros();
     leCargarDatosEnPanelAdmin();
-    alert(`✅ Estatus "${estatusSeleccionado}" eliminado`);
+    showModal({ title: '✅ Eliminado', message: `Estatus "${estatusSeleccionado}" eliminado.`, icon: '✅', confirmText: 'Aceptar' });
 }
 
 async function adminAgregarEpa() {
     if (!esSuperAdministrador()) return;
     const nuevoEpa = document.getElementById('adminNuevoEpa').value.trim().toUpperCase();
-    if (!nuevoEpa) return alert("Ingresa un nuevo estatus EPA");
-    if (estatusEpaLista.includes(nuevoEpa)) return alert("Este estatus EPA ya existe");
+    if (!nuevoEpa) {
+        showModal({ title: '⚠️ Falta un dato', message: 'Ingresa un nuevo estatus EPA.', icon: '⚠️', confirmText: 'Aceptar' });
+        return;
+    }
+    if (estatusEpaLista.includes(nuevoEpa)) {
+        showModal({ title: '⚠️ Ya existe', message: 'Este estatus EPA ya existe.', icon: '⚠️', confirmText: 'Aceptar' });
+        return;
+    }
 
     estatusEpaLista.push(nuevoEpa);
     estatusEpaLista.sort();
@@ -451,7 +548,7 @@ async function adminAgregarEpa() {
     leRefrescarTodosLosSelectsFiltros();
     leCargarDatosEnPanelAdmin();
     document.getElementById('adminNuevoEpa').value = '';
-    alert(`✅ Estatus EPA "${nuevoEpa}" agregado`);
+    showModal({ title: '✅ Agregado', message: `Estatus EPA "${nuevoEpa}" agregado.`, icon: '✅', confirmText: 'Aceptar' });
 }
 
 async function adminEditarEpa() {
@@ -459,12 +556,29 @@ async function adminEditarEpa() {
     const epaAntiguo = document.getElementById('adminEpaList')?.value;
     const epaNuevo = document.getElementById('adminNuevoEpa').value.trim().toUpperCase();
 
-    if (!epaAntiguo) return alert("❌ Selecciona un estatus EPA para editar");
-    if (!epaNuevo) return alert("❌ Ingresa el nuevo nombre del estatus EPA");
-    if (epaAntiguo === epaNuevo) return alert("⚠️ El nombre es el mismo. No se realizaron cambios.");
-    if (estatusEpaLista.includes(epaNuevo)) return alert("❌ Ya existe un estatus EPA con ese nombre");
+    if (!epaAntiguo) {
+        showModal({ title: '❌ Falta selección', message: 'Selecciona un estatus EPA para editar.', icon: '❌', confirmText: 'Aceptar' });
+        return;
+    }
+    if (!epaNuevo) {
+        showModal({ title: '❌ Falta un dato', message: 'Ingresa el nuevo nombre del estatus EPA.', icon: '❌', confirmText: 'Aceptar' });
+        return;
+    }
+    if (epaAntiguo === epaNuevo) {
+        showModal({ title: '⚠️ Sin cambios', message: 'El nombre es el mismo. No se realizaron cambios.', icon: '⚠️', confirmText: 'Aceptar' });
+        return;
+    }
+    if (estatusEpaLista.includes(epaNuevo)) {
+        showModal({ title: '❌ Ya existe', message: 'Ya existe un estatus EPA con ese nombre.', icon: '❌', confirmText: 'Aceptar' });
+        return;
+    }
 
-    if (!confirm(`¿Cambiar estatus EPA "${epaAntiguo}" → "${epaNuevo}"?\n\nEsto actualizará TODOS los pacientes con este estatus EPA.`)) return;
+    const confirmado = await showModal({
+        title: '🔄 Cambiar estatus EPA',
+        message: `¿Cambiar estatus EPA "${epaAntiguo}" → "${epaNuevo}"?<br><br>Esto actualizará TODOS los pacientes con este estatus EPA.`,
+        icon: '🔄', confirmText: 'Sí, cambiar', cancelText: 'Cancelar', type: 'danger'
+    });
+    if (!confirmado) return;
 
     leMostrarCargando();
     try {
@@ -475,10 +589,10 @@ async function adminEditarEpa() {
         await leGuardarConfiguracionFiltros();
         leRefrescarTodosLosSelectsFiltros();
         leCargarDatosEnPanelAdmin();
-        alert(`✅ Estatus EPA actualizado\n📊 Pacientes afectados: ${actualizados}`);
+        showModal({ title: '✅ Actualizado', message: `Estatus EPA actualizado.<br>📊 Pacientes afectados: ${actualizados}`, icon: '✅', confirmText: 'Aceptar' });
     } catch (error) {
         console.error(error);
-        alert("❌ Error al editar: " + error.message);
+        showModal({ title: '❌ Error', message: 'Error al editar: ' + error.message, icon: '❌', confirmText: 'Aceptar' });
     } finally {
         leOcultarCargando();
         document.getElementById('adminNuevoEpa').value = '';
@@ -488,8 +602,16 @@ async function adminEditarEpa() {
 async function adminEliminarEpa() {
     if (!esSuperAdministrador()) return;
     const epaSeleccionado = document.getElementById('adminEpaList')?.value;
-    if (!epaSeleccionado) return alert("Selecciona un estatus EPA para eliminar");
-    if (!confirm(`¿Eliminar "${epaSeleccionado}"?`)) return;
+    if (!epaSeleccionado) {
+        showModal({ title: '⚠️ Falta selección', message: 'Selecciona un estatus EPA para eliminar.', icon: '⚠️', confirmText: 'Aceptar' });
+        return;
+    }
+    const confirmado = await showModal({
+        title: '🗑️ Eliminar estatus EPA',
+        message: `¿Eliminar "${epaSeleccionado}"?`,
+        icon: '🗑️', confirmText: 'Sí, eliminar', cancelText: 'Cancelar', type: 'danger'
+    });
+    if (!confirmado) return;
 
     const index = estatusEpaLista.indexOf(epaSeleccionado);
     if (index !== -1) estatusEpaLista.splice(index, 1);
@@ -497,14 +619,20 @@ async function adminEliminarEpa() {
     await leGuardarConfiguracionFiltros();
     leRefrescarTodosLosSelectsFiltros();
     leCargarDatosEnPanelAdmin();
-    alert(`✅ Estatus EPA "${epaSeleccionado}" eliminado`);
+    showModal({ title: '✅ Eliminado', message: `Estatus EPA "${epaSeleccionado}" eliminado.`, icon: '✅', confirmText: 'Aceptar' });
 }
 
 async function adminAgregarAnestesiologo() {
     if (!esSuperAdministrador()) return;
     const nuevoAnest = document.getElementById('adminNuevoAnestesiologo').value.trim().toUpperCase();
-    if (!nuevoAnest) return alert("Ingresa un nuevo anestesiólogo");
-    if (anestesiologosLista.includes(nuevoAnest)) return alert("Este anestesiólogo ya existe");
+    if (!nuevoAnest) {
+        showModal({ title: '⚠️ Falta un dato', message: 'Ingresa un nuevo anestesiólogo.', icon: '⚠️', confirmText: 'Aceptar' });
+        return;
+    }
+    if (anestesiologosLista.includes(nuevoAnest)) {
+        showModal({ title: '⚠️ Ya existe', message: 'Este anestesiólogo ya existe.', icon: '⚠️', confirmText: 'Aceptar' });
+        return;
+    }
 
     anestesiologosLista.push(nuevoAnest);
     anestesiologosLista.sort();
@@ -512,7 +640,7 @@ async function adminAgregarAnestesiologo() {
     leRefrescarTodosLosSelectsFiltros();
     leCargarDatosEnPanelAdmin();
     document.getElementById('adminNuevoAnestesiologo').value = '';
-    alert(`✅ Anestesiólogo "${nuevoAnest}" agregado`);
+    showModal({ title: '✅ Agregado', message: `Anestesiólogo "${nuevoAnest}" agregado.`, icon: '✅', confirmText: 'Aceptar' });
 }
 
 async function adminEditarAnestesiologo() {
@@ -520,12 +648,29 @@ async function adminEditarAnestesiologo() {
     const anestAntiguo = document.getElementById('adminAnestesiologosList')?.value;
     const anestNuevo = document.getElementById('adminNuevoAnestesiologo').value.trim().toUpperCase();
 
-    if (!anestAntiguo) return alert("❌ Selecciona un anestesiólogo para editar");
-    if (!anestNuevo) return alert("❌ Ingresa el nuevo nombre del anestesiólogo");
-    if (anestAntiguo === anestNuevo) return alert("⚠️ El nombre es el mismo. No se realizaron cambios.");
-    if (anestesiologosLista.includes(anestNuevo)) return alert("❌ Ya existe un anestesiólogo con ese nombre");
+    if (!anestAntiguo) {
+        showModal({ title: '❌ Falta selección', message: 'Selecciona un anestesiólogo para editar.', icon: '❌', confirmText: 'Aceptar' });
+        return;
+    }
+    if (!anestNuevo) {
+        showModal({ title: '❌ Falta un dato', message: 'Ingresa el nuevo nombre del anestesiólogo.', icon: '❌', confirmText: 'Aceptar' });
+        return;
+    }
+    if (anestAntiguo === anestNuevo) {
+        showModal({ title: '⚠️ Sin cambios', message: 'El nombre es el mismo. No se realizaron cambios.', icon: '⚠️', confirmText: 'Aceptar' });
+        return;
+    }
+    if (anestesiologosLista.includes(anestNuevo)) {
+        showModal({ title: '❌ Ya existe', message: 'Ya existe un anestesiólogo con ese nombre.', icon: '❌', confirmText: 'Aceptar' });
+        return;
+    }
 
-    if (!confirm(`¿Cambiar anestesiólogo "${anestAntiguo}" → "${anestNuevo}"?\n\nEsto actualizará TODOS los pacientes con este anestesiólogo.`)) return;
+    const confirmado = await showModal({
+        title: '🔄 Cambiar anestesiólogo',
+        message: `¿Cambiar anestesiólogo "${anestAntiguo}" → "${anestNuevo}"?<br><br>Esto actualizará TODOS los pacientes con este anestesiólogo.`,
+        icon: '🔄', confirmText: 'Sí, cambiar', cancelText: 'Cancelar', type: 'danger'
+    });
+    if (!confirmado) return;
 
     leMostrarCargando();
     try {
@@ -536,10 +681,10 @@ async function adminEditarAnestesiologo() {
         await leGuardarConfiguracionFiltros();
         leRefrescarTodosLosSelectsFiltros();
         leCargarDatosEnPanelAdmin();
-        alert(`✅ Anestesiólogo actualizado\n📊 Pacientes afectados: ${actualizados}`);
+        showModal({ title: '✅ Actualizado', message: `Anestesiólogo actualizado.<br>📊 Pacientes afectados: ${actualizados}`, icon: '✅', confirmText: 'Aceptar' });
     } catch (error) {
         console.error(error);
-        alert("❌ Error al editar: " + error.message);
+        showModal({ title: '❌ Error', message: 'Error al editar: ' + error.message, icon: '❌', confirmText: 'Aceptar' });
     } finally {
         leOcultarCargando();
         document.getElementById('adminNuevoAnestesiologo').value = '';
@@ -549,8 +694,16 @@ async function adminEditarAnestesiologo() {
 async function adminEliminarAnestesiologo() {
     if (!esSuperAdministrador()) return;
     const anestSeleccionado = document.getElementById('adminAnestesiologosList')?.value;
-    if (!anestSeleccionado) return alert("Selecciona un anestesiólogo para eliminar");
-    if (!confirm(`¿Eliminar "${anestSeleccionado}"?`)) return;
+    if (!anestSeleccionado) {
+        showModal({ title: '⚠️ Falta selección', message: 'Selecciona un anestesiólogo para eliminar.', icon: '⚠️', confirmText: 'Aceptar' });
+        return;
+    }
+    const confirmado = await showModal({
+        title: '🗑️ Eliminar anestesiólogo',
+        message: `¿Eliminar "${anestSeleccionado}"?`,
+        icon: '🗑️', confirmText: 'Sí, eliminar', cancelText: 'Cancelar', type: 'danger'
+    });
+    if (!confirmado) return;
 
     const index = anestesiologosLista.indexOf(anestSeleccionado);
     if (index !== -1) anestesiologosLista.splice(index, 1);
@@ -558,14 +711,20 @@ async function adminEliminarAnestesiologo() {
     await leGuardarConfiguracionFiltros();
     leRefrescarTodosLosSelectsFiltros();
     leCargarDatosEnPanelAdmin();
-    alert(`✅ Anestesiólogo "${anestSeleccionado}" eliminado`);
+    showModal({ title: '✅ Eliminado', message: `Anestesiólogo "${anestSeleccionado}" eliminado.`, icon: '✅', confirmText: 'Aceptar' });
 }
 
 async function adminAgregarComuna() {
     if (!esSuperAdministrador()) return;
     const nuevaComuna = document.getElementById('adminNuevaComuna').value.trim().toUpperCase();
-    if (!nuevaComuna) return alert("Ingresa una nueva comuna");
-    if (comunasLista.includes(nuevaComuna)) return alert("Esta comuna ya existe");
+    if (!nuevaComuna) {
+        showModal({ title: '⚠️ Falta un dato', message: 'Ingresa una nueva comuna.', icon: '⚠️', confirmText: 'Aceptar' });
+        return;
+    }
+    if (comunasLista.includes(nuevaComuna)) {
+        showModal({ title: '⚠️ Ya existe', message: 'Esta comuna ya existe.', icon: '⚠️', confirmText: 'Aceptar' });
+        return;
+    }
 
     comunasLista.push(nuevaComuna);
     comunasLista.sort();
@@ -573,7 +732,7 @@ async function adminAgregarComuna() {
     leRefrescarTodosLosSelectsFiltros();
     leCargarDatosEnPanelAdmin();
     document.getElementById('adminNuevaComuna').value = '';
-    alert(`✅ Comuna "${nuevaComuna}" agregada`);
+    showModal({ title: '✅ Agregada', message: `Comuna "${nuevaComuna}" agregada.`, icon: '✅', confirmText: 'Aceptar' });
 }
 
 async function adminEditarComuna() {
@@ -581,12 +740,29 @@ async function adminEditarComuna() {
     const comunaAntigua = document.getElementById('adminComunasList')?.value;
     const comunaNueva = document.getElementById('adminNuevaComuna').value.trim().toUpperCase();
 
-    if (!comunaAntigua) return alert("❌ Selecciona una comuna para editar");
-    if (!comunaNueva) return alert("❌ Ingresa el nuevo nombre de la comuna");
-    if (comunaAntigua === comunaNueva) return alert("⚠️ El nombre es el mismo. No se realizaron cambios.");
-    if (comunasLista.includes(comunaNueva)) return alert("❌ Ya existe una comuna con ese nombre");
+    if (!comunaAntigua) {
+        showModal({ title: '❌ Falta selección', message: 'Selecciona una comuna para editar.', icon: '❌', confirmText: 'Aceptar' });
+        return;
+    }
+    if (!comunaNueva) {
+        showModal({ title: '❌ Falta un dato', message: 'Ingresa el nuevo nombre de la comuna.', icon: '❌', confirmText: 'Aceptar' });
+        return;
+    }
+    if (comunaAntigua === comunaNueva) {
+        showModal({ title: '⚠️ Sin cambios', message: 'El nombre es el mismo. No se realizaron cambios.', icon: '⚠️', confirmText: 'Aceptar' });
+        return;
+    }
+    if (comunasLista.includes(comunaNueva)) {
+        showModal({ title: '❌ Ya existe', message: 'Ya existe una comuna con ese nombre.', icon: '❌', confirmText: 'Aceptar' });
+        return;
+    }
 
-    if (!confirm(`¿Cambiar comuna "${comunaAntigua}" → "${comunaNueva}"?\n\nEsto actualizará TODOS los pacientes con esta comuna.`)) return;
+    const confirmado = await showModal({
+        title: '🔄 Cambiar comuna',
+        message: `¿Cambiar comuna "${comunaAntigua}" → "${comunaNueva}"?<br><br>Esto actualizará TODOS los pacientes con esta comuna.`,
+        icon: '🔄', confirmText: 'Sí, cambiar', cancelText: 'Cancelar', type: 'danger'
+    });
+    if (!confirmado) return;
 
     leMostrarCargando();
     try {
@@ -597,10 +773,10 @@ async function adminEditarComuna() {
         await leGuardarConfiguracionFiltros();
         leRefrescarTodosLosSelectsFiltros();
         leCargarDatosEnPanelAdmin();
-        alert(`✅ Comuna actualizada\n📊 Pacientes afectados: ${actualizados}`);
+        showModal({ title: '✅ Actualizada', message: `Comuna actualizada.<br>📊 Pacientes afectados: ${actualizados}`, icon: '✅', confirmText: 'Aceptar' });
     } catch (error) {
         console.error(error);
-        alert("❌ Error al editar: " + error.message);
+        showModal({ title: '❌ Error', message: 'Error al editar: ' + error.message, icon: '❌', confirmText: 'Aceptar' });
     } finally {
         leOcultarCargando();
         document.getElementById('adminNuevaComuna').value = '';
@@ -610,8 +786,16 @@ async function adminEditarComuna() {
 async function adminEliminarComuna() {
     if (!esSuperAdministrador()) return;
     const comunaSeleccionada = document.getElementById('adminComunasList')?.value;
-    if (!comunaSeleccionada) return alert("Selecciona una comuna para eliminar");
-    if (!confirm(`¿Eliminar "${comunaSeleccionada}"?`)) return;
+    if (!comunaSeleccionada) {
+        showModal({ title: '⚠️ Falta selección', message: 'Selecciona una comuna para eliminar.', icon: '⚠️', confirmText: 'Aceptar' });
+        return;
+    }
+    const confirmado = await showModal({
+        title: '🗑️ Eliminar comuna',
+        message: `¿Eliminar "${comunaSeleccionada}"?`,
+        icon: '🗑️', confirmText: 'Sí, eliminar', cancelText: 'Cancelar', type: 'danger'
+    });
+    if (!confirmado) return;
 
     const index = comunasLista.indexOf(comunaSeleccionada);
     if (index !== -1) comunasLista.splice(index, 1);
@@ -619,12 +803,17 @@ async function adminEliminarComuna() {
     await leGuardarConfiguracionFiltros();
     leRefrescarTodosLosSelectsFiltros();
     leCargarDatosEnPanelAdmin();
-    alert(`✅ Comuna "${comunaSeleccionada}" eliminada`);
+    showModal({ title: '✅ Eliminada', message: `Comuna "${comunaSeleccionada}" eliminada.`, icon: '✅', confirmText: 'Aceptar' });
 }
 
 async function adminRestablecerDefault() {
     if (!esSuperAdministrador()) return;
-    if (!confirm("⚠️ ¿Restablecer todos los valores por defecto?\nEsto eliminará todas las especialidades, médicos, estatus, anestesiólogos y comunas que hayas agregado.")) return;
+    const confirmado = await showModal({
+        title: '⚠️ Restablecer valores por defecto',
+        message: '¿Restablecer todos los valores por defecto?<br><br>Esto eliminará todas las especialidades, médicos, estatus, anestesiólogos y comunas que hayas agregado.',
+        icon: '⚠️', confirmText: 'Sí, restablecer', cancelText: 'Cancelar', type: 'danger'
+    });
+    if (!confirmado) return;
 
     especialidadesLista = Object.keys(LE_ESPECIALISTAS_DEFECTO);
     medicosPorEspecialidad = JSON.parse(JSON.stringify(LE_ESPECIALISTAS_DEFECTO));
@@ -636,7 +825,7 @@ async function adminRestablecerDefault() {
     await leGuardarConfiguracionFiltros();
     leRefrescarTodosLosSelectsFiltros();
     leCargarDatosEnPanelAdmin();
-    alert("✅ Valores restablecidos a los originales");
+    showModal({ title: '✅ Restablecido', message: 'Valores restablecidos a los originales.', icon: '✅', confirmText: 'Aceptar' });
 }
 
 // =============================================================
@@ -665,9 +854,14 @@ async function actualizarCampoEnPacientes(campo, valorAntiguo, valorNuevo) {
     return actualizados;
 }
 
-function formatearTodosLosRUT() {
+async function formatearTodosLosRUT() {
     if (!esSuperAdministrador()) return;
-    if (!confirm("⚠️ ¿Quieres formatear TODOS los RUT existentes?\n\nEsta acción es segura.")) return;
+    const confirmado = await showModal({
+        title: '⚠️ Formatear RUTs',
+        message: '¿Quieres formatear TODOS los RUT existentes?<br><br>Esta acción es segura.',
+        icon: '⚠️', confirmText: 'Sí, formatear', cancelText: 'Cancelar', type: 'danger'
+    });
+    if (!confirmado) return;
 
     leMostrarCargando();
     let count = 0;
@@ -689,7 +883,7 @@ function formatearTodosLosRUT() {
 
         const finalizar = () => {
             leOcultarCargando();
-            alert(`✅ Proceso finalizado!\n\nRegistros procesados: ${total}\nRUTs formateados: ${count}`);
+            showModal({ title: '✅ Proceso finalizado', message: `Registros procesados: ${total}<br>RUTs formateados: ${count}`, icon: '✅', confirmText: 'Aceptar' });
         };
 
         if (count > 0) database.ref().update(updates).then(finalizar).catch(finalizar);
@@ -697,9 +891,14 @@ function formatearTodosLosRUT() {
     });
 }
 
-function actualizarFolioEnRegistrosExistentes() {
+async function actualizarFolioEnRegistrosExistentes() {
     if (!esSuperAdministrador()) return;
-    if (!confirm("⚠️ ¿Quieres actualizar TODOS los registros existentes?\n\nSe cambiará el Folio a 'NO APLICA' en aquellos donde GES = 'SI'.\n\nEsta acción es segura y solo se ejecuta una vez.")) return;
+    const confirmado = await showModal({
+        title: '⚠️ Actualizar Folio en registros existentes',
+        message: `¿Quieres actualizar TODOS los registros existentes?<br><br>Se cambiará el Folio a 'NO APLICA' en aquellos donde GES = 'SI'.<br><br>Esta acción es segura y solo se ejecuta una vez.`,
+        icon: '⚠️', confirmText: 'Sí, actualizar', cancelText: 'Cancelar', type: 'danger'
+    });
+    if (!confirmado) return;
 
     leMostrarCargando();
 
@@ -717,7 +916,7 @@ function actualizarFolioEnRegistrosExistentes() {
 
         const finalizar = () => {
             leOcultarCargando();
-            alert(`✅ Proceso finalizado!\n\nRegistros actualizados: ${actualizados}`);
+            showModal({ title: '✅ Proceso finalizado', message: `Registros actualizados: ${actualizados}`, icon: '✅', confirmText: 'Aceptar' });
         };
 
         if (actualizados > 0) database.ref().update(updates).then(finalizar).catch(finalizar);
@@ -725,6 +924,6 @@ function actualizarFolioEnRegistrosExistentes() {
     }).catch((error) => {
         console.error(error);
         leOcultarCargando();
-        alert("Error al actualizar registros: " + error.message);
+        showModal({ title: '❌ Error', message: 'Error al actualizar registros: ' + error.message, icon: '❌', confirmText: 'Aceptar' });
     });
 }

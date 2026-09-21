@@ -956,47 +956,76 @@ function leCerrarModalPaciente() {
     if (modal) modal.style.display = 'none';
 }
 
-function leDeleteCurrentPatient() {
+async function leDeleteCurrentPatient() {
     // 🔘 Red de seguridad además de ocultar el botón (ver leAbrirModalPaciente()).
     if (!usuarioTieneAccesoSeccion('listaEspera_eliminarPaciente')) {
-        alert('⛔ No tienes permiso para eliminar pacientes.');
+        showModal({
+            title: '⛔ Acceso denegado',
+            message: 'No tienes permiso para eliminar pacientes.',
+            icon: '⛔',
+            confirmText: 'Aceptar'
+        });
         return;
     }
-    if (!currentModalPatient || !confirm("¿Estás seguro de eliminar este paciente? Esta acción es irreversible.")) return;
+    if (!currentModalPatient) return;
+
+    const confirmado = await showModal({
+        title: '🗑️ Eliminar paciente',
+        message: '¿Estás seguro de eliminar este paciente?<br><br>Esta acción es irreversible.',
+        icon: '🗑️',
+        confirmText: 'Sí, eliminar',
+        cancelText: 'Cancelar',
+        type: 'danger'
+    });
+    if (!confirmado) return;
 
     leGuardarFiltrosEnStorage();
     leMostrarCargando();
 
     database.ref('patients/' + currentModalPatient.firebaseKey).remove()
         .then(() => {
-            alert("✅ Paciente eliminado correctamente");
+            showModal({ title: '✅ Eliminado', message: 'Paciente eliminado correctamente.', icon: '✅', confirmText: 'Aceptar' });
             leCerrarModalPaciente();
         })
         .catch(err => {
             console.error(err);
-            alert("Error al eliminar: " + err.message);
+            showModal({ title: '❌ Error', message: 'Error al eliminar: ' + err.message, icon: '❌', confirmText: 'Aceptar' });
         })
         .finally(() => leOcultarCargando());
 }
 
-function leEliminarRegistroHistorial(patientKey, historialKey) {
+async function leEliminarRegistroHistorial(patientKey, historialKey) {
     if (!esAdministrador()) {
-        alert("❌ No tienes permisos para eliminar registros del historial.");
+        showModal({
+            title: '⛔ Acceso denegado',
+            message: 'No tienes permisos para eliminar registros del historial.',
+            icon: '⛔',
+            confirmText: 'Aceptar'
+        });
         return;
     }
-    if (!confirm("⚠️ ¿Estás seguro de eliminar este registro del historial?\n\nEsta acción es irreversible.")) return;
+
+    const confirmado = await showModal({
+        title: '🗑️ Eliminar registro',
+        message: '¿Estás seguro de eliminar este registro del historial?<br><br>Esta acción es irreversible.',
+        icon: '🗑️',
+        confirmText: 'Sí, eliminar',
+        cancelText: 'Cancelar',
+        type: 'danger'
+    });
+    if (!confirmado) return;
 
     leGuardarFiltrosEnStorage();
     leMostrarCargando();
 
     database.ref(`patients/${patientKey}/historial/${historialKey}`).remove()
         .then(() => {
-            alert("✅ Registro del historial eliminado correctamente.");
+            showModal({ title: '✅ Eliminado', message: 'Registro del historial eliminado correctamente.', icon: '✅', confirmText: 'Aceptar' });
             setTimeout(() => leShowPatientModal(patientKey), 300);
         })
         .catch(error => {
             console.error(error);
-            alert("❌ Error al eliminar: " + error.message);
+            showModal({ title: '❌ Error', message: 'Error al eliminar: ' + error.message, icon: '❌', confirmText: 'Aceptar' });
         })
         .finally(() => leOcultarCargando());
 }

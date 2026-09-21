@@ -210,7 +210,10 @@ function limpiarFiltrosRdll() {
 }
 
 function exportarRdllExcel() {
-    if (datosRdllFiltrados.length === 0) { alert("No hay datos"); return; }
+    if (datosRdllFiltrados.length === 0) {
+        showModal({ title: '❌ Sin datos', message: 'No hay datos para exportar.', icon: '❌', confirmText: 'Aceptar' });
+        return;
+    }
     const datos = datosRdllFiltrados.map(r => ({
         FECHA: r.FECHA || '', NOMBRE: r.NOMBRE || '', RUT: r.RUT || '', DIAGNOSTICO: r.DIAGNOSTICO || '',
         TELEFONO: r.TELEFONO || '', 'NOMBRE RECEPTOR': r['NOMBRE RECEPTOR'] || '', 'RUT RECEPTOR': r['RUT RECEPTOR'] || '',
@@ -222,7 +225,7 @@ function exportarRdllExcel() {
     const wb = XLSX.utils.book_new();
     XLSX.utils.book_append_sheet(wb, ws, 'Historico_RDLL');
     XLSX.writeFile(wb, `Historico_RDLL_${new Date().toISOString().slice(0, 10)}.xlsx`);
-    alert("✅ Exportado");
+    showModal({ title: '✅ Exportado', message: 'El archivo se descargó correctamente.', icon: '✅', confirmText: 'Aceptar' });
 }
 
 function leAbrirModalRdllForm() {
@@ -307,7 +310,10 @@ function cerrarModalRdllForm() {
 }
 
 function abrirEditarRdll(key) {
-    if (!esAdministrador()) { alert("Solo administradores"); return; }
+    if (!esAdministrador()) {
+        showModal({ title: '⛔ Acceso denegado', message: 'Solo administradores pueden editar registros del histórico.', icon: '⛔', confirmText: 'Aceptar' });
+        return;
+    }
     cerrarModalRdllDetalle();
     const r = datosRdll.find(d => d.key === key);
     if (!r) return;
@@ -347,16 +353,24 @@ function abrirEditarRdll(key) {
 }
 
 async function eliminarRdll(key) {
-    if (!esAdministrador()) { alert("Solo administradores"); return; }
-    if (!confirm("¿Eliminar este registro permanentemente?")) return;
+    if (!esAdministrador()) {
+        showModal({ title: '⛔ Acceso denegado', message: 'Solo administradores pueden eliminar registros del histórico.', icon: '⛔', confirmText: 'Aceptar' });
+        return;
+    }
+    const confirmado = await showModal({
+        title: '🗑️ Eliminar registro',
+        message: '¿Eliminar este registro permanentemente?',
+        icon: '🗑️', confirmText: 'Sí, eliminar', cancelText: 'Cancelar', type: 'danger'
+    });
+    if (!confirmado) return;
     leMostrarCargando();
     try {
         await database.ref(`${LE_RDLL_DB_PATH}/${key}`).remove();
-        alert("✅ Registro eliminado");
+        showModal({ title: '✅ Eliminado', message: 'Registro eliminado correctamente.', icon: '✅', confirmText: 'Aceptar' });
         cerrarModalRdllDetalle();
         await cargarRdll();
     } catch (e) {
-        alert("Error: " + e.message);
+        showModal({ title: '❌ Error', message: 'Error: ' + e.message, icon: '❌', confirmText: 'Aceptar' });
     } finally {
         leOcultarCargando();
     }
@@ -369,7 +383,7 @@ async function leGuardarRdll(e) {
     // aunque el botón no esté. La edición (solo-admin) nunca llega acá
     // porque solo se puede abrir siendo administrador, que ya pasa siempre.
     if (!usuarioTieneAccesoSeccion('listaEspera_rdll')) {
-        alert('⛔ No tienes permiso para esta acción.');
+        showModal({ title: '⛔ Acceso denegado', message: 'No tienes permiso para esta acción.', icon: '⛔', confirmText: 'Aceptar' });
         return;
     }
     if (isSubmittingRdll) return;
@@ -392,13 +406,13 @@ async function leGuardarRdll(e) {
     const rutReceptorLimpio = rutReceptor ? rutReceptor.replace(/[^0-9kK]/g, '').toUpperCase() : '';
 
     if (!rutPacienteLimpio || !validarRutChileno(rutPacienteLimpio)) {
-        alert("❌ El RUT del paciente es obligatorio y debe ser válido.");
+        showModal({ title: '❌ RUT inválido', message: 'El RUT del paciente es obligatorio y debe ser válido.', icon: '❌', confirmText: 'Aceptar' });
         document.getElementById('rdll_rut').focus();
         isSubmittingRdll = false;
         return;
     }
     if (rutReceptorLimpio && !validarRutChileno(rutReceptorLimpio)) {
-        alert("❌ El RUT del receptor no es válido. Por favor verifica el formato.");
+        showModal({ title: '❌ RUT inválido', message: 'El RUT del receptor no es válido. Por favor verifica el formato.', icon: '❌', confirmText: 'Aceptar' });
         document.getElementById('rdll_rut_receptor').focus();
         isSubmittingRdll = false;
         return;
@@ -423,7 +437,7 @@ async function leGuardarRdll(e) {
     };
 
     if (!data.FECHA || !data.NOMBRE || !data.RUT || !data.DIAGNOSTICO || !data['MOTIVO LLAMADO'] || !data['RESPUESTA RECEPTOR']) {
-        alert("❌ Complete los campos obligatorios");
+        showModal({ title: '❌ Campos incompletos', message: 'Completa los campos obligatorios.', icon: '❌', confirmText: 'Aceptar' });
         isSubmittingRdll = false;
         return;
     }
@@ -432,16 +446,16 @@ async function leGuardarRdll(e) {
     try {
         if (key) {
             await database.ref(`${LE_RDLL_DB_PATH}/${key}`).update(data);
-            alert("✅ Registro actualizado correctamente");
+            showModal({ title: '✅ Actualizado', message: 'Registro actualizado correctamente.', icon: '✅', confirmText: 'Aceptar' });
         } else {
             await database.ref(LE_RDLL_DB_PATH).push(data);
-            alert("✅ Registro guardado correctamente");
+            showModal({ title: '✅ Guardado', message: 'Registro guardado correctamente.', icon: '✅', confirmText: 'Aceptar' });
         }
         cerrarModalRdllForm();
         await cargarRdll();
     } catch (e) {
         console.error(e);
-        alert("Error al guardar: " + e.message);
+        showModal({ title: '❌ Error', message: 'Error al guardar: ' + e.message, icon: '❌', confirmText: 'Aceptar' });
     } finally {
         isSubmittingRdll = false;
         leOcultarCargando();
@@ -449,7 +463,10 @@ async function leGuardarRdll(e) {
 }
 
 function leCargarExcelRdll() {
-    if (!esAdministrador()) { alert("Solo administradores"); return; }
+    if (!esAdministrador()) {
+        showModal({ title: '⛔ Acceso denegado', message: 'Solo administradores pueden cargar un Excel al histórico.', icon: '⛔', confirmText: 'Aceptar' });
+        return;
+    }
     const input = document.createElement('input');
     input.type = 'file';
     input.accept = '.xlsx, .xls';
@@ -462,7 +479,10 @@ function leCargarExcelRdll() {
             const workbook = XLSX.read(data);
             const sheet = workbook.Sheets[workbook.SheetNames[0]];
             const rows = XLSX.utils.sheet_to_json(sheet);
-            if (rows.length === 0) { alert("Archivo vacío"); return; }
+            if (rows.length === 0) {
+                showModal({ title: '❌ Archivo vacío', message: 'El archivo seleccionado no tiene filas.', icon: '❌', confirmText: 'Aceptar' });
+                return;
+            }
 
             for (const row of rows) {
                 const registro = {
@@ -484,10 +504,10 @@ function leCargarExcelRdll() {
                 };
                 await database.ref(LE_RDLL_DB_PATH).push(registro);
             }
-            alert(`✅ Cargados ${rows.length} registros`);
+            showModal({ title: '✅ Carga completa', message: `Se cargaron ${rows.length} registros.`, icon: '✅', confirmText: 'Aceptar' });
             await cargarRdll();
         } catch (err) {
-            alert("Error: " + err.message);
+            showModal({ title: '❌ Error', message: 'Error: ' + err.message, icon: '❌', confirmText: 'Aceptar' });
         } finally {
             leOcultarCargando();
         }
@@ -600,7 +620,10 @@ function cerrarModalRegistroLlamada() {
 }
 
 async function guardarRegistroLlamada() {
-    if (!currentCallPatient) { alert("❌ No hay paciente seleccionado"); return; }
+    if (!currentCallPatient) {
+        showModal({ title: '❌ Sin paciente', message: 'No hay paciente seleccionado.', icon: '❌', confirmText: 'Aceptar' });
+        return;
+    }
     if (isSubmittingLlamada) return;
     isSubmittingLlamada = true;
     leMostrarCargando();
@@ -611,7 +634,7 @@ async function guardarRegistroLlamada() {
     const rutReceptorLimpio = rutReceptorInput.value ? rutReceptorInput.value.replace(/[^0-9kK]/g, '').toUpperCase() : '';
 
     if (rutReceptorLimpio && !validarRutChileno(rutReceptorLimpio)) {
-        alert("❌ El RUT del receptor no es válido. Por favor verifica el formato.");
+        showModal({ title: '❌ RUT inválido', message: 'El RUT del receptor no es válido. Por favor verifica el formato.', icon: '❌', confirmText: 'Aceptar' });
         rutReceptorInput.focus();
         isSubmittingLlamada = false;
         leOcultarCargando();
@@ -635,7 +658,7 @@ async function guardarRegistroLlamada() {
     };
 
     if (!llamadaData.motivo || !llamadaData.respuesta) {
-        alert("❌ Motivo y Respuesta son obligatorios");
+        showModal({ title: '❌ Campos incompletos', message: 'Motivo y Respuesta son obligatorios.', icon: '❌', confirmText: 'Aceptar' });
         isSubmittingLlamada = false;
         leOcultarCargando();
         return;
@@ -659,7 +682,7 @@ async function guardarRegistroLlamada() {
             descripcion: `Llamada registrada - Motivo: ${llamadaData.motivo} - Respuesta: ${llamadaData.respuesta}`
         });
 
-        alert("✅ Registro de llamada guardado correctamente");
+        showModal({ title: '✅ Guardado', message: 'Registro de llamada guardado correctamente.', icon: '✅', confirmText: 'Aceptar' });
         cerrarModalRegistroLlamada();
 
         setTimeout(() => {
@@ -669,7 +692,7 @@ async function guardarRegistroLlamada() {
 
     } catch (error) {
         console.error(error);
-        alert("❌ Error al guardar: " + error.message);
+        showModal({ title: '❌ Error', message: 'Error al guardar: ' + error.message, icon: '❌', confirmText: 'Aceptar' });
     } finally {
         isSubmittingLlamada = false;
         leOcultarCargando();
@@ -795,7 +818,10 @@ function leAbrirModalEditarLlamada() {
 }
 
 async function abrirModalEditarLlamada(patientKey, llamadaKey) {
-    if (!esAdministrador()) { alert("❌ No tienes permisos para editar llamadas."); return; }
+    if (!esAdministrador()) {
+        showModal({ title: '⛔ Acceso denegado', message: 'No tienes permisos para editar llamadas.', icon: '⛔', confirmText: 'Aceptar' });
+        return;
+    }
 
     const snapshot = await database.ref(`patients/${patientKey}/historialLlamadas/${llamadaKey}`).once('value');
     const llamada = snapshot.val();
@@ -839,7 +865,10 @@ async function abrirModalEditarLlamada(patientKey, llamadaKey) {
 }
 
 async function guardarEdicionLlamada() {
-    if (!esAdministrador()) { alert("❌ No tienes permisos para editar llamadas."); return; }
+    if (!esAdministrador()) {
+        showModal({ title: '⛔ Acceso denegado', message: 'No tienes permisos para editar llamadas.', icon: '⛔', confirmText: 'Aceptar' });
+        return;
+    }
     if (isEditingLlamada) return;
     isEditingLlamada = true;
 
@@ -847,7 +876,7 @@ async function guardarEdicionLlamada() {
     const llamadaKey = document.getElementById('editLlamadaKey').value;
 
     if (!patientKey || !llamadaKey) {
-        alert("❌ Error: No se encontró la llamada a editar.");
+        showModal({ title: '❌ Error', message: 'No se encontró la llamada a editar.', icon: '❌', confirmText: 'Aceptar' });
         isEditingLlamada = false;
         return;
     }
@@ -860,7 +889,7 @@ async function guardarEdicionLlamada() {
         const rutReceptorLimpio = rutReceptor ? rutReceptor.replace(/[^0-9kK]/g, '').toUpperCase() : '';
 
         if (rutReceptorLimpio && !validarRutChileno(rutReceptorLimpio)) {
-            alert("❌ El RUT del receptor no es válido. Por favor verifica el formato.");
+            showModal({ title: '❌ RUT inválido', message: 'El RUT del receptor no es válido. Por favor verifica el formato.', icon: '❌', confirmText: 'Aceptar' });
             document.getElementById('editLlamadaRutRec').focus();
             isEditingLlamada = false;
             leOcultarCargando();
@@ -883,7 +912,7 @@ async function guardarEdicionLlamada() {
         };
 
         if (!llamadaData.motivo || !llamadaData.respuesta) {
-            alert("❌ Motivo y Respuesta son obligatorios");
+            showModal({ title: '❌ Campos incompletos', message: 'Motivo y Respuesta son obligatorios.', icon: '❌', confirmText: 'Aceptar' });
             isEditingLlamada = false;
             leOcultarCargando();
             return;
@@ -905,7 +934,7 @@ async function guardarEdicionLlamada() {
             if (!tieneProximo) await database.ref(`patients/${patientKey}/fechaProximoLlamado`).remove();
         }
 
-        alert("✅ Llamada actualizada correctamente");
+        showModal({ title: '✅ Actualizada', message: 'Llamada actualizada correctamente.', icon: '✅', confirmText: 'Aceptar' });
         cerrarModalEditarLlamada();
 
         setTimeout(() => {
@@ -915,7 +944,7 @@ async function guardarEdicionLlamada() {
 
     } catch (error) {
         console.error(error);
-        alert("❌ Error al editar: " + error.message);
+        showModal({ title: '❌ Error', message: 'Error al editar: ' + error.message, icon: '❌', confirmText: 'Aceptar' });
     } finally {
         isEditingLlamada = false;
         leOcultarCargando();
@@ -928,9 +957,18 @@ function cerrarModalEditarLlamada() {
 }
 
 async function eliminarRegistroLlamada(patientKey, llamadaKey) {
-    if (!esAdministrador()) { alert("❌ No tienes permisos para eliminar registros de llamadas."); return; }
+    if (!esAdministrador()) {
+        showModal({ title: '⛔ Acceso denegado', message: 'No tienes permisos para eliminar registros de llamadas.', icon: '⛔', confirmText: 'Aceptar' });
+        return;
+    }
     if (isDeletingLlamada) return;
-    if (!confirm("⚠️ ¿Estás seguro de eliminar este registro de llamada?\n\nEsta acción NO se registra en el historial y NO se puede deshacer.")) return;
+
+    const confirmado = await showModal({
+        title: '🗑️ Eliminar registro de llamada',
+        message: '¿Estás seguro de eliminar este registro de llamada?<br><br>Esta acción NO se registra en el historial y NO se puede deshacer.',
+        icon: '🗑️', confirmText: 'Sí, eliminar', cancelText: 'Cancelar', type: 'danger'
+    });
+    if (!confirmado) return;
 
     isDeletingLlamada = true;
     leMostrarCargando();
@@ -953,7 +991,7 @@ async function eliminarRegistroLlamada(patientKey, llamadaKey) {
             if (!tieneProximo) await database.ref(`patients/${patientKey}/fechaProximoLlamado`).remove();
         }
 
-        alert("✅ Registro de llamada eliminado correctamente");
+        showModal({ title: '✅ Eliminado', message: 'Registro de llamada eliminado correctamente.', icon: '✅', confirmText: 'Aceptar' });
         cerrarModalDetalleLlamada();
 
         setTimeout(() => {
@@ -963,7 +1001,7 @@ async function eliminarRegistroLlamada(patientKey, llamadaKey) {
 
     } catch (error) {
         console.error(error);
-        alert("❌ Error al eliminar: " + error.message);
+        showModal({ title: '❌ Error', message: 'Error al eliminar: ' + error.message, icon: '❌', confirmText: 'Aceptar' });
     } finally {
         isDeletingLlamada = false;
         leOcultarCargando();

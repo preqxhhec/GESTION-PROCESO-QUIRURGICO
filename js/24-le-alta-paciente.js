@@ -382,7 +382,12 @@ async function leGuardarPaciente(e) {
     const rutLimpio = rutInput ? rutInput.replace(/[^0-9kK]/g, '').toUpperCase() : '';
 
     if (!rutLimpio || !validarRutChileno(rutLimpio)) {
-        alert("❌ El RUT es obligatorio y debe ser válido.");
+        showModal({
+            title: '❌ RUT inválido',
+            message: 'El RUT es obligatorio y debe ser válido.',
+            icon: '❌',
+            confirmText: 'Aceptar'
+        });
         document.getElementById('rut').focus();
         return;
     }
@@ -472,7 +477,7 @@ async function leGuardarPaciente(e) {
                 cambios: cambios.length > 0 ? cambios : null
             });
 
-            alert("✅ Paciente actualizado correctamente");
+            showModal({ title: '✅ Actualizado', message: 'Paciente actualizado correctamente.', icon: '✅', confirmText: 'Aceptar' });
         } else {
             const newRef = await database.ref('patients').push(patientData);
             currentPatientKey = newRef.key;
@@ -484,7 +489,7 @@ async function leGuardarPaciente(e) {
                 descripcion: "Paciente registrado por primera vez"
             });
 
-            alert("✅ Paciente guardado correctamente");
+            showModal({ title: '✅ Guardado', message: 'Paciente guardado correctamente.', icon: '✅', confirmText: 'Aceptar' });
         }
 
         leResetFormularioPaciente();
@@ -494,7 +499,7 @@ async function leGuardarPaciente(e) {
 
     } catch (error) {
         console.error(error);
-        alert("Error: " + error.message);
+        showModal({ title: '❌ Error', message: 'Error: ' + error.message, icon: '❌', confirmText: 'Aceptar' });
     } finally {
         isSubmittingPaciente = false;
         leOcultarCargando();
@@ -513,8 +518,16 @@ function leResetFormularioPaciente() {
     if (btnCancelar) btnCancelar.style.display = 'none';
 }
 
-function leCancelarEdicionPaciente() {
-    if (!confirm("¿Cancelar la edición? Los cambios no guardados se perderán.")) return;
+async function leCancelarEdicionPaciente() {
+    const confirmado = await showModal({
+        title: '🚪 Cancelar edición',
+        message: '¿Cancelar la edición?<br><br>Los cambios no guardados se perderán.',
+        icon: '🚪',
+        confirmText: 'Sí, cancelar',
+        cancelText: 'Seguir editando',
+        type: 'danger'
+    });
+    if (!confirmado) return;
     leResetFormularioPaciente();
     currentPatientKey = null;
     currentModalPatient = null;

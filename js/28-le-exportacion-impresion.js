@@ -33,7 +33,10 @@ function calcularDiasEspera(fechaStr, hasta) {
 
 function downloadCSV() {
     const data = leGetCurrentFilteredData();
-    if (data.length === 0) return alert("No hay datos para descargar con los filtros actuales.");
+    if (data.length === 0) {
+        showModal({ title: '❌ Sin datos', message: 'No hay datos para descargar con los filtros actuales.', icon: '❌', confirmText: 'Aceptar' });
+        return;
+    }
 
     let csvContent = "ID;Estatus Tabla;T.Espera;Fecha Ind Qx;Nombre y Apellido;RUT;Edad;Comuna;Especialidad;Médico Tratante;Diagnóstico;Intervención;Fecha Cirugía;Observaciones\n";
     data.forEach(p => {
@@ -47,12 +50,15 @@ function downloadCSV() {
     link.download = `Pacientes_Filtrados_${new Date().toISOString().slice(0, 10)}.csv`;
     link.click();
 
-    alert(`✅ CSV descargado (${data.length} registros con filtros aplicados)`);
+    showModal({ title: '✅ Descarga lista', message: `CSV descargado (${data.length} registros con filtros aplicados).`, icon: '✅', confirmText: 'Aceptar' });
 }
 
 function downloadExcel() {
     const data = leGetCurrentFilteredData();
-    if (data.length === 0) return alert("No hay datos para descargar con los filtros actuales.");
+    if (data.length === 0) {
+        showModal({ title: '❌ Sin datos', message: 'No hay datos para descargar con los filtros actuales.', icon: '❌', confirmText: 'Aceptar' });
+        return;
+    }
 
     const excelData = data.map(p => ({
         "ID": p.id || '', "Estatus Tabla": p.estatusTabla || '', "T. Espera (días)": calcularDiasEspera(p.fechaIndQx, obtenerFechaFinEsperaCongelada(p)),
@@ -74,7 +80,7 @@ function downloadExcel() {
     XLSX.utils.book_append_sheet(wb, ws, "Pacientes");
     XLSX.writeFile(wb, `Pacientes_Filtrados_${new Date().toISOString().slice(0, 10)}.xlsx`);
 
-    alert(`✅ Excel completo descargado correctamente (${data.length} registros con filtros aplicados)`);
+    showModal({ title: '✅ Descarga lista', message: `Excel completo descargado correctamente (${data.length} registros con filtros aplicados).`, icon: '✅', confirmText: 'Aceptar' });
 }
 
 // =============================================================
@@ -192,7 +198,7 @@ function printPatient() {
 function printPatientList() {
     const filtered = leGetCurrentFilteredData();
     if (filtered.length === 0) {
-        alert("❌ No hay pacientes en la lista actual. Revisa los filtros aplicados.");
+        showModal({ title: '❌ Sin pacientes', message: 'No hay pacientes en la lista actual. Revisa los filtros aplicados.', icon: '❌', confirmText: 'Aceptar' });
         return;
     }
     filtered.sort((a, b) => calculateWaitingDays(a.fechaIndQx, obtenerFechaFinEsperaCongelada(a)) - calculateWaitingDays(b.fechaIndQx, obtenerFechaFinEsperaCongelada(b)));
@@ -385,13 +391,16 @@ async function leRecopilarLlamadasFiltradas() {
 }
 
 async function descargarRegistroLlamadas() {
-    if (!patients || patients.length === 0) { alert("❌ No hay pacientes cargados."); return; }
+    if (!patients || patients.length === 0) {
+        showModal({ title: '❌ Sin pacientes', message: 'No hay pacientes cargados.', icon: '❌', confirmText: 'Aceptar' });
+        return;
+    }
 
     leMostrarCargando();
     try {
         const { todasLasLlamadas, pacientesFiltrados } = await leRecopilarLlamadasFiltradas();
         if (todasLasLlamadas.length === 0) {
-            alert("❌ No hay registros de llamadas para los pacientes filtrados.");
+            showModal({ title: '❌ Sin registros', message: 'No hay registros de llamadas para los pacientes filtrados.', icon: '❌', confirmText: 'Aceptar' });
             return;
         }
 
@@ -408,23 +417,30 @@ async function descargarRegistroLlamadas() {
         XLSX.utils.book_append_sheet(wb, ws, 'Registro_Llamadas');
         XLSX.writeFile(wb, `Registro_Llamadas_${new Date().toISOString().slice(0, 10)}.xlsx`);
 
-        alert(`✅ Reporte generado correctamente\n\n📞 Total de llamadas exportadas: ${todasLasLlamadas.length}\n👥 Pacientes considerados: ${pacientesFiltrados.length}`);
+        showModal({
+            title: '✅ Reporte generado',
+            message: `📞 Total de llamadas exportadas: ${todasLasLlamadas.length}<br>👥 Pacientes considerados: ${pacientesFiltrados.length}`,
+            icon: '✅', confirmText: 'Aceptar'
+        });
     } catch (error) {
         console.error(error);
-        alert("❌ Error al generar el reporte: " + error.message);
+        showModal({ title: '❌ Error', message: 'Error al generar el reporte: ' + error.message, icon: '❌', confirmText: 'Aceptar' });
     } finally {
         leOcultarCargando();
     }
 }
 
 async function imprimirRegistroLlamadas() {
-    if (!patients || patients.length === 0) { alert("❌ No hay pacientes cargados."); return; }
+    if (!patients || patients.length === 0) {
+        showModal({ title: '❌ Sin pacientes', message: 'No hay pacientes cargados.', icon: '❌', confirmText: 'Aceptar' });
+        return;
+    }
 
     leMostrarCargando();
     try {
         const { todasLasLlamadas, pacientesFiltrados } = await leRecopilarLlamadasFiltradas();
         if (todasLasLlamadas.length === 0) {
-            alert("❌ No hay registros de llamadas para los pacientes filtrados.");
+            showModal({ title: '❌ Sin registros', message: 'No hay registros de llamadas para los pacientes filtrados.', icon: '❌', confirmText: 'Aceptar' });
             return;
         }
 
@@ -473,7 +489,7 @@ async function imprimirRegistroLlamadas() {
         setTimeout(() => printWindow.print(), 500);
     } catch (error) {
         console.error(error);
-        alert("❌ Error al generar el reporte: " + error.message);
+        showModal({ title: '❌ Error', message: 'Error al generar el reporte: ' + error.message, icon: '❌', confirmText: 'Aceptar' });
     } finally {
         leOcultarCargando();
     }
