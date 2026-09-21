@@ -35,6 +35,16 @@ async function leInicializarModulo() {
     if (leModuloInicializado) return;
     leModuloInicializado = true;
     await leCargarConfiguracionFiltros();
+    // 🔃 Orden por defecto SOLO la primera vez que se abre la sección en
+    // esta sesión — a propósito no vive dentro del listener de abajo
+    // (leCargarPacientes()), que se dispara en CADA actualización de
+    // patients/: si quedara ahí, cada cambio en la base de datos (de
+    // cualquier paciente, no solo el que se esté mirando) le pisaba al
+    // usuario el orden que había elegido haciendo clic en un encabezado,
+    // devolviéndolo siempre a "Fecha Ind. Qx descendente".
+    sortActive = true;
+    currentSortColumn = 'fechaIndQx';
+    currentSortOrder = 'desc';
     leCargarPacientes();
 }
 
@@ -47,10 +57,6 @@ function leCargarPacientes() {
         snapshot.forEach((child) => {
             patients.push({ firebaseKey: child.key, ...child.val() });
         });
-
-        sortActive = true;
-        currentSortColumn = 'fechaIndQx';
-        currentSortOrder = 'desc';
 
         leVerificarActualizacionAutomaticaPorPlazo();
         leRefrescarVistaActual();
@@ -77,19 +83,23 @@ function leVerificarActualizacionAutomaticaPorPlazo() {
 
     patients.forEach(paciente => {
         if (!esGestionable(paciente)) return;
-        if (!paciente.fechaEstatusProgram) return;
+        if (!paciente.fechaEpa) return;
 
+        // 🎯 Solo pacientes que HOY están en PROGRAMABLE son candidatos —
+        // un paciente que esté (o haya quedado) en NO PROGRAMABLE, PENDIENTE
+        // EPA, etc. nunca debe pasar a ACTUALIZAR solo por el paso del
+        // tiempo, sin importar cuánto lleve esperando.
         const estatusActual = (paciente.estatusTabla || '').toString().trim().toUpperCase();
-        if (estatusActual === 'ACTUALIZAR') return;
+        if (estatusActual !== 'PROGRAMABLE') return;
 
-        const dias = calculateWaitingDays(paciente.fechaEstatusProgram);
+        const dias = calculateWaitingDays(paciente.fechaEpa);
         if (dias < UMBRAL_1_ANIO_DIAS) return;
 
         const estatusAnterior = paciente.estatusTabla || '(sin estatus)';
         database.ref('patients/' + paciente.firebaseKey + '/estatusTabla').transaction(
             (valorActual) => {
                 const actualNormalizado = (valorActual || '').toString().trim().toUpperCase();
-                if (actualNormalizado === 'ACTUALIZAR') return; // otro cliente ya lo cambió, abortar
+                if (actualNormalizado !== 'PROGRAMABLE') return; // ya cambió de estatus (u otro cliente ya lo actualizó), abortar
                 return 'ACTUALIZAR';
             },
             (error, committed) => {
@@ -97,12 +107,12 @@ function leVerificarActualizacionAutomaticaPorPlazo() {
                     console.error('❌ Error al actualizar estatus automático a ACTUALIZAR:', error);
                     return;
                 }
-                if (!committed) return; // otro cliente conectado ganó la carrera
+                if (!committed) return; // otro cliente conectado ganó la carrera, o ya no era PROGRAMABLE
                 database.ref('patients/' + paciente.firebaseKey + '/historial').push({
                     fecha: new Date().toISOString(),
                     usuario: 'Sistema (automático)',
                     accion: 'Estatus actualizado automáticamente',
-                    descripcion: 'Cumplió 1 año desde la Fecha Estatus Programable sin actualizarse — estatus cambiado automáticamente a ACTUALIZAR.',
+                    descripcion: 'Cumplió 1 año desde la Fecha EPA sin actualizarse — estatus cambiado automáticamente a ACTUALIZAR.',
                     cambios: [`Estatus: ${estatusAnterior} → ACTUALIZAR`]
                 }).catch(() => {});
             }
