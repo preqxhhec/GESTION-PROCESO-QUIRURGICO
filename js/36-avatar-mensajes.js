@@ -28,6 +28,20 @@ const AVATAR_MENSAJES_DISPONIBLES = [
     { id: 'pabellon', titulo: 'Usuarios Pabellón', archivo: 'avatar/mensaje-pabellon.mp4' }
 ];
 
+// 📌 Precarga de la foto de reposo desde que se carga este archivo (antes
+// de que exista sesión siquiera) -- así, para cuando construirWidgetAvatar()
+// la necesita (después de esperar la lectura de Firebase), lo más probable
+// es que ya esté descargada y el avatar aparezca de inmediato en vez de
+// quedar como un recuadro transparente unos segundos mientras carga.
+const avatarImgReposoPrecarga = new Image();
+avatarImgReposoPrecarga.src = AVATAR_FOTO_REPOSO;
+
+// 📐 Tamaño del avatar: normal en reposo, el DOBLE mientras habla o
+// mientras el panel de recordatorios está abierto (ver
+// avatarActualizarTamano()).
+const AVATAR_TAMANO_REPOSO = { w: 130, h: 170 };
+const AVATAR_TAMANO_GRANDE = { w: 260, h: 340 };
+
 let avatarCanvasEl = null;
 let avatarCtx = null;
 let avatarVideoEl = null;
@@ -194,13 +208,19 @@ function construirWidgetAvatar() {
     avatarVideoEl.addEventListener('ended', avatarSiguienteEnCola);
     document.body.appendChild(avatarVideoEl);
 
-    avatarImgReposo = new Image();
-    avatarImgReposo.onload = () => {
+    // Reutiliza la precarga de arriba (probablemente ya lista) en vez de
+    // arrancar una descarga nueva desde cero.
+    avatarImgReposo = avatarImgReposoPrecarga;
+    const dibujarFotoReposo = () => {
         avatarCanvasEl.width = avatarImgReposo.naturalWidth;
         avatarCanvasEl.height = avatarImgReposo.naturalHeight;
         dibujarAvatarConTransparencia(avatarImgReposo);
     };
-    avatarImgReposo.src = AVATAR_FOTO_REPOSO;
+    if (avatarImgReposo.complete && avatarImgReposo.naturalWidth > 0) {
+        dibujarFotoReposo();
+    } else {
+        avatarImgReposo.addEventListener('load', dibujarFotoReposo, { once: true });
+    }
 
     wrap.addEventListener('click', () => {
         if (avatarUltimoFueArrastre) return;
@@ -390,6 +410,7 @@ function abrirPanelRecordatorios() {
     renderPanelRecordatorios();
     panel.style.display = 'block';
     avatarPanelRecordatoriosAbierto = true;
+    avatarActualizarTamano();
     setTimeout(() => document.addEventListener('click', cerrarPanelRecordatoriosPorClicAfuera), 0);
 }
 
@@ -397,6 +418,7 @@ function cerrarPanelRecordatorios() {
     const panel = document.getElementById('avatarPanelRecordatorios');
     if (panel) panel.style.display = 'none';
     avatarPanelRecordatoriosAbierto = false;
+    avatarActualizarTamano();
     document.removeEventListener('click', cerrarPanelRecordatoriosPorClicAfuera);
 }
 
@@ -524,6 +546,16 @@ function reproducirColaAvatar() {
     avatarReproducirActual();
 }
 
+// El doble de tamaño mientras habla O mientras el panel de recordatorios
+// está abierto (cualquiera de los dos, incluso los dos a la vez).
+function avatarActualizarTamano() {
+    if (!avatarCanvasEl) return;
+    const grande = avatarReproduciendo || avatarPanelRecordatoriosAbierto;
+    const tam = grande ? AVATAR_TAMANO_GRANDE : AVATAR_TAMANO_REPOSO;
+    avatarCanvasEl.style.maxWidth = tam.w + 'px';
+    avatarCanvasEl.style.maxHeight = tam.h + 'px';
+}
+
 function avatarReproducirActual() {
     if (avatarIndiceCola >= avatarColaMensajes.length) {
         detenerAvatar();
@@ -538,10 +570,7 @@ function avatarReproducirActual() {
     avatarReproduciendo = true;
     const btnSilenciar = document.getElementById('avatarBtnSilenciar');
     if (btnSilenciar) btnSilenciar.style.display = 'flex';
-    if (avatarCanvasEl) {
-        avatarCanvasEl.style.maxWidth = '170px';
-        avatarCanvasEl.style.maxHeight = '220px';
-    }
+    avatarActualizarTamano();
     avatarLoopVideo();
 }
 
@@ -559,10 +588,7 @@ function detenerAvatar() {
     const btnSilenciar = document.getElementById('avatarBtnSilenciar');
     if (btnSilenciar) btnSilenciar.style.display = 'none';
 
-    if (avatarCanvasEl) {
-        avatarCanvasEl.style.maxWidth = '130px';
-        avatarCanvasEl.style.maxHeight = '170px';
-    }
+    avatarActualizarTamano();
     // El canvas se deja mostrando el último cuadro del video (ya dibujado
     // por avatarLoopVideo, recortado) en vez de volver a la foto de reposo
     // aparte — mismo tamaño/calidad que mientras hablaba, sin "salto"
