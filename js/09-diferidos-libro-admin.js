@@ -648,7 +648,11 @@
                         <span>📘 Libro de Quirófano (${registros.length} registros)</span>
                         ${mostrarExportarExcelLibro}
                     </div>
-                    <div id="libroFiltrosContainer">
+                    <div style="display:flex; align-items:center; justify-content:space-between; cursor:pointer; padding:8px 14px; background:#eef2ff; border-radius:10px 10px 0 0; user-select:none;" id="libroFiltrosToggleHeader">
+                        <span style="font-weight:600; color:#1e3a8a; font-size:0.9rem;">🔍 Filtros</span>
+                        <span id="libroFiltrosToggleIcono" style="color:#1e3a8a; font-weight:700;">▲</span>
+                    </div>
+                    <div id="libroFiltrosContainer" style="border-radius:0 0 10px 10px;">
                         ${filtrosHTML}
                     </div>
                     <div id="libroTablaContainer">
@@ -658,6 +662,7 @@
             `;
 
             inicializarFiltrosLibro(registros);
+            inicializarColapsoFiltrosLibro();
 
             document.getElementById('exportarExcelBtn')?.addEventListener('click', function() {
                 exportarLibroAExcel();

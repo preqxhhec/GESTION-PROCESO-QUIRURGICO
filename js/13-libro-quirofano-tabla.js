@@ -361,6 +361,40 @@
     }
 
     // =============================================================
+    // 🔽 COLAPSAR/EXPANDIR EL CUADRO DE FILTROS
+    // Mismo patrón que Lista de Espera (leInicializarColapsoFiltros() en
+    // js/25) — se recuerda entre sesiones vía localStorage.
+    // =============================================================
+    const LIBRO_FILTROS_COLAPSADOS_STORAGE_KEY = 'libro_filtros_panel_colapsado';
+
+    function inicializarColapsoFiltrosLibro() {
+        const header = document.getElementById('libroFiltrosToggleHeader');
+        if (!header) return;
+
+        let colapsado = false;
+        try {
+            colapsado = localStorage.getItem(LIBRO_FILTROS_COLAPSADOS_STORAGE_KEY) === 'true';
+        } catch (e) { /* localStorage no disponible — se queda expandido */ }
+
+        aplicarColapsoFiltrosLibro(colapsado);
+        header.addEventListener('click', function() {
+            const body = document.getElementById('libroFiltrosContainer');
+            const estaColapsado = body && body.style.display === 'none';
+            aplicarColapsoFiltrosLibro(!estaColapsado);
+            try {
+                localStorage.setItem(LIBRO_FILTROS_COLAPSADOS_STORAGE_KEY, (!estaColapsado).toString());
+            } catch (e) { /* localStorage no disponible — no se guarda la preferencia */ }
+        });
+    }
+
+    function aplicarColapsoFiltrosLibro(colapsado) {
+        const body = document.getElementById('libroFiltrosContainer');
+        const icono = document.getElementById('libroFiltrosToggleIcono');
+        if (body) body.style.display = colapsado ? 'none' : '';
+        if (icono) icono.textContent = colapsado ? '▼' : '▲';
+    }
+
+    // =============================================================
     // 🔍 GENERAR PANEL DE FILTROS
     // =============================================================
     function generarPanelFiltros(registros) {
