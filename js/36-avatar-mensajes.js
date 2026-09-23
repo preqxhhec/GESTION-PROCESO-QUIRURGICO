@@ -63,23 +63,46 @@ let avatarRecordatoriosTexto = { personales: [], deAdmin: [] };
 let avatarPanelRecordatoriosAbierto = false;
 let avatarEscuchandoRecordatoriosTexto = false;
 
+// 💬 CHAT entre usuarios: vive como una segunda pestaña del mismo panel
+// (ver renderPanelRecordatorios()/cambiarTabPanel() más abajo). Un "hilo"
+// (chats/{chatId}) queda definido por el conjunto EXACTO de participantes
+// -- iniciar chat con la misma gente reutiliza el mismo hilo, un conjunto
+// distinto de gente es un hilo aparte (ver avatarChatCalcularId()).
+// La presencia (online/offline) reutiliza usuarios/{uid}/sesionActiva, que
+// ya existe para el candado de sesión única (js/15) -- no se crea un nodo
+// de presencia aparte.
+let avatarPanelTabActiva = 'recordatorios'; // 'recordatorios' | 'chat'
+let avatarChatVista = 'lista';              // 'lista' | 'nuevo' | 'conversacion'
+let avatarChatConversacionActivaId = null;
+let avatarChatIndice = {};                  // chats_index/{miUid} en vivo
+let avatarChatMensajesActuales = [];        // mensajes del hilo abierto
+let avatarChatMensajesChatIdActivo = null;  // qué hilo está escuchando escucharMensajesConversacion()
+let avatarChatUsuarios = [];                // [{uid, email, online}] -- presencia en vivo
+let avatarChatSeleccionados = {};           // uids elegidos en la vista "nuevo mensaje"
+let avatarChatFiltroTexto = '';
+let avatarEscuchandoChatIndice = false;
+let avatarEscuchandoPresenciaChat = false;
+
 // =============================================================
 // 🚀 INICIO (se llama una vez por sesión, justo después del login — js/15)
 // =============================================================
 async function inicializarAvatarMensajes() {
     if (!currentUser || !currentUserAvatarActivo) return;
 
+    // 🧱 El widget se arma siempre (antes solo si había mensajes de video
+    // asignados) -- el chat debe funcionar para cualquier usuario con
+    // avatarActivo, tenga o no videos/recordatorios asignados.
+    construirWidgetAvatar();
+
+    // 👀 Recordatorios de texto y chat: escucha en vivo (no una lectura
+    // única) para que un cambio ajeno (del administrador, u otro usuario
+    // escribiendo) se refleje solo, sin esperar a que se recargue la página.
+    escucharRecordatoriosTexto();
+    escucharChatIndice();
+
     const mensajesVideo = await obtenerMensajesAvatarParaUsuario();
     avatarColaMensajes = mensajesVideo;
-
-    // 👀 Recordatorios de texto: escucha en vivo (no una lectura única) para
-    // que un cambio del administrador (o uno propio hecho desde otro
-    // equipo) se refleje solo, sin esperar a que el usuario recargue la
-    // página — arma el widget si hace falta apenas llega el primer dato.
-    escucharRecordatoriosTexto();
-
     if (mensajesVideo.length === 0) return;
-    construirWidgetAvatar();
 
     const claveHoy = 'avatar_ultimo_dia_' + currentUser.uid;
     const hoy = new Date().toISOString().slice(0, 10);
@@ -179,7 +202,7 @@ function construirWidgetAvatar() {
 
     const wrap = document.createElement('div');
     wrap.id = 'avatarRecordatorioWidget';
-    wrap.title = 'Recordatorios (arrástralo para moverlo)';
+    wrap.title = 'Recordatorios y chat (arrástralo para moverlo)';
     wrap.style.cssText = 'position:fixed; right:18px; bottom:18px; z-index:9998; display:flex; flex-direction:column; align-items:center; cursor:pointer; touch-action:none;';
     wrap.innerHTML = `
         <div style="position:relative;">
@@ -346,6 +369,9 @@ function limpiarWidgetAvatar() {
     detenerAvatar();
     cerrarPanelRecordatorios();
     detenerEscuchaRecordatoriosTexto();
+    detenerEscuchaChatIndice();
+    detenerEscuchaPresenciaChat();
+    detenerEscuchaMensajesConversacion();
     const wrap = document.getElementById('avatarRecordatorioWidget');
     if (wrap) wrap.remove();
     if (avatarVideoEl) { avatarVideoEl.remove(); avatarVideoEl = null; }
@@ -355,6 +381,14 @@ function limpiarWidgetAvatar() {
     avatarColaMensajes = [];
     avatarIndiceCola = 0;
     avatarRecordatoriosTexto = { personales: [], deAdmin: [] };
+    avatarPanelTabActiva = 'recordatorios';
+    avatarChatVista = 'lista';
+    avatarChatConversacionActivaId = null;
+    avatarChatIndice = {};
+    avatarChatMensajesActuales = [];
+    avatarChatUsuarios = [];
+    avatarChatSeleccionados = {};
+    avatarChatFiltroTexto = '';
 }
 
 // =============================================================
@@ -363,13 +397,27 @@ function limpiarWidgetAvatar() {
 function actualizarBadgeRecordatorios() {
     const badge = document.getElementById('avatarBadgeRecordatorios');
     if (!badge) return;
-    const total = avatarRecordatoriosTexto.personales.length + avatarRecordatoriosTexto.deAdmin.length;
+    const totalRecordatorios = avatarRecordatoriosTexto.personales.length + avatarRecordatoriosTexto.deAdmin.length;
+    const total = totalRecordatorios + avatarChatContarNoLeidos();
     if (total > 0) {
         badge.textContent = total > 9 ? '9+' : String(total);
         badge.style.display = 'block';
     } else {
         badge.style.display = 'none';
     }
+}
+
+// Un hilo cuenta como "no leído" si su último mensaje es más nuevo que la
+// última vez que ESTE usuario abrió esa conversación, y no fue él quien lo
+// escribió (nunca aparece como no-leído para quien envió el mensaje).
+function avatarChatEsNoLeido(entrada) {
+    if (!entrada || !entrada.ultimoMensajeTimestamp) return false;
+    if (currentUser && entrada.ultimoMensajeDe === currentUser.uid) return false;
+    return entrada.ultimoMensajeTimestamp > (entrada.ultimaLectura || 0);
+}
+
+function avatarChatContarNoLeidos() {
+    return Object.keys(avatarChatIndice).filter(chatId => avatarChatEsNoLeido(avatarChatIndice[chatId])).length;
 }
 
 function togglePanelRecordatorios() {
@@ -385,7 +433,10 @@ function togglePanelRecordatorios() {
 // lado del avatar hay espacio en la pantalla en ese momento (el avatar se
 // puede arrastrar a cualquier parte — ver habilitarArrastreAvatar()).
 let avatarPanelLado = 'izquierda';
-const AVATAR_PANEL_ANCHO_APROX = 270 + 14;
+// El más ancho de los dos tamaños de panel (270 recordatorios / 340 chat),
+// para que la decisión de lado siga siendo correcta aunque se cambie de
+// pestaña después de abrir.
+const AVATAR_PANEL_ANCHO_APROX = 340 + 14;
 
 function abrirPanelRecordatorios() {
     const panel = document.getElementById('avatarPanelRecordatorios');
@@ -410,6 +461,7 @@ function abrirPanelRecordatorios() {
     renderPanelRecordatorios();
     panel.style.display = 'block';
     avatarPanelRecordatoriosAbierto = true;
+    avatarChatActualizarListenersSegunEstado();
     avatarActualizarTamano();
     setTimeout(() => document.addEventListener('click', cerrarPanelRecordatoriosPorClicAfuera), 0);
 }
@@ -418,6 +470,7 @@ function cerrarPanelRecordatorios() {
     const panel = document.getElementById('avatarPanelRecordatorios');
     if (panel) panel.style.display = 'none';
     avatarPanelRecordatoriosAbierto = false;
+    avatarChatActualizarListenersSegunEstado();
     avatarActualizarTamano();
     document.removeEventListener('click', cerrarPanelRecordatoriosPorClicAfuera);
 }
@@ -426,23 +479,99 @@ function cerrarPanelRecordatoriosPorClicAfuera() {
     cerrarPanelRecordatorios();
 }
 
+// 💬 Pestaña activa del panel (📝 Recordatorios / 💬 Chat).
+function cambiarTabPanel(nombre) {
+    if (avatarPanelTabActiva === nombre) return;
+    avatarPanelTabActiva = nombre;
+    renderPanelRecordatorios();
+    avatarChatActualizarListenersSegunEstado();
+    avatarActualizarTamano();
+}
+
+// Único punto que decide qué listeners de chat deben estar activos ahora
+// mismo (presencia + mensajes del hilo abierto), según si el panel está
+// abierto, qué pestaña está activa y qué vista del chat se está mostrando.
+// Se llama desde cualquier lugar que cambie alguno de esos tres estados, en
+// vez de prender/apagar listeners sueltos por todos lados.
+function avatarChatActualizarListenersSegunEstado() {
+    const chatActivo = avatarPanelRecordatoriosAbierto && avatarPanelTabActiva === 'chat';
+    if (chatActivo) {
+        escucharPresenciaChat();
+    } else {
+        detenerEscuchaPresenciaChat();
+    }
+
+    const conversacionActiva = chatActivo && avatarChatVista === 'conversacion' && avatarChatConversacionActivaId;
+    if (conversacionActiva) {
+        escucharMensajesConversacion(avatarChatConversacionActivaId);
+    } else {
+        detenerEscuchaMensajesConversacion();
+    }
+}
+
+// Despachador: encabezado compartido (puntero + pestañas + botón cerrar) y
+// el ancho/alto del panel según la pestaña activa, luego delega el cuerpo a
+// renderTabRecordatorios() o renderTabChat().
 function renderPanelRecordatorios() {
     const panel = document.getElementById('avatarPanelRecordatorios');
     if (!panel) return;
-
-    const personales = avatarRecordatoriosTexto.personales;
-    const deAdmin = avatarRecordatoriosTexto.deAdmin;
 
     const estiloPuntero = avatarPanelLado === 'izquierda'
         ? 'position:absolute; right:-7px; bottom:36px; width:14px; height:14px; background:white; transform:rotate(45deg);'
         : 'position:absolute; left:-7px; bottom:36px; width:14px; height:14px; background:white; transform:rotate(45deg);';
 
-    let html = `
+    const anchoTab = avatarPanelTabActiva === 'chat' ? 340 : 270;
+    const altoTab = avatarPanelTabActiva === 'chat' ? 460 : 360;
+    panel.style.width = anchoTab + 'px';
+    panel.style.maxHeight = altoTab + 'px';
+
+    const totalRecordatorios = avatarRecordatoriosTexto.personales.length + avatarRecordatoriosTexto.deAdmin.length;
+    const totalChatsNoLeidos = avatarChatContarNoLeidos();
+    const badgeTab = (n) => n > 0
+        ? `<span style="display:inline-block; min-width:15px; height:15px; padding:0 3px; border-radius:8px; background:#dc2626; color:white; font-size:8px; font-weight:700; line-height:15px; text-align:center; margin-left:4px;">${n > 9 ? '9+' : n}</span>`
+        : '';
+    const estiloTabBase = 'border:none; border-radius:20px; padding:6px 10px; font-size:0.76rem; font-weight:600; cursor:pointer; display:flex; align-items:center;';
+    const estiloTabActiva = 'background:#1e3a8a; color:white;';
+    const estiloTabInactiva = 'background:#f1f5f9; color:#475569;';
+
+    panel.innerHTML = `
         <div style="${estiloPuntero}"></div>
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-            <span style="font-weight:700; color:#0b2a4f; font-size:0.88rem;">📝 Recordatorios</span>
+            <div style="display:flex; gap:6px;">
+                <button id="avatarTabRecordatorios" style="${estiloTabBase} ${avatarPanelTabActiva === 'recordatorios' ? estiloTabActiva : estiloTabInactiva}">📝 Recordatorios${badgeTab(totalRecordatorios)}</button>
+                <button id="avatarTabChat" style="${estiloTabBase} ${avatarPanelTabActiva === 'chat' ? estiloTabActiva : estiloTabInactiva}">💬 Chat${badgeTab(totalChatsNoLeidos)}</button>
+            </div>
             <span id="avatarCerrarRecordatorios" style="cursor:pointer; color:#94a3b8; font-size:1rem; line-height:1;">✕</span>
         </div>
+        <div id="avatarPanelCuerpo"></div>
+    `;
+
+    document.getElementById('avatarCerrarRecordatorios')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        cerrarPanelRecordatorios();
+    });
+    document.getElementById('avatarTabRecordatorios')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        cambiarTabPanel('recordatorios');
+    });
+    document.getElementById('avatarTabChat')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        cambiarTabPanel('chat');
+    });
+
+    const cuerpo = document.getElementById('avatarPanelCuerpo');
+    if (avatarPanelTabActiva === 'chat') {
+        renderTabChat(cuerpo);
+    } else {
+        renderTabRecordatorios(cuerpo);
+    }
+}
+
+function renderTabRecordatorios(cuerpo) {
+    const personales = avatarRecordatoriosTexto.personales;
+    const deAdmin = avatarRecordatoriosTexto.deAdmin;
+
+    let html = `
         <div style="font-size:0.7rem; font-weight:700; color:#64748b; text-transform:uppercase; letter-spacing:0.03em; margin-bottom:6px;">📌 Tuyos</div>
     `;
 
@@ -481,12 +610,8 @@ function renderPanelRecordatorios() {
         });
     }
 
-    panel.innerHTML = html;
+    cuerpo.innerHTML = html;
 
-    document.getElementById('avatarCerrarRecordatorios')?.addEventListener('click', (e) => {
-        e.stopPropagation();
-        cerrarPanelRecordatorios();
-    });
     document.getElementById('avatarBtnAgregarRecordatorio')?.addEventListener('click', (e) => {
         e.stopPropagation();
         agregarRecordatorioPersonalDesdeInput();
@@ -498,12 +623,435 @@ function renderPanelRecordatorios() {
             agregarRecordatorioPersonalDesdeInput();
         }
     });
-    panel.querySelectorAll('.avatar-eliminar-personal').forEach(el => {
+    cuerpo.querySelectorAll('.avatar-eliminar-personal').forEach(el => {
         el.addEventListener('click', (e) => {
             e.stopPropagation();
             eliminarRecordatorioPersonal(el.dataset.id);
         });
     });
+}
+
+// =============================================================
+// 💬 PESTAÑA DE CHAT
+// =============================================================
+function renderTabChat(cuerpo) {
+    if (avatarChatVista === 'nuevo') {
+        renderChatNuevo(cuerpo);
+    } else if (avatarChatVista === 'conversacion' && avatarChatConversacionActivaId) {
+        renderChatConversacion(cuerpo);
+    } else {
+        renderChatLista(cuerpo);
+    }
+}
+
+function renderChatLista(cuerpo) {
+    const entradas = Object.keys(avatarChatIndice)
+        .map(chatId => ({ chatId, ...avatarChatIndice[chatId] }))
+        .sort((a, b) => (b.ultimoMensajeTimestamp || 0) - (a.ultimoMensajeTimestamp || 0));
+
+    let html = `
+        <button id="avatarChatBtnNuevo" style="width:100%; background:#1e40af; color:white; border:none; border-radius:8px; padding:8px; font-size:0.8rem; font-weight:600; cursor:pointer; margin-bottom:10px;">＋ Nuevo mensaje</button>
+    `;
+
+    if (entradas.length === 0) {
+        html += `<div style="font-size:0.78rem; color:#94a3b8; text-align:center; padding:14px 0;">Sin conversaciones todavía.</div>`;
+    } else {
+        entradas.forEach(e => {
+            const nombre = e.nombreGrupo || avatarChatNombreDesdeParticipantes(e.participantesEmails);
+            const noLeido = avatarChatEsNoLeido(e);
+            html += `
+                <div class="avatar-chat-fila" data-chatid="${e.chatId}" style="display:flex; align-items:center; gap:8px; background:${noLeido ? '#eff6ff' : '#f8fafc'}; border-radius:8px; padding:8px 10px; margin-bottom:6px; cursor:pointer;">
+                    <div style="flex-grow:1; min-width:0;">
+                        <div style="font-size:0.8rem; font-weight:${noLeido ? '700' : '600'}; color:#1e293b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escaparHtml(nombre)}</div>
+                        <div style="font-size:0.74rem; color:#64748b; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escaparHtml(e.ultimoMensajeTexto || '')}</div>
+                    </div>
+                    <div style="flex-shrink:0; display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
+                        <span style="font-size:0.68rem; color:#94a3b8;">${avatarChatFormatearHora(e.ultimoMensajeTimestamp)}</span>
+                        ${noLeido ? '<span style="width:8px; height:8px; border-radius:50%; background:#1e40af;"></span>' : ''}
+                    </div>
+                </div>
+            `;
+        });
+    }
+
+    cuerpo.innerHTML = html;
+
+    document.getElementById('avatarChatBtnNuevo')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        avatarChatSeleccionados = {};
+        avatarChatFiltroTexto = '';
+        avatarChatVista = 'nuevo';
+        renderPanelRecordatorios();
+        avatarChatActualizarListenersSegunEstado();
+    });
+    cuerpo.querySelectorAll('.avatar-chat-fila').forEach(el => {
+        el.addEventListener('click', (e) => {
+            e.stopPropagation();
+            abrirConversacionChat(el.dataset.chatid);
+        });
+    });
+}
+
+function avatarChatNombreDesdeParticipantes(participantesEmails) {
+    if (!participantesEmails || !currentUser) return 'Conversación';
+    const otros = Object.keys(participantesEmails)
+        .filter(uid => uid !== currentUser.uid)
+        .map(uid => participantesEmails[uid]);
+    return otros.join(', ') || 'Conversación';
+}
+
+function avatarChatFormatearHora(timestamp) {
+    if (!timestamp) return '';
+    const diffMin = Math.floor((Date.now() - timestamp) / 60000);
+    if (diffMin < 1) return 'ahora';
+    if (diffMin < 60) return `hace ${diffMin} min`;
+    const diffHoras = Math.floor(diffMin / 60);
+    if (diffHoras < 24) return `hace ${diffHoras} h`;
+    const diffDias = Math.floor(diffHoras / 24);
+    if (diffDias === 1) return 'ayer';
+    if (diffDias < 7) return `hace ${diffDias} d`;
+    return new Date(timestamp).toLocaleDateString('es-CL');
+}
+
+function renderChatNuevo(cuerpo) {
+    cuerpo.innerHTML = `
+        <div style="display:flex; align-items:center; gap:8px; margin-bottom:10px;">
+            <span id="avatarChatVolverLista" style="cursor:pointer; font-size:1rem;">←</span>
+            <span style="font-weight:700; color:#0b2a4f; font-size:0.85rem;">Nuevo mensaje</span>
+        </div>
+        <input type="text" id="avatarChatBuscarUsuario" placeholder="Buscar usuario..." value="${escaparHtml(avatarChatFiltroTexto)}" style="width:100%; border:1px solid #dbe3ee; border-radius:8px; padding:7px 9px; font-size:0.78rem; box-sizing:border-box; margin-bottom:8px;">
+        <div id="avatarChatCuerpoInferior"></div>
+    `;
+
+    document.getElementById('avatarChatVolverLista')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        avatarChatVista = 'lista';
+        renderPanelRecordatorios();
+    });
+    const buscar = document.getElementById('avatarChatBuscarUsuario');
+    buscar?.addEventListener('click', (e) => e.stopPropagation());
+    buscar?.addEventListener('input', (e) => {
+        avatarChatFiltroTexto = e.target.value;
+        avatarChatRenderCuerpoInferiorNuevo();
+    });
+
+    avatarChatRenderCuerpoInferiorNuevo();
+}
+
+// Re-renderiza SOLO la lista de checkboxes + botón "Iniciar chat" (no el
+// buscador ni el encabezado) -- así escribir en el buscador, tildar un
+// checkbox, o un cambio de presencia en vivo mientras se está eligiendo
+// gente, no le hacen perder el foco/cursor al campo de búsqueda.
+function avatarChatRenderCuerpoInferiorNuevo() {
+    const cont = document.getElementById('avatarChatCuerpoInferior');
+    if (!cont) return;
+
+    const filtro = avatarChatFiltroTexto.toLowerCase();
+    const usuariosFiltrados = avatarChatUsuarios.filter(u => !filtro || u.email.toLowerCase().includes(filtro));
+    const totalSeleccionados = Object.keys(avatarChatSeleccionados).filter(uid => avatarChatSeleccionados[uid]).length;
+
+    cont.innerHTML = `
+        <div style="display:flex; flex-direction:column; gap:4px; max-height:160px; overflow-y:auto; background:#f8fafc; border-radius:8px; padding:8px; margin-bottom:10px;">
+            ${usuariosFiltrados.map(u => `
+                <label style="display:flex; align-items:center; gap:8px; font-size:0.78rem; cursor:pointer;">
+                    <input type="checkbox" class="avatar-chat-usuario-chk" data-uid="${u.uid}" ${avatarChatSeleccionados[u.uid] ? 'checked' : ''}>
+                    <span style="width:8px; height:8px; border-radius:50%; background:${u.online ? '#22c55e' : '#cbd5e1'}; flex-shrink:0;"></span>
+                    <span style="flex-grow:1;">${escaparHtml(u.email)}</span>
+                </label>
+            `).join('') || '<span style="color:#94a3b8; font-size:0.78rem;">Sin resultados.</span>'}
+        </div>
+        ${totalSeleccionados >= 2 ? `<input type="text" id="avatarChatNombreGrupo" placeholder="Nombre del grupo (opcional)" style="width:100%; border:1px solid #dbe3ee; border-radius:8px; padding:7px 9px; font-size:0.78rem; box-sizing:border-box; margin-bottom:10px;">` : ''}
+        <button id="avatarChatBtnIniciar" ${totalSeleccionados === 0 ? 'disabled' : ''} style="width:100%; background:${totalSeleccionados === 0 ? '#cbd5e1' : '#1e40af'}; color:white; border:none; border-radius:8px; padding:8px; font-size:0.8rem; font-weight:600; cursor:${totalSeleccionados === 0 ? 'not-allowed' : 'pointer'};">Iniciar chat</button>
+    `;
+
+    cont.querySelectorAll('.avatar-chat-usuario-chk').forEach(chk => {
+        chk.addEventListener('click', (e) => e.stopPropagation());
+        chk.addEventListener('change', () => {
+            avatarChatSeleccionados[chk.dataset.uid] = chk.checked;
+            avatarChatRenderCuerpoInferiorNuevo();
+        });
+    });
+    document.getElementById('avatarChatNombreGrupo')?.addEventListener('click', (e) => e.stopPropagation());
+    document.getElementById('avatarChatBtnIniciar')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        const uidsElegidos = Object.keys(avatarChatSeleccionados).filter(uid => avatarChatSeleccionados[uid]);
+        if (uidsElegidos.length === 0) return;
+        const nombreGrupo = document.getElementById('avatarChatNombreGrupo')?.value?.trim() || null;
+        crearOAbrirChat(uidsElegidos, nombreGrupo);
+    });
+}
+
+function renderChatConversacion(cuerpo) {
+    const entrada = avatarChatIndice[avatarChatConversacionActivaId] || {};
+    const nombre = entrada.nombreGrupo || avatarChatNombreDesdeParticipantes(entrada.participantesEmails);
+
+    cuerpo.innerHTML = `
+        <div style="display:flex; flex-direction:column; height:360px;">
+            <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px; flex-shrink:0;">
+                <span id="avatarChatVolverLista2" style="cursor:pointer; font-size:1rem;">←</span>
+                <div style="flex-grow:1; min-width:0;">
+                    <div style="font-weight:700; color:#0b2a4f; font-size:0.82rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escaparHtml(nombre)}</div>
+                    <div id="avatarChatEstadoPresencia" style="font-size:0.68rem; color:#94a3b8;"></div>
+                </div>
+            </div>
+            <div id="avatarChatMensajesCont" style="flex-grow:1; overflow-y:auto; background:#f8fafc; border-radius:8px; padding:8px; margin-bottom:8px;"></div>
+            <div style="display:flex; gap:6px; flex-shrink:0;">
+                <input type="text" id="avatarChatInputMensaje" placeholder="Escribir mensaje..." style="flex-grow:1; min-width:0; border:1px solid #dbe3ee; border-radius:8px; padding:7px 9px; font-size:0.78rem; box-sizing:border-box;">
+                <button id="avatarChatBtnEnviar" style="background:#1e40af; color:white; border:none; border-radius:8px; padding:0 12px; font-size:1rem; cursor:pointer; flex-shrink:0;">➤</button>
+            </div>
+        </div>
+    `;
+
+    document.getElementById('avatarChatVolverLista2')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        avatarChatVista = 'lista';
+        avatarChatConversacionActivaId = null;
+        renderPanelRecordatorios();
+        avatarChatActualizarListenersSegunEstado();
+    });
+
+    const input = document.getElementById('avatarChatInputMensaje');
+    input?.addEventListener('click', (e) => e.stopPropagation());
+    input?.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.stopPropagation();
+            enviarMensajeChat();
+        }
+    });
+    document.getElementById('avatarChatBtnEnviar')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        enviarMensajeChat();
+    });
+
+    avatarChatActualizarPresenciaConversacion();
+    avatarChatRenderMensajes();
+}
+
+// Actualiza SOLO la línea de presencia del encabezado (no todo el cuerpo)
+// -- así un cambio de conexión de otro usuario mientras se está escribiendo
+// un mensaje no le borra al usuario lo que llevaba escrito.
+function avatarChatActualizarPresenciaConversacion() {
+    const el = document.getElementById('avatarChatEstadoPresencia');
+    if (!el || !currentUser) return;
+    const entrada = avatarChatIndice[avatarChatConversacionActivaId] || {};
+    if (!entrada.participantesEmails) { el.textContent = ''; return; }
+
+    const otrosUids = Object.keys(entrada.participantesEmails).filter(uid => uid !== currentUser.uid);
+    const enLinea = otrosUids.filter(uid => {
+        const u = avatarChatUsuarios.find(x => x.uid === uid);
+        return u && u.online;
+    }).length;
+
+    if (otrosUids.length === 1) {
+        el.textContent = enLinea > 0 ? '● En línea' : 'Desconectado';
+        el.style.color = enLinea > 0 ? '#22c55e' : '#94a3b8';
+    } else {
+        el.textContent = `${enLinea} de ${otrosUids.length} en línea`;
+        el.style.color = '#94a3b8';
+    }
+}
+
+function avatarChatRenderMensajes() {
+    const cont = document.getElementById('avatarChatMensajesCont');
+    if (!cont) return;
+    const cercaDelFinal = (cont.scrollHeight - cont.scrollTop - cont.clientHeight) < 40;
+    const entrada = avatarChatIndice[avatarChatConversacionActivaId] || {};
+
+    if (avatarChatMensajesActuales.length === 0) {
+        cont.innerHTML = `<div style="font-size:0.76rem; color:#94a3b8; text-align:center; padding:14px 0;">Sin mensajes todavía.</div>`;
+    } else {
+        cont.innerHTML = avatarChatMensajesActuales.map(m => {
+            const esPropio = currentUser && m.de === currentUser.uid;
+            return `
+                <div style="display:flex; flex-direction:column; align-items:${esPropio ? 'flex-end' : 'flex-start'}; margin-bottom:6px;">
+                    ${!esPropio && entrada.esGrupo ? `<span style="font-size:0.65rem; color:#94a3b8; margin-bottom:2px;">${escaparHtml(m.deEmail || '')}</span>` : ''}
+                    <span style="max-width:80%; background:${esPropio ? '#1e3a8a' : '#e2e8f0'}; color:${esPropio ? 'white' : '#1e293b'}; border-radius:10px; padding:6px 10px; font-size:0.78rem; word-break:break-word;">${escaparHtml(m.texto)}</span>
+                </div>
+            `;
+        }).join('');
+    }
+
+    if (cercaDelFinal) cont.scrollTop = cont.scrollHeight;
+}
+
+// =============================================================
+// 💬 CHAT — DATOS (Firebase)
+// =============================================================
+
+// 👀 chats_index/{miUid}: un solo listener resuelve toda la lista de
+// conversaciones + el conteo de no-leídos (nunca hace falta escanear
+// chats/ entero -- mismo criterio de "fan-out por usuario" que ya usa
+// recordatoriosTexto/asignados/{uid}).
+function escucharChatIndice() {
+    if (avatarEscuchandoChatIndice || !currentUser) return;
+    avatarEscuchandoChatIndice = true;
+    database.ref('chats_index/' + currentUser.uid).on('value', (snap) => {
+        avatarChatIndice = snap.val() || {};
+        actualizarBadgeRecordatorios();
+        if (avatarPanelRecordatoriosAbierto && avatarPanelTabActiva === 'chat' && avatarChatVista === 'lista') {
+            renderPanelRecordatorios();
+        }
+    });
+}
+
+function detenerEscuchaChatIndice() {
+    if (currentUser) database.ref('chats_index/' + currentUser.uid).off();
+    avatarEscuchandoChatIndice = false;
+}
+
+// 👀 Presencia: reutiliza usuarios/{uid}/sesionActiva (ya escrito/borrado
+// por el candado de sesión única en js/15, con onDisconnect ya probado en
+// producción) en vez de crear un nodo de presencia aparte. Solo se escucha
+// mientras la pestaña de chat está abierta (ver
+// avatarChatActualizarListenersSegunEstado()).
+function escucharPresenciaChat() {
+    if (avatarEscuchandoPresenciaChat) return;
+    avatarEscuchandoPresenciaChat = true;
+    database.ref('usuarios').on('value', (snap) => {
+        const data = snap.val() || {};
+        avatarChatUsuarios = Object.keys(data)
+            .filter(uid => !currentUser || uid !== currentUser.uid)
+            .map(uid => ({ uid, email: data[uid].email || uid, online: !!data[uid].sesionActiva }))
+            .sort((a, b) => a.email.localeCompare(b.email));
+
+        if (!avatarPanelRecordatoriosAbierto || avatarPanelTabActiva !== 'chat') return;
+        if (avatarChatVista === 'nuevo') {
+            avatarChatRenderCuerpoInferiorNuevo();
+        } else if (avatarChatVista === 'conversacion') {
+            avatarChatActualizarPresenciaConversacion();
+        }
+    });
+}
+
+function detenerEscuchaPresenciaChat() {
+    database.ref('usuarios').off();
+    avatarEscuchandoPresenciaChat = false;
+}
+
+// 👀 Mensajes del hilo actualmente abierto -- idempotente respecto al
+// chatId (no reabre el listener si ya se está escuchando el mismo hilo).
+function escucharMensajesConversacion(chatId) {
+    if (avatarChatMensajesChatIdActivo === chatId) return;
+    detenerEscuchaMensajesConversacion();
+    avatarChatMensajesChatIdActivo = chatId;
+    database.ref('chats/' + chatId + '/mensajes').on('value', (snap) => {
+        const data = snap.val() || {};
+        avatarChatMensajesActuales = Object.keys(data)
+            .map(id => ({ id, ...data[id] }))
+            .sort((a, b) => (a.timestamp || 0) - (b.timestamp || 0));
+
+        // Mientras la conversación sigue abierta, un mensaje nuevo que
+        // llega en vivo se marca como leído de inmediato (no debe quedar
+        // como "no leído" solo porque llegó mientras se estaba mirando).
+        if (currentUser) {
+            database.ref('chats_index/' + currentUser.uid + '/' + chatId + '/ultimaLectura')
+                .set(firebase.database.ServerValue.TIMESTAMP).catch(() => {});
+        }
+
+        if (avatarChatVista === 'conversacion' && avatarChatConversacionActivaId === chatId) {
+            avatarChatRenderMensajes();
+        }
+    });
+}
+
+function detenerEscuchaMensajesConversacion() {
+    if (avatarChatMensajesChatIdActivo) {
+        database.ref('chats/' + avatarChatMensajesChatIdActivo + '/mensajes').off();
+        avatarChatMensajesChatIdActivo = null;
+    }
+    avatarChatMensajesActuales = [];
+}
+
+// Un hilo por cada combinación EXACTA de participantes (yo incluido),
+// determinístico a partir del conjunto de uids ordenado -- iniciar chat con
+// la misma gente reutiliza el mismo hilo.
+function avatarChatCalcularId(uids) {
+    return 'c_' + [...uids].sort().join('_');
+}
+
+// Crea el hilo si no existía, o simplemente lo reabre si ya existía --
+// SOLO toca participantes/participantesEmails/esGrupo/nombreGrupo, nunca
+// ultimoMensaje*/ultimaLectura, para no borrar el historial visible de un
+// hilo que ya tenía mensajes.
+async function crearOAbrirChat(uidsSeleccionados, nombreGrupo) {
+    if (!currentUser) return;
+    const todosUids = Array.from(new Set([currentUser.uid, ...uidsSeleccionados]));
+    const chatId = avatarChatCalcularId(todosUids);
+    const esGrupo = todosUids.length > 2;
+
+    const participantesEmails = { [currentUser.uid]: currentUserEmail || currentUser.uid };
+    uidsSeleccionados.forEach(uid => {
+        const u = avatarChatUsuarios.find(x => x.uid === uid);
+        participantesEmails[uid] = (u && u.email) || uid;
+    });
+
+    const participantes = {};
+    todosUids.forEach(uid => { participantes[uid] = true; });
+
+    const updates = {};
+    updates[`chats/${chatId}/meta/participantes`] = participantes;
+    updates[`chats/${chatId}/meta/participantesEmails`] = participantesEmails;
+    updates[`chats/${chatId}/meta/esGrupo`] = esGrupo;
+    updates[`chats/${chatId}/meta/nombreGrupo`] = esGrupo ? (nombreGrupo || null) : null;
+    updates[`chats/${chatId}/meta/creadoPor`] = currentUser.uid;
+    updates[`chats/${chatId}/meta/creadoEn`] = firebase.database.ServerValue.TIMESTAMP;
+    todosUids.forEach(uid => {
+        updates[`chats_index/${uid}/${chatId}/participantesEmails`] = participantesEmails;
+        updates[`chats_index/${uid}/${chatId}/esGrupo`] = esGrupo;
+        updates[`chats_index/${uid}/${chatId}/nombreGrupo`] = esGrupo ? (nombreGrupo || null) : null;
+    });
+
+    try {
+        await database.ref().update(updates);
+        abrirConversacionChat(chatId);
+    } catch (error) {
+        console.error('❌ Error al crear/abrir el chat:', error);
+        showModal({ title: '❌ Error', message: 'Error al iniciar el chat: ' + error.message, icon: '❌', confirmText: 'Aceptar' });
+    }
+}
+
+function abrirConversacionChat(chatId) {
+    avatarChatVista = 'conversacion';
+    avatarChatConversacionActivaId = chatId;
+    if (currentUser) {
+        database.ref('chats_index/' + currentUser.uid + '/' + chatId + '/ultimaLectura')
+            .set(firebase.database.ServerValue.TIMESTAMP).catch(() => {});
+    }
+    renderPanelRecordatorios();
+    avatarChatActualizarListenersSegunEstado();
+}
+
+async function enviarMensajeChat() {
+    const input = document.getElementById('avatarChatInputMensaje');
+    const texto = (input?.value || '').trim();
+    const chatId = avatarChatConversacionActivaId;
+    if (!texto || !chatId || !currentUser) return;
+
+    const entrada = avatarChatIndice[chatId] || {};
+    const participantesUids = entrada.participantesEmails ? Object.keys(entrada.participantesEmails) : [currentUser.uid];
+
+    const msgKey = database.ref('chats/' + chatId + '/mensajes').push().key;
+    const updates = {};
+    updates[`chats/${chatId}/mensajes/${msgKey}`] = {
+        de: currentUser.uid,
+        deEmail: currentUserEmail || currentUser.uid,
+        texto: texto,
+        timestamp: firebase.database.ServerValue.TIMESTAMP
+    };
+    participantesUids.forEach(uid => {
+        updates[`chats_index/${uid}/${chatId}/ultimoMensajeTexto`] = texto;
+        updates[`chats_index/${uid}/${chatId}/ultimoMensajeDe`] = currentUser.uid;
+        updates[`chats_index/${uid}/${chatId}/ultimoMensajeTimestamp`] = firebase.database.ServerValue.TIMESTAMP;
+    });
+    updates[`chats_index/${currentUser.uid}/${chatId}/ultimaLectura`] = firebase.database.ServerValue.TIMESTAMP;
+
+    if (input) input.value = '';
+    try {
+        await database.ref().update(updates);
+    } catch (error) {
+        console.error('❌ Error al enviar el mensaje:', error);
+        showModal({ title: '❌ Error', message: 'Error al enviar el mensaje: ' + error.message, icon: '❌', confirmText: 'Aceptar' });
+    }
 }
 
 // No hace falta releer/rerenderizar a mano tras escribir: el listener en

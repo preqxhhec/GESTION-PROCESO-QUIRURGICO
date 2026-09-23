@@ -222,7 +222,7 @@ function renderCheckboxesPermisos(seccionesActuales, soloLecturaActual, avatarAc
         </label>
         <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; margin-top:6px; cursor:pointer;">
             <input type="checkbox" id="permAvatarActivo" ${avatarActivoActual !== false ? 'checked' : ''}>
-            🗣️ Mostrar el avatar con recordatorios al iniciar sesión
+            🗣️ Mostrar el avatar con recordatorios y chat al iniciar sesión
         </label>
     </div>`;
 
