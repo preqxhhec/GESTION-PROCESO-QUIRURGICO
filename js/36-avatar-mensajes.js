@@ -667,8 +667,9 @@ function renderChatLista(cuerpo) {
                     </div>
                     <div style="flex-shrink:0; display:flex; flex-direction:column; align-items:flex-end; gap:4px;">
                         <span style="font-size:0.68rem; color:#94a3b8;">${avatarChatFormatearHora(e.ultimoMensajeTimestamp)}</span>
-                        ${noLeido ? '<span style="width:8px; height:8px; border-radius:50%; background:#1e40af;"></span>' : ''}
+                        ${noLeido ? '<span style="width:8px; height:8px; border-radius:50%; background:#1e40af; align-self:flex-end;"></span>' : ''}
                     </div>
+                    <span class="avatar-chat-eliminar" data-chatid="${e.chatId}" title="Eliminar conversación" style="cursor:pointer; color:#dc2626; font-size:0.82rem; flex-shrink:0;">🗑️</span>
                 </div>
             `;
         });
@@ -690,6 +691,40 @@ function renderChatLista(cuerpo) {
             abrirConversacionChat(el.dataset.chatid);
         });
     });
+    cuerpo.querySelectorAll('.avatar-chat-eliminar').forEach(el => {
+        el.addEventListener('click', (e) => {
+            e.stopPropagation();
+            avatarChatEliminarConversacion(el.dataset.chatid);
+        });
+    });
+}
+
+// Elimina la conversación SOLO de la lista de este usuario
+// (chats_index/{miUid}/{chatId}) -- no toca chats/{chatId} (los mensajes
+// compartidos), así que la otra persona sigue viéndola normalmente. Si se
+// vuelve a iniciar chat con la misma gente más adelante, el hilo (y su
+// historial) reaparece, porque el chatId es siempre el mismo para ese
+// conjunto exacto de participantes.
+async function avatarChatEliminarConversacion(chatId) {
+    const confirmado = await showModal({
+        title: '🗑️ Eliminar conversación',
+        message: 'Se eliminará solo de tu lista -- la otra persona la sigue viendo normalmente. ¿Continuar?',
+        icon: '🗑️', confirmText: 'Sí, eliminar', cancelText: 'Cancelar', type: 'danger'
+    });
+    if (!confirmado || !currentUser) return;
+
+    try {
+        await database.ref('chats_index/' + currentUser.uid + '/' + chatId).remove();
+        if (avatarChatConversacionActivaId === chatId) {
+            avatarChatVista = 'lista';
+            avatarChatConversacionActivaId = null;
+            renderPanelRecordatorios();
+            avatarChatActualizarListenersSegunEstado();
+        }
+    } catch (error) {
+        console.error('❌ Error al eliminar la conversación:', error);
+        showModal({ title: '❌ Error', message: 'Error al eliminar: ' + error.message, icon: '❌', confirmText: 'Aceptar' });
+    }
 }
 
 function avatarChatNombreDesdeParticipantes(participantesEmails) {
@@ -793,6 +828,7 @@ function renderChatConversacion(cuerpo) {
                     <div style="font-weight:700; color:#0b2a4f; font-size:0.82rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escaparHtml(nombre)}</div>
                     <div id="avatarChatEstadoPresencia" style="font-size:0.68rem; color:#94a3b8;"></div>
                 </div>
+                <span id="avatarChatEliminarActual" title="Eliminar conversación" style="cursor:pointer; color:#dc2626; font-size:0.9rem; flex-shrink:0;">🗑️</span>
             </div>
             <div id="avatarChatMensajesCont" style="flex-grow:1; overflow-y:auto; background:#f8fafc; border-radius:8px; padding:8px; margin-bottom:8px;"></div>
             <div style="display:flex; gap:6px; flex-shrink:0;">
@@ -808,6 +844,10 @@ function renderChatConversacion(cuerpo) {
         avatarChatConversacionActivaId = null;
         renderPanelRecordatorios();
         avatarChatActualizarListenersSegunEstado();
+    });
+    document.getElementById('avatarChatEliminarActual')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        avatarChatEliminarConversacion(avatarChatConversacionActivaId);
     });
 
     const input = document.getElementById('avatarChatInputMensaje');
@@ -885,13 +925,66 @@ function avatarChatRenderMensajes() {
 function escucharChatIndice() {
     if (avatarEscuchandoChatIndice || !currentUser) return;
     avatarEscuchandoChatIndice = true;
+
+    // El primer disparo de .on('value') trae el estado YA existente al
+    // conectar (comportamiento normal de Firebase) -- no debe sonar la
+    // alerta para mensajes viejos, solo para los que llegan de ahí en más.
+    let primerDisparo = true;
+
     database.ref('chats_index/' + currentUser.uid).on('value', (snap) => {
-        avatarChatIndice = snap.val() || {};
+        const nuevo = snap.val() || {};
+
+        if (!primerDisparo) {
+            Object.keys(nuevo).forEach(chatId => {
+                const actual = nuevo[chatId];
+                const anterior = avatarChatIndice[chatId];
+                const llegoMensajeNuevo = actual && actual.ultimoMensajeTimestamp &&
+                    actual.ultimoMensajeTimestamp > (anterior ? (anterior.ultimoMensajeTimestamp || 0) : 0);
+                if (llegoMensajeNuevo && actual.ultimoMensajeDe !== currentUser.uid) {
+                    avatarChatReproducirSonidoAlerta();
+                }
+            });
+        }
+        primerDisparo = false;
+
+        avatarChatIndice = nuevo;
         actualizarBadgeRecordatorios();
         if (avatarPanelRecordatoriosAbierto && avatarPanelTabActiva === 'chat' && avatarChatVista === 'lista') {
             renderPanelRecordatorios();
         }
     });
+}
+
+// 🔔 Beep sintetizado con Web Audio API (dos tonos cortos) -- no requiere
+// subir ningún archivo de audio. Si el navegador todavía tiene el
+// AudioContext suspendido (política de autoplay, sin interacción previa
+// del usuario) o no lo soporta, se ignora sin romper nada.
+let avatarAudioCtx = null;
+function avatarChatReproducirSonidoAlerta() {
+    try {
+        if (!avatarAudioCtx) {
+            const Ctx = window.AudioContext || window.webkitAudioContext;
+            if (!Ctx) return;
+            avatarAudioCtx = new Ctx();
+        }
+        const ctx = avatarAudioCtx;
+        if (ctx.state === 'suspended') ctx.resume().catch(() => {});
+
+        const ahora = ctx.currentTime;
+        [{ inicio: 0, frecuencia: 880 }, { inicio: 0.14, frecuencia: 1175 }].forEach(({ inicio, frecuencia }) => {
+            const osc = ctx.createOscillator();
+            const gain = ctx.createGain();
+            osc.type = 'sine';
+            osc.frequency.value = frecuencia;
+            gain.gain.setValueAtTime(0.0001, ahora + inicio);
+            gain.gain.exponentialRampToValueAtTime(0.2, ahora + inicio + 0.01);
+            gain.gain.exponentialRampToValueAtTime(0.0001, ahora + inicio + 0.13);
+            osc.connect(gain);
+            gain.connect(ctx.destination);
+            osc.start(ahora + inicio);
+            osc.stop(ahora + inicio + 0.14);
+        });
+    } catch (e) { /* AudioContext bloqueado o no soportado: se ignora */ }
 }
 
 function detenerEscuchaChatIndice() {
