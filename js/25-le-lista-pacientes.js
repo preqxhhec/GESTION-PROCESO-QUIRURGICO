@@ -117,6 +117,12 @@ function leInicializarSeccionListaPacientes(container) {
     leCargarFiltrosDesdeStorage();
     leRestaurarFiltros();
     leInicializarColapsoFiltros();
+    // 🔃 Engancha el clic de ordenamiento en los encabezados de inmediato.
+    // Sin esto, los encabezados quedaban sin onclick hasta el próximo
+    // cambio en patients/ en Firebase (que dispara leRefrescarVistaActual()
+    // → leMakeTableSortable()), lo que podía tardar mucho si nadie más
+    // tocaba un paciente mientras tanto.
+    leMakeTableSortable();
 }
 
 // =============================================================

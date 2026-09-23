@@ -282,6 +282,27 @@ function obtenerOpcionesCache(key) {
         }
         console.log(`✅ ${archivados} registros archivados en registros_definitivos`);
 
+        // 🩺 Avisar a Lista de Espera antes de perder los vínculos de las
+        // filas que se están archivando (mismo motivo que limpiarDia()/
+        // limpiarPabellon() en js/08 — si no, un paciente cuyo ESTADO_DE_IQx
+        // nunca se llegó a definir queda con un estatus viejo para siempre
+        // en Lista de Espera, y "Cargar a la Tabla" no vuelve a aparecer).
+        //
+        // ⚠️ A PROPÓSITO va ANTES del paso 2 (eliminar filas en Firebase) —
+        // no después: el listener en tiempo real de registros_quirurgicos
+        // reacciona casi al instante a esa eliminación y puede dejar estas
+        // mismas filas en memoria ya vacías (ESTADO_DE_IQx en blanco) antes
+        // de que leResetearVinculosAntesDeLimpiar() alcance a leerlo — eso
+        // hacía que un paciente que SÍ había quedado OPERADO se revirtiera
+        // a su estatus anterior (ej. PROGRAMABLE) por error, con Fecha de
+        // Cirugía cargada pero estatus incorrecto.
+        const todasLasFilasDelDiaRegistrar = [];
+        PABS.forEach((pab) => {
+            const rows = dayData.pabs[pab] || [];
+            todasLasFilasDelDiaRegistrar.push(...rows);
+        });
+        await leResetearVinculosAntesDeLimpiar(todasLasFilasDelDiaRegistrar);
+
         // ✅ 2. ELIMINAR TODAS las filas de ese día en Firebase (más robusto)
         const updates = {};
         const filasAEliminar = [];
@@ -302,18 +323,6 @@ function obtenerOpcionesCache(key) {
             await database.ref().update(updates);
             console.log(`✅ ${filasAEliminar.length} filas eliminadas de registros_quirurgicos`);
         }
-
-        // 🩺 Avisar a Lista de Espera antes de perder los vínculos de las
-        // filas que se están archivando (mismo motivo que limpiarDia()/
-        // limpiarPabellon() en js/08 — si no, un paciente cuyo ESTADO_DE_IQx
-        // nunca se llegó a definir queda con un estatus viejo para siempre
-        // en Lista de Espera, y "Cargar a la Tabla" no vuelve a aparecer).
-        const todasLasFilasDelDiaRegistrar = [];
-        PABS.forEach((pab) => {
-            const rows = dayData.pabs[pab] || [];
-            todasLasFilasDelDiaRegistrar.push(...rows);
-        });
-        await leResetearVinculosAntesDeLimpiar(todasLasFilasDelDiaRegistrar);
 
         // ✅ 3. LIMPIAR la tabla en memoria (todas las filas del día)
         PABS.forEach((pab, pabIdx) => {
