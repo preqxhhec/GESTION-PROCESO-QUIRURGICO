@@ -88,6 +88,7 @@ let avatarChatMensajesChatIdActivo = null;  // qué hilo está escuchando escuch
 let avatarChatUsuarios = [];                // [{uid, email, online}] -- presencia en vivo
 let avatarChatSeleccionados = {};           // uids elegidos en la vista "nuevo mensaje"
 let avatarChatFiltroTexto = '';
+let avatarChatNombreGrupoBorrador = ''; // lo que se lleva escrito en "Nombre del grupo", sobrevive a los re-render por checkbox
 let avatarEscuchandoChatIndice = false;
 let avatarEscuchandoPresenciaChat = false;
 
@@ -411,6 +412,7 @@ function limpiarWidgetAvatar() {
     avatarChatUsuarios = [];
     avatarChatSeleccionados = {};
     avatarChatFiltroTexto = '';
+    avatarChatNombreGrupoBorrador = '';
 }
 
 // =============================================================
@@ -703,6 +705,7 @@ function renderChatLista(cuerpo) {
         e.stopPropagation();
         avatarChatSeleccionados = {};
         avatarChatFiltroTexto = '';
+        avatarChatNombreGrupoBorrador = '';
         avatarChatVista = 'nuevo';
         renderPanelRecordatorios();
         avatarChatActualizarListenersSegunEstado();
@@ -817,7 +820,7 @@ function avatarChatRenderCuerpoInferiorNuevo() {
                 </label>
             `).join('') || '<span style="color:#94a3b8; font-size:0.78rem;">Sin resultados.</span>'}
         </div>
-        ${totalSeleccionados >= 2 ? `<input type="text" id="avatarChatNombreGrupo" placeholder="Nombre del grupo (opcional)" style="width:100%; border:1px solid #dbe3ee; border-radius:8px; padding:7px 9px; font-size:0.78rem; box-sizing:border-box; margin-bottom:10px;">` : ''}
+        ${totalSeleccionados >= 2 ? `<input type="text" id="avatarChatNombreGrupo" placeholder="Nombre del grupo (opcional)" value="${escaparHtml(avatarChatNombreGrupoBorrador)}" style="width:100%; border:1px solid #dbe3ee; border-radius:8px; padding:7px 9px; font-size:0.78rem; box-sizing:border-box; margin-bottom:10px;">` : ''}
         <button id="avatarChatBtnIniciar" ${totalSeleccionados === 0 ? 'disabled' : ''} style="width:100%; background:${totalSeleccionados === 0 ? '#cbd5e1' : '#1e40af'}; color:white; border:none; border-radius:8px; padding:8px; font-size:0.8rem; font-weight:600; cursor:${totalSeleccionados === 0 ? 'not-allowed' : 'pointer'};">Iniciar chat</button>
     `;
 
@@ -828,7 +831,15 @@ function avatarChatRenderCuerpoInferiorNuevo() {
             avatarChatRenderCuerpoInferiorNuevo();
         });
     });
-    document.getElementById('avatarChatNombreGrupo')?.addEventListener('click', (e) => e.stopPropagation());
+    const inputNombreGrupo = document.getElementById('avatarChatNombreGrupo');
+    inputNombreGrupo?.addEventListener('click', (e) => e.stopPropagation());
+    // Solo guarda lo escrito en la variable -- NO vuelve a renderizar (así
+    // no se pierde el cursor mientras se escribe); lo que sí re-renderiza
+    // (tildar un checkbox) ya lee este valor al reconstruir el input, así
+    // que sobrevive.
+    inputNombreGrupo?.addEventListener('input', (e) => {
+        avatarChatNombreGrupoBorrador = e.target.value;
+    });
     document.getElementById('avatarChatBtnIniciar')?.addEventListener('click', (e) => {
         e.stopPropagation();
         const uidsElegidos = Object.keys(avatarChatSeleccionados).filter(uid => avatarChatSeleccionados[uid]);
@@ -847,7 +858,10 @@ function renderChatConversacion(cuerpo) {
             <div style="display:flex; align-items:center; gap:8px; margin-bottom:8px; flex-shrink:0;">
                 <span id="avatarChatVolverLista2" style="cursor:pointer; font-size:1rem;">←</span>
                 <div style="flex-grow:1; min-width:0;">
-                    <div style="font-weight:700; color:#0b2a4f; font-size:0.82rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escaparHtml(nombre)}</div>
+                    <div id="avatarChatNombreConversacion" style="display:flex; align-items:center; gap:4px;">
+                        <span id="avatarChatNombreTexto" style="font-weight:700; color:#0b2a4f; font-size:0.82rem; white-space:nowrap; overflow:hidden; text-overflow:ellipsis;">${escaparHtml(nombre)}</span>
+                        ${entrada.esGrupo ? `<span id="avatarChatRenombrarGrupo" title="Renombrar grupo" style="cursor:pointer; font-size:0.72rem; flex-shrink:0;">✏️</span>` : ''}
+                    </div>
                     <div id="avatarChatEstadoPresencia" style="font-size:0.68rem; color:#94a3b8;"></div>
                 </div>
                 <span id="avatarChatEliminarActual" title="Eliminar conversación" style="cursor:pointer; color:#dc2626; font-size:0.9rem; flex-shrink:0;">🗑️</span>
@@ -870,6 +884,10 @@ function renderChatConversacion(cuerpo) {
     document.getElementById('avatarChatEliminarActual')?.addEventListener('click', (e) => {
         e.stopPropagation();
         avatarChatEliminarConversacion(avatarChatConversacionActivaId);
+    });
+    document.getElementById('avatarChatRenombrarGrupo')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        avatarChatMostrarEdicionNombreGrupo(nombre);
     });
 
     const input = document.getElementById('avatarChatInputMensaje');
@@ -910,6 +928,62 @@ function avatarChatActualizarPresenciaConversacion() {
     } else {
         el.textContent = `${enLinea} de ${otrosUids.length} en línea`;
         el.style.color = '#94a3b8';
+    }
+}
+
+// Reemplaza el nombre del grupo (en el encabezado de la conversación) por
+// un input editable -- solo se ofrece cuando entrada.esGrupo es true (ver
+// renderChatConversacion()).
+function avatarChatMostrarEdicionNombreGrupo(nombreActual) {
+    const cont = document.getElementById('avatarChatNombreConversacion');
+    if (!cont) return;
+    cont.innerHTML = `
+        <input type="text" id="avatarChatInputRenombrar" value="${escaparHtml(nombreActual)}" placeholder="Nombre del grupo" style="flex-grow:1; min-width:0; border:1px solid #dbe3ee; border-radius:6px; padding:3px 6px; font-size:0.78rem; box-sizing:border-box;">
+        <span id="avatarChatConfirmarRenombrar" title="Guardar" style="cursor:pointer; font-size:0.85rem; flex-shrink:0;">✅</span>
+    `;
+    const input = document.getElementById('avatarChatInputRenombrar');
+    input.addEventListener('click', (e) => e.stopPropagation());
+    input.addEventListener('keydown', (e) => {
+        if (e.key === 'Enter') {
+            e.stopPropagation();
+            avatarChatConfirmarRenombreGrupo();
+        }
+    });
+    input.focus();
+    input.select();
+    document.getElementById('avatarChatConfirmarRenombrar').addEventListener('click', (e) => {
+        e.stopPropagation();
+        avatarChatConfirmarRenombreGrupo();
+    });
+}
+
+async function avatarChatConfirmarRenombreGrupo() {
+    const input = document.getElementById('avatarChatInputRenombrar');
+    const nuevoNombre = (input?.value || '').trim();
+    const chatId = avatarChatConversacionActivaId;
+    if (!chatId) return;
+
+    const entrada = avatarChatIndice[chatId] || {};
+    const participantesUids = entrada.participantesEmails ? Object.keys(entrada.participantesEmails) : [];
+
+    const updates = {};
+    updates[`chats/${chatId}/meta/nombreGrupo`] = nuevoNombre || null;
+    participantesUids.forEach(uid => {
+        updates[`chats_index/${uid}/${chatId}/nombreGrupo`] = nuevoNombre || null;
+    });
+
+    try {
+        await database.ref().update(updates);
+        // Actualización optimista: el listener de chats_index también va a
+        // confirmar el mismo valor apenas llegue, pero no vuelve a
+        // renderizar la vista de conversación (solo la lista -- ver
+        // escucharChatIndice()), así que sin esto el encabezado se
+        // quedaría mostrando el input hasta salir y volver a entrar.
+        if (avatarChatIndice[chatId]) avatarChatIndice[chatId].nombreGrupo = nuevoNombre || null;
+        renderPanelRecordatorios();
+    } catch (error) {
+        console.error('❌ Error al renombrar el grupo:', error);
+        showModal({ title: '❌ Error', message: 'Error al renombrar el grupo: ' + error.message, icon: '❌', confirmText: 'Aceptar' });
     }
 }
 
