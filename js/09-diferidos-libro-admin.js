@@ -771,7 +771,7 @@
                     </div>
                 </div>
 
-                <div style="background:white; border-radius:12px; border:1px solid #e2e8f0; padding:16px;">
+                <div style="background:white; border-radius:12px; border:1px solid #e2e8f0; padding:16px; margin-bottom:16px;">
                     <div style="font-size:1.1rem; font-weight:600; margin-bottom:4px;">
                         📝 Recordatorios de Texto
                     </div>
@@ -779,6 +779,18 @@
                         Se muestran como texto en el panel de recordatorios del avatar (📝, junto al avatar) — no se leen en voz alta. "Para todos" los ve cualquier usuario; "Para un usuario específico" solo el que elijas.
                     </div>
                     <div id="recordatoriosTextoAdminLista">
+                        <p style="color:#94a3b8; text-align:center; padding:20px;">Cargando...</p>
+                    </div>
+                </div>
+
+                <div style="background:white; border-radius:12px; border:1px solid #e2e8f0; padding:16px;">
+                    <div style="font-size:1.1rem; font-weight:600; margin-bottom:4px;">
+                        🔎 Vínculos Fantasma (Lista de Espera)
+                    </div>
+                    <div style="font-size:0.75rem; color:#64748b; margin-bottom:12px;">
+                        Revisa toda la Tabla Quirúrgica buscando filas cuyo vínculo interno con Lista de Espera quedó apuntando a un paciente que ya no corresponde (se limpió/eliminó/difirió sin cortar el vínculo) — esto puede pegarle un cambio de estatus a un paciente equivocado. Limpiar solo borra el vínculo viejo de la fila, nunca toca el estatus del paciente.
+                    </div>
+                    <div id="vinculosFantasmaLista">
                         <p style="color:#94a3b8; text-align:center; padding:20px;">Cargando...</p>
                     </div>
                 </div>
@@ -792,6 +804,7 @@
         cargarPlantillasWhatsAppAdmin();
         cargarAsignacionesAvatar();
         cargarRecordatoriosTextoAdmin();
+        cargarVinculosFantasma();
 
         document.getElementById('crearUsuarioBtn')?.addEventListener('click', function() {
             mostrarModalCrearUsuario();

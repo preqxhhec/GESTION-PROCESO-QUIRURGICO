@@ -385,3 +385,131 @@ async function leResetearVinculosAntesDeLimpiar(rows) {
         }
     }
 }
+
+// =============================================================
+// 🔎 ADMIN — DETECTAR Y LIMPIAR VÍNCULOS FANTASMA
+// (tarjeta "🔎 Vínculos Fantasma" en el Panel de Administración — js/09)
+// =============================================================
+// Una fila queda con LE_PacienteKey/LE_EstatusAnterior "fantasma" cuando el
+// paciente al que apuntan ya no es quien realmente ocupa esa fila -- se
+// limpió/eliminó/difirió sin que estos dos campos internos se resetearan
+// (ver crearFilaVacia() en js/05, ya corregido en todos los puntos que
+// vacían una fila). Mientras el vínculo siga ahí, cualquier cambio de
+// ESTADO_DE_IQx en esa fila le sigue empujando estatus al paciente
+// EQUIVOCADO (ver el listener de ESTADO_DE_IQx en js/02-guardado-firebase.js).
+//
+// Un vínculo real (paciente cargado correctamente vía "Cargar a la Tabla")
+// nunca aparece acá: leCargarPacienteATabla() SOBREESCRIBE LE_PacienteKey
+// con la clave del paciente nuevo, así que si el vínculo es válido, el RUT
+// de la fila y el del paciente vinculado siempre coinciden -- solo se
+// detectan los casos donde claramente ya no corresponden.
+async function leDetectarVinculosFantasma() {
+    const [snapRegistros, snapPatients] = await Promise.all([
+        database.ref('registros_quirurgicos').once('value'),
+        database.ref('patients').once('value')
+    ]);
+    const registros = snapRegistros.val() || {};
+    const patients = snapPatients.val() || {};
+    const limpiarRut = (s) => (s || '').toString().replace(/[^0-9kK]/gi, '').toUpperCase();
+
+    const encontrados = [];
+    Object.keys(registros).forEach(docId => {
+        const fila = registros[docId] || {};
+        if (!fila.LE_PacienteKey) return;
+        const pacienteVinculado = patients[fila.LE_PacienteKey];
+
+        if (!pacienteVinculado) {
+            encontrados.push({
+                docId, motivo: 'El paciente vinculado ya no existe en Lista de Espera',
+                filaRut: fila.RUT || '', filaNombre: fila.Nombre_Paciente || '',
+                pacienteNombre: '(paciente eliminado)', pacienteRut: '', pacienteEstatus: ''
+            });
+            return;
+        }
+        if (limpiarRut(fila.RUT) !== limpiarRut(pacienteVinculado.rut)) {
+            encontrados.push({
+                docId, motivo: 'El RUT de la fila no coincide con el paciente vinculado',
+                filaRut: fila.RUT || '', filaNombre: fila.Nombre_Paciente || '',
+                pacienteNombre: pacienteVinculado.nombreApellido || '',
+                pacienteRut: pacienteVinculado.rut || '', pacienteEstatus: pacienteVinculado.estatusTabla || ''
+            });
+        }
+    });
+    return encontrados;
+}
+
+async function cargarVinculosFantasma() {
+    const contenedor = document.getElementById('vinculosFantasmaLista');
+    if (!contenedor) return;
+
+    contenedor.innerHTML = `<p style="color:#94a3b8; text-align:center; padding:20px;">🔎 Escaneando toda la Tabla Quirúrgica...</p>`;
+
+    try {
+        const encontrados = await leDetectarVinculosFantasma();
+
+        if (encontrados.length === 0) {
+            contenedor.innerHTML = `
+                <p style="color:#16a34a; text-align:center; padding:14px; font-weight:600;">✅ No se encontró ningún vínculo fantasma.</p>
+                <div style="text-align:center;"><button id="btnReescanearFantasma" class="btn-sm" style="background:#64748b; color:white; border:none; padding:6px 16px; border-radius:20px; cursor:pointer;">🔄 Volver a escanear</button></div>
+            `;
+            document.getElementById('btnReescanearFantasma')?.addEventListener('click', cargarVinculosFantasma);
+            return;
+        }
+
+        let html = `
+            <p style="color:#dc2626; font-weight:600; margin-bottom:10px;">⚠️ ${encontrados.length} fila(s) con vínculo fantasma:</p>
+            <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:14px;">
+        `;
+        encontrados.forEach(e => {
+            html += `
+                <div style="border:1px solid #fecaca; background:#fef2f2; border-radius:8px; padding:10px 12px; font-size:0.82rem;">
+                    <div style="font-weight:600; margin-bottom:4px;">📍 ${escaparHtml(e.docId)}</div>
+                    <div style="color:#64748b; margin-bottom:4px;">${escaparHtml(e.motivo)}</div>
+                    <div>Fila ocupada actualmente por: <strong>${e.filaNombre ? escaparHtml(e.filaNombre) : '(vacía)'}</strong>${e.filaRut ? ' — ' + escaparHtml(e.filaRut) : ''}</div>
+                    <div>Vínculo viejo apunta a: <strong>${escaparHtml(e.pacienteNombre)}</strong>${e.pacienteRut ? ' — ' + escaparHtml(e.pacienteRut) : ''}${e.pacienteEstatus ? ` (estatus actual: ${escaparHtml(e.pacienteEstatus)})` : ''}</div>
+                </div>
+            `;
+        });
+        html += `
+            </div>
+            <button id="btnLimpiarVinculosFantasma" class="btn-sm" style="background:#dc2626; color:white; border:none; padding:8px 18px; border-radius:20px; cursor:pointer;">🧹 Limpiar ${encontrados.length} vínculo(s) fantasma</button>
+            <button id="btnReescanearFantasma" class="btn-sm" style="background:#64748b; color:white; border:none; padding:8px 18px; border-radius:20px; cursor:pointer; margin-left:8px;">🔄 Volver a escanear</button>
+        `;
+        contenedor.innerHTML = html;
+
+        document.getElementById('btnReescanearFantasma')?.addEventListener('click', cargarVinculosFantasma);
+        document.getElementById('btnLimpiarVinculosFantasma')?.addEventListener('click', () => leLimpiarVinculosFantasmaEncontrados(encontrados));
+    } catch (error) {
+        console.error('❌ Error al escanear vínculos fantasma:', error);
+        contenedor.innerHTML = `<p style="color:#dc2626; text-align:center; padding:20px;">❌ Error al escanear.</p>`;
+    }
+}
+
+// Borra ÚNICAMENTE LE_PacienteKey/LE_EstatusAnterior de las filas
+// encontradas -- nunca toca el resto de la fila ni el estatusTabla del
+// paciente vinculado (esa corrección, si hace falta, queda para revisión
+// manual/clínica, igual que se hizo con los casos ya corregidos a mano).
+async function leLimpiarVinculosFantasmaEncontrados(encontrados) {
+    if (!esSuperAdministrador()) return;
+    const confirmado = await showModal({
+        title: '🧹 Limpiar vínculos fantasma',
+        message: `Se van a limpiar ${encontrados.length} vínculo(s) viejo(s) — solo se borra el vínculo interno de esas filas, no se toca ningún otro dato de la fila ni el estatus de los pacientes. ¿Continuar?`,
+        icon: '🧹', confirmText: 'Sí, limpiar', cancelText: 'Cancelar', type: 'danger'
+    });
+    if (!confirmado) return;
+
+    const updates = {};
+    encontrados.forEach(e => {
+        updates[`registros_quirurgicos/${e.docId}/LE_PacienteKey`] = null;
+        updates[`registros_quirurgicos/${e.docId}/LE_EstatusAnterior`] = null;
+    });
+
+    try {
+        await database.ref().update(updates);
+        await showModal({ title: '✅ Listo', message: 'Vínculos fantasma limpiados correctamente.', icon: '✅', confirmText: 'Aceptar' });
+        cargarVinculosFantasma();
+    } catch (error) {
+        console.error('❌ Error al limpiar vínculos fantasma:', error);
+        showModal({ title: '❌ Error', message: 'Error al limpiar: ' + error.message, icon: '❌', confirmText: 'Aceptar' });
+    }
+}
