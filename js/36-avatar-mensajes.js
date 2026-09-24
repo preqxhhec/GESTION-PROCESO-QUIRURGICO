@@ -1351,7 +1351,18 @@ function avatarNotificarNuevoMensaje() {
         return;
     }
 
-    avatarColaMensajes.splice(avatarIndiceCola, 0, entrada);
+    // 🩺 Inactivo: se agrega SIEMPRE al final de la cola (no en
+    // avatarIndiceCola) y el índice salta directo ahí. Antes se insertaba
+    // en avatarIndiceCola, que en una sesión recién cargada vale 0 aunque
+    // los mensajes programados YA se hayan reproducido hoy (avatarIndiceCola
+    // se reinicia en cada carga de página, independiente del recordatorio
+    // "ya habló hoy" guardado en localStorage) -- al terminar el aviso y
+    // sacarlo de la cola, el índice quedaba apuntando de nuevo al primer
+    // mensaje programado y lo volvía a reproducir solo. Agregándolo al
+    // final, pase lo que pase con los programados (ya reproducidos,
+    // pendientes, o inexistentes), el aviso termina y no cae sobre nada.
+    avatarColaMensajes.push(entrada);
+    avatarIndiceCola = avatarColaMensajes.length - 1;
     avatarReproducirActual();
 }
 
