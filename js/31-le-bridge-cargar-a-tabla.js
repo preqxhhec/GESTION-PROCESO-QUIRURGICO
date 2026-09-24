@@ -439,20 +439,27 @@ async function leDetectarVinculosFantasma() {
 }
 
 async function cargarVinculosFantasma() {
+    console.log('🔎 cargarVinculosFantasma() -- iniciando escaneo...');
     const contenedor = document.getElementById('vinculosFantasmaLista');
-    if (!contenedor) return;
+    if (!contenedor) { console.warn('⚠️ No se encontró el contenedor #vinculosFantasmaLista en el DOM.'); return; }
 
     contenedor.innerHTML = `<p style="color:#94a3b8; text-align:center; padding:20px;">🔎 Escaneando toda la Tabla Quirúrgica...</p>`;
 
     try {
         const encontrados = await leDetectarVinculosFantasma();
+        console.log(`🔎 Escaneo terminado -- ${encontrados.length} vínculo(s) fantasma encontrado(s).`);
 
         if (encontrados.length === 0) {
             contenedor.innerHTML = `
                 <p style="color:#16a34a; text-align:center; padding:14px; font-weight:600;">✅ No se encontró ningún vínculo fantasma.</p>
                 <div style="text-align:center;"><button id="btnReescanearFantasma" class="btn-sm" style="background:#64748b; color:white; border:none; padding:6px 16px; border-radius:20px; cursor:pointer;">🔄 Volver a escanear</button></div>
             `;
-            document.getElementById('btnReescanearFantasma')?.addEventListener('click', cargarVinculosFantasma);
+            document.getElementById('btnReescanearFantasma')?.addEventListener('click', function () {
+                console.log('🖱️ Clic en "Volver a escanear"');
+                this.disabled = true;
+                this.textContent = '⏳ Escaneando...';
+                cargarVinculosFantasma();
+            });
             return;
         }
 
@@ -477,8 +484,16 @@ async function cargarVinculosFantasma() {
         `;
         contenedor.innerHTML = html;
 
-        document.getElementById('btnReescanearFantasma')?.addEventListener('click', cargarVinculosFantasma);
-        document.getElementById('btnLimpiarVinculosFantasma')?.addEventListener('click', () => leLimpiarVinculosFantasmaEncontrados(encontrados));
+        document.getElementById('btnReescanearFantasma')?.addEventListener('click', function () {
+            console.log('🖱️ Clic en "Volver a escanear"');
+            this.disabled = true;
+            this.textContent = '⏳ Escaneando...';
+            cargarVinculosFantasma();
+        });
+        document.getElementById('btnLimpiarVinculosFantasma')?.addEventListener('click', function () {
+            console.log('🖱️ Clic en "Limpiar vínculos fantasma"');
+            leLimpiarVinculosFantasmaEncontrados(encontrados);
+        });
     } catch (error) {
         console.error('❌ Error al escanear vínculos fantasma:', error);
         contenedor.innerHTML = `<p style="color:#dc2626; text-align:center; padding:20px;">❌ Error al escanear.</p>`;
