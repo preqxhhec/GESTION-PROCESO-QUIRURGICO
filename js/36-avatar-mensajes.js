@@ -28,6 +28,14 @@ const AVATAR_MENSAJES_DISPONIBLES = [
     { id: 'pabellon', titulo: 'Usuarios Pabellón', archivo: 'avatar/mensaje-pabellon.mp4' }
 ];
 
+// 🔔 Video que se reproduce cuando llega un mensaje de chat o un
+// recordatorio nuevo (además del beep -- ver avatarChatReproducirSonidoAlerta()
+// y avatarNotificarNuevoMensaje() más abajo). No es un mensaje "asignado"
+// como los de arriba (no pasa por AVATAR_MENSAJES_DISPONIBLES ni por el
+// panel de administración) -- se dispara solo, para todos los usuarios con
+// avatarActivo, cada vez que corresponda.
+const AVATAR_VIDEO_NOTIFICACION_NUEVO_MENSAJE = 'avatar/nuevo mensaje.mp4';
+
 // 📌 Precarga de la foto de reposo desde que se carga este archivo (antes
 // de que exista sesión siquiera) -- así, para cuando construirWidgetAvatar()
 // la necesita (después de esperar la lectura de Firebase), lo más probable
@@ -147,6 +155,14 @@ function escucharRecordatoriosTexto() {
     let ultimoPersonales = {};
     let ultimoGlobales = {};
     let ultimoAsignados = {};
+    // 🔔 El primer disparo de cada .on('value') trae lo que YA existía al
+    // conectar -- no debe activar el video de "mensaje nuevo" (mismo
+    // criterio que escucharChatIndice()). Los "personales" quedan afuera a
+    // propósito: nadie más que uno mismo puede agregarlos, así que
+    // notificarse a uno mismo justo después de escribir su propio
+    // recordatorio sería raro.
+    let primerDisparoGlobales = true;
+    let primerDisparoAsignados = true;
 
     function recombinarYActualizar() {
         const personales = Object.keys(ultimoPersonales).map(id => ({ id, texto: ultimoPersonales[id].texto || '' }));
@@ -168,11 +184,17 @@ function escucharRecordatoriosTexto() {
         recombinarYActualizar();
     });
     database.ref('recordatoriosTexto/globales').on('value', (snap) => {
-        ultimoGlobales = snap.val() || {};
+        const nuevo = snap.val() || {};
+        if (!primerDisparoGlobales && avatarHayIdNuevo(ultimoGlobales, nuevo)) avatarNotificarNuevoMensaje();
+        primerDisparoGlobales = false;
+        ultimoGlobales = nuevo;
         recombinarYActualizar();
     });
     database.ref('recordatoriosTexto/asignados/' + currentUser.uid).on('value', (snap) => {
-        ultimoAsignados = snap.val() || {};
+        const nuevo = snap.val() || {};
+        if (!primerDisparoAsignados && avatarHayIdNuevo(ultimoAsignados, nuevo)) avatarNotificarNuevoMensaje();
+        primerDisparoAsignados = false;
+        ultimoAsignados = nuevo;
         recombinarYActualizar();
     });
 }
@@ -942,6 +964,7 @@ function escucharChatIndice() {
                     actual.ultimoMensajeTimestamp > (anterior ? (anterior.ultimoMensajeTimestamp || 0) : 0);
                 if (llegoMensajeNuevo && actual.ultimoMensajeDe !== currentUser.uid) {
                     avatarChatReproducirSonidoAlerta();
+                    avatarNotificarNuevoMensaje();
                 }
             });
         }
@@ -1216,8 +1239,53 @@ function avatarReproducirActual() {
 }
 
 function avatarSiguienteEnCola() {
-    avatarIndiceCola++;
+    // 🔔 Si lo que acaba de terminar era el aviso de "mensaje nuevo" (se
+    // insertó ad-hoc en avatarNotificarNuevoMensaje(), no es parte de los
+    // mensajes asignados al iniciar sesión), se saca de la cola -- así no
+    // queda dando vueltas ahí para siempre, y un clic en el avatar para
+    // "reproducir de nuevo" solo repite los mensajes realmente asignados.
+    const queTermino = avatarColaMensajes[avatarIndiceCola];
+    if (queTermino && queTermino.esNotificacion) {
+        avatarColaMensajes.splice(avatarIndiceCola, 1);
+    } else {
+        avatarIndiceCola++;
+    }
     avatarReproducirActual();
+}
+
+// 🔔 Video de aviso cuando llega un mensaje de chat o un recordatorio
+// nuevo. Reglas pedidas explícitamente:
+//  - Si YA se está reproduciendo este mismo aviso, los avisos que lleguen
+//    mientras tanto se ignoran (no se apilan uno tras otro).
+//  - Si se está reproduciendo un video "programado" (de los asignados al
+//    iniciar sesión), el aviso se agrega justo a continuación, sin
+//    interrumpir lo que está sonando.
+//  - Si no hay nada reproduciéndose, se reproduce de inmediato -- sin
+//    perder los mensajes asignados, que quedan disponibles igual para
+//    "reproducir de nuevo" con clic (ver avatarSiguienteEnCola()).
+function avatarNotificarNuevoMensaje() {
+    if (!currentUser || !currentUserAvatarActivo) return;
+    if (!document.getElementById('avatarRecordatorioWidget')) return;
+
+    const actual = avatarColaMensajes[avatarIndiceCola];
+    if (avatarReproduciendo && actual && actual.esNotificacion) return;
+
+    const entrada = { id: 'nuevo_mensaje', archivo: AVATAR_VIDEO_NOTIFICACION_NUEVO_MENSAJE, esNotificacion: true };
+
+    if (avatarReproduciendo) {
+        avatarColaMensajes.splice(avatarIndiceCola + 1, 0, entrada);
+        return;
+    }
+
+    avatarColaMensajes.splice(avatarIndiceCola, 0, entrada);
+    avatarReproducirActual();
+}
+
+// Para recordatoriosTexto/globales y /asignados: ¿apareció algún id que
+// antes no estaba? (edición de un recordatorio existente, o que se haya
+// eliminado uno, no cuentan como "nuevo").
+function avatarHayIdNuevo(anterior, actual) {
+    return Object.keys(actual).some(id => !(id in anterior));
 }
 
 function detenerAvatar() {
