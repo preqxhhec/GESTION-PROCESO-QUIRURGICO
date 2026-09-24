@@ -2016,15 +2016,24 @@ function calcularDiasHabiles(fechaInicio, fechaFin) {
     if (!fechaInicio || !fechaFin || fechaInicio > fechaFin) return dias;
 
     const [yIni, mIni, dIni] = fechaInicio.split('-').map(Number);
-    const [yFin, mFin, dFin] = fechaFin.split('-').map(Number);
     const actual = new Date(yIni, mIni - 1, dIni);
-    const fin = new Date(yFin, mFin - 1, dFin);
 
+    // 🕐 El bucle compara fechaStr (texto "YYYY-MM-DD"), NO el objeto Date
+    // contra otro Date -- sumar días uno por uno con setDate() arrastra la
+    // hora interna +1 cuando el rango cruza el cambio de horario de verano
+    // de Chile (ej. sábado 5 de septiembre): desde ahí "actual" queda a
+    // las 01:00 en vez de las 00:00, así que comparado contra "fin"
+    // (armado directo, siempre a las 00:00) quedaba "después" un día
+    // entero antes de tiempo -- el último día del rango (ej. 30 de
+    // septiembre) se perdía del conteo de días hábiles sin ningún error
+    // visible. Comparar por texto es inmune a ese corrimiento de hora.
     let guard = 0;
-    while (actual <= fin && guard < 3660) {
-        const fechaStr = `${actual.getFullYear()}-${String(actual.getMonth() + 1).padStart(2, '0')}-${String(actual.getDate()).padStart(2, '0')}`;
+    let fechaStr = fechaInicio;
+    while (fechaStr <= fechaFin && guard < 3660) {
         if (esDiaHabil(fechaStr)) dias.push(fechaStr);
         actual.setDate(actual.getDate() + 1);
+        actual.setHours(0, 0, 0, 0);
+        fechaStr = `${actual.getFullYear()}-${String(actual.getMonth() + 1).padStart(2, '0')}-${String(actual.getDate()).padStart(2, '0')}`;
         guard++;
     }
     return dias;
