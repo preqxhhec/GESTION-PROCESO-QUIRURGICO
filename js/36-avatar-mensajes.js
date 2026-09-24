@@ -85,6 +85,8 @@ let avatarChatConversacionActivaId = null;
 let avatarChatIndice = {};                  // chats_index/{miUid} en vivo
 let avatarChatMensajesActuales = [];        // mensajes del hilo abierto
 let avatarChatMensajesChatIdActivo = null;  // qué hilo está escuchando escucharMensajesConversacion()
+let avatarChatLecturas = {};                // chats/{chatId}/lecturas en vivo -- {uid: timestamp} de "visto" compartido
+let avatarChatLecturasChatIdActivo = null;  // qué hilo está escuchando escucharLecturasConversacion()
 let avatarChatUsuarios = [];                // [{uid, email, online}] -- presencia en vivo
 let avatarChatSeleccionados = {};           // uids elegidos en la vista "nuevo mensaje"
 let avatarChatFiltroTexto = '';
@@ -395,6 +397,7 @@ function limpiarWidgetAvatar() {
     detenerEscuchaChatIndice();
     detenerEscuchaPresenciaChat();
     detenerEscuchaMensajesConversacion();
+    detenerEscuchaLecturasConversacion();
     const wrap = document.getElementById('avatarRecordatorioWidget');
     if (wrap) wrap.remove();
     if (avatarVideoEl) { avatarVideoEl.remove(); avatarVideoEl = null; }
@@ -409,6 +412,7 @@ function limpiarWidgetAvatar() {
     avatarChatConversacionActivaId = null;
     avatarChatIndice = {};
     avatarChatMensajesActuales = [];
+    avatarChatLecturas = {};
     avatarChatUsuarios = [];
     avatarChatSeleccionados = {};
     avatarChatFiltroTexto = '';
@@ -528,8 +532,10 @@ function avatarChatActualizarListenersSegunEstado() {
     const conversacionActiva = chatActivo && avatarChatVista === 'conversacion' && avatarChatConversacionActivaId;
     if (conversacionActiva) {
         escucharMensajesConversacion(avatarChatConversacionActivaId);
+        escucharLecturasConversacion(avatarChatConversacionActivaId);
     } else {
         detenerEscuchaMensajesConversacion();
+        detenerEscuchaLecturasConversacion();
     }
 }
 
@@ -987,6 +993,17 @@ async function avatarChatConfirmarRenombreGrupo() {
     }
 }
 
+// 👁️ Un mensaje PROPIO queda "Visto" cuando TODOS los demás participantes
+// del hilo ya leyeron hasta ese momento (avatarChatLecturas, ver
+// escucharLecturasConversacion() más abajo) -- para un chat de 2, es
+// simplemente "¿la otra persona ya leyó hasta acá o después?".
+function avatarChatMensajeFueVisto(mensaje, entrada) {
+    if (!currentUser || !entrada.participantesEmails) return false;
+    const otrosUids = Object.keys(entrada.participantesEmails).filter(uid => uid !== currentUser.uid);
+    if (otrosUids.length === 0) return false;
+    return otrosUids.every(uid => (avatarChatLecturas[uid] || 0) >= mensaje.timestamp);
+}
+
 function avatarChatRenderMensajes() {
     const cont = document.getElementById('avatarChatMensajesCont');
     if (!cont) return;
@@ -998,10 +1015,12 @@ function avatarChatRenderMensajes() {
     } else {
         cont.innerHTML = avatarChatMensajesActuales.map(m => {
             const esPropio = currentUser && m.de === currentUser.uid;
+            const visto = esPropio && avatarChatMensajeFueVisto(m, entrada);
             return `
                 <div style="display:flex; flex-direction:column; align-items:${esPropio ? 'flex-end' : 'flex-start'}; margin-bottom:6px;">
                     ${!esPropio && entrada.esGrupo ? `<span style="font-size:0.65rem; color:#94a3b8; margin-bottom:2px;">${escaparHtml(m.deEmail || '')}</span>` : ''}
                     <span style="max-width:80%; background:${esPropio ? '#1e3a8a' : '#e2e8f0'}; color:${esPropio ? 'white' : '#1e293b'}; border-radius:10px; padding:6px 10px; font-size:0.78rem; word-break:break-word;">${escaparHtml(m.texto)}</span>
+                    ${esPropio ? `<span style="font-size:0.62rem; color:${visto ? '#38bdf8' : '#94a3b8'}; margin-top:2px;">${visto ? '✓✓ Visto' : '✓ Enviado'}</span>` : ''}
                 </div>
             `;
         }).join('');
@@ -1133,10 +1152,7 @@ function escucharMensajesConversacion(chatId) {
         // Mientras la conversación sigue abierta, un mensaje nuevo que
         // llega en vivo se marca como leído de inmediato (no debe quedar
         // como "no leído" solo porque llegó mientras se estaba mirando).
-        if (currentUser) {
-            database.ref('chats_index/' + currentUser.uid + '/' + chatId + '/ultimaLectura')
-                .set(firebase.database.ServerValue.TIMESTAMP).catch(() => {});
-        }
+        avatarChatMarcarLeido(chatId);
 
         if (avatarChatVista === 'conversacion' && avatarChatConversacionActivaId === chatId) {
             avatarChatRenderMensajes();
@@ -1150,6 +1166,41 @@ function detenerEscuchaMensajesConversacion() {
         avatarChatMensajesChatIdActivo = null;
     }
     avatarChatMensajesActuales = [];
+}
+
+// 👁️ "Visto" (read receipts): a diferencia de chats_index/{uid}/ultimaLectura
+// (privado, solo lo lee su dueño -- usado para el badge de no-leídos),
+// chats/{chatId}/lecturas/{uid} es COMPARTIDO -- cualquier participante
+// puede leer la marca de tiempo de lectura de los demás, para saber si
+// SUS PROPIOS mensajes ya fueron vistos (ver avatarChatMensajeFueVisto()).
+function avatarChatMarcarLeido(chatId) {
+    if (!currentUser) return;
+    const updates = {};
+    updates[`chats_index/${currentUser.uid}/${chatId}/ultimaLectura`] = firebase.database.ServerValue.TIMESTAMP;
+    updates[`chats/${chatId}/lecturas/${currentUser.uid}`] = firebase.database.ServerValue.TIMESTAMP;
+    database.ref().update(updates).catch(() => {});
+}
+
+// Igual que escucharMensajesConversacion() pero para chats/{chatId}/lecturas
+// -- solo se necesita mientras esa conversación puntual está abierta.
+function escucharLecturasConversacion(chatId) {
+    if (avatarChatLecturasChatIdActivo === chatId) return;
+    detenerEscuchaLecturasConversacion();
+    avatarChatLecturasChatIdActivo = chatId;
+    database.ref('chats/' + chatId + '/lecturas').on('value', (snap) => {
+        avatarChatLecturas = snap.val() || {};
+        if (avatarChatVista === 'conversacion' && avatarChatConversacionActivaId === chatId) {
+            avatarChatRenderMensajes();
+        }
+    });
+}
+
+function detenerEscuchaLecturasConversacion() {
+    if (avatarChatLecturasChatIdActivo) {
+        database.ref('chats/' + avatarChatLecturasChatIdActivo + '/lecturas').off();
+        avatarChatLecturasChatIdActivo = null;
+    }
+    avatarChatLecturas = {};
 }
 
 // Un hilo por cada combinación EXACTA de participantes (yo incluido),
@@ -1203,10 +1254,7 @@ async function crearOAbrirChat(uidsSeleccionados, nombreGrupo) {
 function abrirConversacionChat(chatId) {
     avatarChatVista = 'conversacion';
     avatarChatConversacionActivaId = chatId;
-    if (currentUser) {
-        database.ref('chats_index/' + currentUser.uid + '/' + chatId + '/ultimaLectura')
-            .set(firebase.database.ServerValue.TIMESTAMP).catch(() => {});
-    }
+    avatarChatMarcarLeido(chatId);
     renderPanelRecordatorios();
     avatarChatActualizarListenersSegunEstado();
 }
@@ -1233,7 +1281,12 @@ async function enviarMensajeChat() {
         updates[`chats_index/${uid}/${chatId}/ultimoMensajeDe`] = currentUser.uid;
         updates[`chats_index/${uid}/${chatId}/ultimoMensajeTimestamp`] = firebase.database.ServerValue.TIMESTAMP;
     });
+    // Quien envía queda con su propio mensaje como "leído" -- tanto en su
+    // índice privado (no le cuenta como no-leído a sí mismo) como en el
+    // mapa compartido de lecturas (para que su PRÓXIMO mensaje, si lo hay,
+    // se calcule "visto" correctamente contra este momento).
     updates[`chats_index/${currentUser.uid}/${chatId}/ultimaLectura`] = firebase.database.ServerValue.TIMESTAMP;
+    updates[`chats/${chatId}/lecturas/${currentUser.uid}`] = firebase.database.ServerValue.TIMESTAMP;
 
     if (input) input.value = '';
     try {
