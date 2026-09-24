@@ -1947,14 +1947,27 @@ function dibujarChartsAmb(buckets, porEspecialidad, especialidades) {
 // -------------------------------------------------------------
 // 📅 Feriados (API pública Nager.Holidays, con caché en localStorage)
 // -------------------------------------------------------------
+// 🗓️ Los feriados "trasladables" a veces se confirman/corrigen recién
+// durante el mismo año (Nager.Holidays puede publicar una estimación y
+// ajustarla después) -- sin vencimiento, un caché guardado antes de esa
+// corrección quedaba pegado para siempre en el navegador, contando mal los
+// días hábiles sin que nadie se diera cuenta. Se vuelve a pedir la lista
+// si el caché tiene más de 30 días.
+const FERIADOS_CACHE_TTL_MS = 30 * 24 * 60 * 60 * 1000;
+
 async function obtenerFeriados(anios) {
     for (const anio of anios) {
         const cacheKey = `feriados_cl_${anio}`;
         let fechas = null;
 
         try {
-            const cacheado = localStorage.getItem(cacheKey);
-            if (cacheado) fechas = JSON.parse(cacheado);
+            const cacheado = JSON.parse(localStorage.getItem(cacheKey) || 'null');
+            // Compatible con el formato viejo (un array plano, sin fecha de
+            // guardado) -- Array.isArray(cacheado.fechas) da false para un
+            // array plano, así que ese caso cae directo a re-pedir.
+            if (cacheado && Array.isArray(cacheado.fechas) && (Date.now() - cacheado.guardadoEn) < FERIADOS_CACHE_TTL_MS) {
+                fechas = cacheado.fechas;
+            }
         } catch (e) {
             fechas = null;
         }
@@ -1965,7 +1978,7 @@ async function obtenerFeriados(anios) {
                 if (resp.ok) {
                     const data = await resp.json();
                     fechas = data.map(h => h.date);
-                    localStorage.setItem(cacheKey, JSON.stringify(fechas));
+                    localStorage.setItem(cacheKey, JSON.stringify({ fechas, guardadoEn: Date.now() }));
                 }
             } catch (error) {
                 console.warn(`⚠️ No se pudo obtener feriados ${anio} desde Nager.Holidays:`, error);
