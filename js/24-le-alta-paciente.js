@@ -468,6 +468,19 @@ async function leGuardarPaciente(e) {
 
             const descripcion = cambios.length > 0 ? `${cambios.length} campo(s) modificado(s)` : "Actualización general";
 
+            // 🔄 Cualquier edición que toque la Fecha EPA y/o el Estatus EPA
+            // -- sin importar el estatusTabla actual del paciente, no solo
+            // ACTUALIZAR -- ofrece confirmar/cambiar el estatus general
+            // (ver leMostrarModalSeleccionEstatusEpa() más abajo), ya que
+            // suele ser el momento en que se revisó su situación. Si el
+            // usuario ya cambió el estatus a mano en este mismo formulario,
+            // no hace falta preguntar de nuevo.
+            const estatusViejoNormalizado = (oldData.estatusTabla || '').toString().trim().toUpperCase();
+            const estatusNuevoNormalizado = (patientData.estatusTabla || '').toString().trim().toUpperCase();
+            const cambioFechaOEstatusEpa = (oldData.fechaEpa || '').toString().trim() !== (patientData.fechaEpa || '').toString().trim() ||
+                (oldData.estatusEpa || '').toString().trim() !== (patientData.estatusEpa || '').toString().trim();
+            const debeOfrecerCambioEstatusEpa = cambioFechaOEstatusEpa && estatusNuevoNormalizado === estatusViejoNormalizado;
+
             await database.ref('patients/' + currentPatientKey).update(patientData);
             await database.ref('patients/' + currentPatientKey + '/historial').push({
                 fecha: new Date().toISOString(),
@@ -477,7 +490,11 @@ async function leGuardarPaciente(e) {
                 cambios: cambios.length > 0 ? cambios : null
             });
 
-            showModal({ title: '✅ Actualizado', message: 'Paciente actualizado correctamente.', icon: '✅', confirmText: 'Aceptar' });
+            await showModal({ title: '✅ Actualizado', message: 'Paciente actualizado correctamente.', icon: '✅', confirmText: 'Aceptar' });
+
+            if (debeOfrecerCambioEstatusEpa) {
+                leMostrarModalSeleccionEstatusEpa(currentPatientKey, patientData.estatusTabla);
+            }
         } else {
             const newRef = await database.ref('patients').push(patientData);
             currentPatientKey = newRef.key;
@@ -504,6 +521,60 @@ async function leGuardarPaciente(e) {
         isSubmittingPaciente = false;
         leOcultarCargando();
     }
+}
+
+// 🔄 Se muestra tras guardar una edición que tocó la Fecha EPA y/o el
+// Estatus EPA (ver el llamado en leGuardarPaciente() más arriba) -- sin
+// importar cuál sea el estatusTabla actual del paciente. No cambia el
+// estatus solo -- deja elegir de una lista (misma taxonomía administrable
+// que usa el resto de la app, "estatusTablaLista") a qué estatus
+// corresponde dejarlo, preseleccionando el que ya tenía.
+function leMostrarModalSeleccionEstatusEpa(patientKey, estatusActual) {
+    const existente = document.getElementById('leModalSeleccionEstatusEpa');
+    if (existente) existente.remove();
+
+    const modal = document.createElement('div');
+    modal.id = 'leModalSeleccionEstatusEpa';
+    modal.className = 'modal le-scope';
+    modal.style.display = 'block';
+    modal.innerHTML = `
+        <div class="modal-content">
+            <h2>🔄 Fecha/Estatus EPA modificado</h2>
+            <div class="modal-body">
+                <p>Modificaste la Fecha EPA y/o el Estatus EPA de este paciente. ¿A qué estatus general (Lista de Espera) corresponde dejarlo?</p>
+                <select id="leSelectNuevoEstatusEpa" style="width:100%; padding:8px; border:1px solid #d1d9e6; border-radius:8px; margin-top:10px; box-sizing:border-box;">
+                    ${estatusTablaLista.map(e => `<option value="${escaparHtml(e)}" ${e === estatusActual ? 'selected' : ''}>${escaparHtml(e)}</option>`).join('')}
+                </select>
+            </div>
+            <div class="modal-buttons">
+                <button id="leBtnConfirmarEstatusEpa" class="btn-primary">✅ Cambiar Estatus</button>
+                <button id="leBtnDejarActualizarEpa" class="btn-secondary">No cambiar</button>
+            </div>
+        </div>
+    `;
+    document.body.appendChild(modal);
+
+    document.getElementById('leBtnConfirmarEstatusEpa').addEventListener('click', async () => {
+        const nuevoEstatus = document.getElementById('leSelectNuevoEstatusEpa').value;
+        if (nuevoEstatus === estatusActual) { modal.remove(); return; }
+        try {
+            await database.ref('patients/' + patientKey + '/estatusTabla').set(nuevoEstatus);
+            await database.ref('patients/' + patientKey + '/historial').push({
+                fecha: new Date().toISOString(),
+                usuario: currentUserEmail || 'Sistema',
+                accion: 'Actualización',
+                descripcion: 'Estatus cambiado manualmente tras modificar la Fecha/Estatus EPA',
+                cambios: [`Estatus: ${estatusActual || '(sin estatus)'} → ${nuevoEstatus}`]
+            });
+        } catch (error) {
+            console.error('❌ Error al cambiar el estatus:', error);
+            showModal({ title: '❌ Error', message: 'Error al cambiar el estatus: ' + error.message, icon: '❌', confirmText: 'Aceptar' });
+        }
+        modal.remove();
+    });
+    document.getElementById('leBtnDejarActualizarEpa').addEventListener('click', () => {
+        modal.remove();
+    });
 }
 
 function leResetFormularioPaciente() {
