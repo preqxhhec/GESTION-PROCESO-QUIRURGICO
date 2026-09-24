@@ -1004,6 +1004,31 @@ function avatarChatMensajeFueVisto(mensaje, entrada) {
     return otrosUids.every(uid => (avatarChatLecturas[uid] || 0) >= mensaje.timestamp);
 }
 
+// Hora exacta (HH:MM) de un mensaje puntual dentro de la conversación
+// abierta -- distinto de avatarChatFormatearHora() (tiempo relativo, "hace
+// 3 min"), que se usa en la lista de conversaciones, no dentro de una.
+function avatarChatFormatearHoraMensaje(timestamp) {
+    if (!timestamp) return '';
+    const d = new Date(timestamp);
+    return `${String(d.getHours()).padStart(2, '0')}:${String(d.getMinutes()).padStart(2, '0')}`;
+}
+
+// Separador de fecha estilo WhatsApp ("Hoy" / "Ayer" / "24 sept [año]") --
+// se muestra una vez por cada día distinto dentro de la conversación, no
+// en cada mensaje (ver avatarChatRenderMensajes()).
+function avatarChatFormatearFechaSeparador(timestamp) {
+    const d = new Date(timestamp);
+    const hoy = new Date();
+    const mismoDia = (a, b) => a.getFullYear() === b.getFullYear() && a.getMonth() === b.getMonth() && a.getDate() === b.getDate();
+    if (mismoDia(d, hoy)) return 'Hoy';
+    const ayer = new Date(hoy);
+    ayer.setDate(ayer.getDate() - 1);
+    if (mismoDia(d, ayer)) return 'Ayer';
+    const meses = ['ene', 'feb', 'mar', 'abr', 'may', 'jun', 'jul', 'ago', 'sept', 'oct', 'nov', 'dic'];
+    const base = `${d.getDate()} ${meses[d.getMonth()]}`;
+    return d.getFullYear() === hoy.getFullYear() ? base : `${base} ${d.getFullYear()}`;
+}
+
 function avatarChatRenderMensajes() {
     const cont = document.getElementById('avatarChatMensajesCont');
     if (!cont) return;
@@ -1013,14 +1038,28 @@ function avatarChatRenderMensajes() {
     if (avatarChatMensajesActuales.length === 0) {
         cont.innerHTML = `<div style="font-size:0.76rem; color:#94a3b8; text-align:center; padding:14px 0;">Sin mensajes todavía.</div>`;
     } else {
+        let claveDiaAnterior = null;
         cont.innerHTML = avatarChatMensajesActuales.map(m => {
             const esPropio = currentUser && m.de === currentUser.uid;
             const visto = esPropio && avatarChatMensajeFueVisto(m, entrada);
+            const hora = avatarChatFormatearHoraMensaje(m.timestamp);
+
+            let separador = '';
+            if (m.timestamp) {
+                const d = new Date(m.timestamp);
+                const claveDia = `${d.getFullYear()}-${d.getMonth()}-${d.getDate()}`;
+                if (claveDia !== claveDiaAnterior) {
+                    separador = `<div style="text-align:center; margin:10px 0 6px;"><span style="background:#e2e8f0; color:#64748b; font-size:0.68rem; font-weight:600; padding:3px 10px; border-radius:12px;">${avatarChatFormatearFechaSeparador(m.timestamp)}</span></div>`;
+                    claveDiaAnterior = claveDia;
+                }
+            }
+
             return `
+                ${separador}
                 <div style="display:flex; flex-direction:column; align-items:${esPropio ? 'flex-end' : 'flex-start'}; margin-bottom:6px;">
                     ${!esPropio && entrada.esGrupo ? `<span style="font-size:0.65rem; color:#94a3b8; margin-bottom:2px;">${escaparHtml(m.deEmail || '')}</span>` : ''}
                     <span style="max-width:80%; background:${esPropio ? '#1e3a8a' : '#e2e8f0'}; color:${esPropio ? 'white' : '#1e293b'}; border-radius:10px; padding:6px 10px; font-size:0.78rem; word-break:break-word;">${escaparHtml(m.texto)}</span>
-                    ${esPropio ? `<span style="font-size:0.62rem; color:${visto ? '#38bdf8' : '#94a3b8'}; margin-top:2px;">${visto ? '✓✓ Visto' : '✓ Enviado'}</span>` : ''}
+                    <span style="font-size:0.62rem; color:${esPropio && visto ? '#38bdf8' : '#94a3b8'}; margin-top:2px;">${hora}${esPropio ? (visto ? ' · ✓✓ Visto' : ' · ✓ Enviado') : ''}</span>
                 </div>
             `;
         }).join('');
