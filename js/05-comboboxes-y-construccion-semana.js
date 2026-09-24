@@ -331,6 +331,15 @@
             else if (col === 'DESTINO') obj[col] = 'Seleccione';
             else obj[col] = '';
         });
+        // 🩺 Vínculo con Lista de Espera (CAMPOS_A_COPIAR en js/03, no forma
+        // parte de COLS) -- si se deja afuera, Object.assign(fila,
+        // crearFilaVacia()) (usado al vaciar una fila remotamente, ver
+        // aplicarEliminacionRemota() en js/03 y eliminarFila() en js/08) NO
+        // los pisa, y una fila que YA se ve vacía sigue "ocupada" para
+        // leCargarPacienteATabla() (js/31) porque esos dos campos quedan
+        // con el valor viejo.
+        obj['LE_PacienteKey'] = '';
+        obj['LE_EstatusAnterior'] = '';
         return obj;
     }
 

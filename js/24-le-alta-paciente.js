@@ -468,18 +468,17 @@ async function leGuardarPaciente(e) {
 
             const descripcion = cambios.length > 0 ? `${cambios.length} campo(s) modificado(s)` : "Actualización general";
 
-            // 🔄 Cualquier edición que toque la Fecha EPA y/o el Estatus EPA
-            // -- sin importar el estatusTabla actual del paciente, no solo
-            // ACTUALIZAR -- ofrece confirmar/cambiar el estatus general
-            // (ver leMostrarModalSeleccionEstatusEpa() más abajo), ya que
-            // suele ser el momento en que se revisó su situación. Si el
-            // usuario ya cambió el estatus a mano en este mismo formulario,
-            // no hace falta preguntar de nuevo.
+            // 🔄 Cualquier edición que modifique algún dato del paciente --
+            // sin importar cuál, no solo Fecha/Estatus EPA -- ofrece
+            // confirmar/cambiar el estatus general (ver
+            // leMostrarModalSeleccionEstatusEpa() más abajo), ya que
+            // guardar cambios suele ser el momento en que se revisó su
+            // situación. Si el usuario ya cambió el estatus a mano en este
+            // mismo formulario (viaja incluido en "cambios" como cualquier
+            // otro campo), no hace falta preguntar de nuevo.
             const estatusViejoNormalizado = (oldData.estatusTabla || '').toString().trim().toUpperCase();
             const estatusNuevoNormalizado = (patientData.estatusTabla || '').toString().trim().toUpperCase();
-            const cambioFechaOEstatusEpa = (oldData.fechaEpa || '').toString().trim() !== (patientData.fechaEpa || '').toString().trim() ||
-                (oldData.estatusEpa || '').toString().trim() !== (patientData.estatusEpa || '').toString().trim();
-            const debeOfrecerCambioEstatusEpa = cambioFechaOEstatusEpa && estatusNuevoNormalizado === estatusViejoNormalizado;
+            const debeOfrecerCambioEstatusEpa = cambios.length > 0 && estatusNuevoNormalizado === estatusViejoNormalizado;
 
             await database.ref('patients/' + currentPatientKey).update(patientData);
             await database.ref('patients/' + currentPatientKey + '/historial').push({
@@ -523,12 +522,18 @@ async function leGuardarPaciente(e) {
     }
 }
 
-// 🔄 Se muestra tras guardar una edición que tocó la Fecha EPA y/o el
-// Estatus EPA (ver el llamado en leGuardarPaciente() más arriba) -- sin
-// importar cuál sea el estatusTabla actual del paciente. No cambia el
-// estatus solo -- deja elegir de una lista (misma taxonomía administrable
-// que usa el resto de la app, "estatusTablaLista") a qué estatus
-// corresponde dejarlo, preseleccionando el que ya tenía.
+// 🔄 Se muestra tras guardar una edición que modificó algún dato del
+// paciente sin haber cambiado el estatus a mano (ver el llamado en
+// leGuardarPaciente() más arriba) -- sin importar cuál sea el estatusTabla
+// actual. No cambia el estatus solo -- deja elegir de una lista (misma
+// taxonomía administrable que usa el resto de la app, "estatusTablaLista")
+// a qué estatus corresponde dejarlo, preseleccionando el que ya tenía.
+//
+// Usa las mismas clases .modal/.modal-content/.modal-body/.modal-buttons
+// que leAbrirModalPaciente() (detalle de paciente) para quedar consistente
+// visualmente -- display DEBE ser 'flex' (no 'block'), porque
+// .le-scope.modal centra el diálogo vía flexbox (align-items/justify-content);
+// con 'block' el CSS de centrado no aplica y el modal queda pegado arriba.
 function leMostrarModalSeleccionEstatusEpa(patientKey, estatusActual) {
     const existente = document.getElementById('leModalSeleccionEstatusEpa');
     if (existente) existente.remove();
@@ -536,13 +541,13 @@ function leMostrarModalSeleccionEstatusEpa(patientKey, estatusActual) {
     const modal = document.createElement('div');
     modal.id = 'leModalSeleccionEstatusEpa';
     modal.className = 'modal le-scope';
-    modal.style.display = 'block';
+    modal.style.display = 'flex';
     modal.innerHTML = `
-        <div class="modal-content">
-            <h2>🔄 Fecha/Estatus EPA modificado</h2>
+        <div class="modal-content" style="max-width:460px;">
+            <h2>🔄 Confirmar estatus del paciente</h2>
             <div class="modal-body">
-                <p>Modificaste la Fecha EPA y/o el Estatus EPA de este paciente. ¿A qué estatus general (Lista de Espera) corresponde dejarlo?</p>
-                <select id="leSelectNuevoEstatusEpa" style="width:100%; padding:8px; border:1px solid #d1d9e6; border-radius:8px; margin-top:10px; box-sizing:border-box;">
+                <p style="border-bottom:none; padding-bottom:0;">Guardaste cambios en este paciente sin modificar su estatus. ¿A qué estatus general (Lista de Espera) corresponde dejarlo?</p>
+                <select id="leSelectNuevoEstatusEpa" style="width:100%; padding:9px; border:1px solid #d1d9e6; border-radius:8px; margin-top:14px; box-sizing:border-box; font-size:0.95rem;">
                     ${estatusTablaLista.map(e => `<option value="${escaparHtml(e)}" ${e === estatusActual ? 'selected' : ''}>${escaparHtml(e)}</option>`).join('')}
                 </select>
             </div>
@@ -563,7 +568,7 @@ function leMostrarModalSeleccionEstatusEpa(patientKey, estatusActual) {
                 fecha: new Date().toISOString(),
                 usuario: currentUserEmail || 'Sistema',
                 accion: 'Actualización',
-                descripcion: 'Estatus cambiado manualmente tras modificar la Fecha/Estatus EPA',
+                descripcion: 'Estatus confirmado/cambiado manualmente tras editar al paciente',
                 cambios: [`Estatus: ${estatusActual || '(sin estatus)'} → ${nuevoEstatus}`]
             });
         } catch (error) {

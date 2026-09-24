@@ -266,7 +266,7 @@ function leRenderPatientsTable(data) {
             <td>
                 <div style="display:flex; gap:6px; align-items:center;">
                     <button onclick="leShowPatientModal('${patient.firebaseKey}')" title="Ver" style="background:transparent; border:1px solid #3b82f6; border-radius:4px; padding:2px 8px; cursor:pointer; color:#3b82f6; font-size:1rem;">👁️</button>
-                    ${(esGestionable(patient) && !leYaEstaEnTabla(patient) && !currentUserSoloLecturaTabla && usuarioTieneAccesoSeccion('listaEspera_cargarATabla')) ? `<button onclick="leMostrarModalCargarATabla('${patient.firebaseKey}')" title="Cargar a la Tabla" style="background:transparent; border:1px solid #0b2a4f; border-radius:4px; padding:2px 8px; cursor:pointer; color:#0b2a4f; font-size:1rem;">📋</button>` : ''}
+                    ${((patient.estatusTabla || '').toString().trim().toUpperCase() === 'PROGRAMABLE' && !leYaEstaEnTabla(patient) && !currentUserSoloLecturaTabla && usuarioTieneAccesoSeccion('listaEspera_cargarATabla')) ? `<button onclick="leMostrarModalCargarATabla('${patient.firebaseKey}')" title="Cargar a la Tabla" style="background:transparent; border:1px solid #0b2a4f; border-radius:4px; padding:2px 8px; cursor:pointer; color:#0b2a4f; font-size:1rem;">📋</button>` : ''}
                 </div>
             </td>
         `;

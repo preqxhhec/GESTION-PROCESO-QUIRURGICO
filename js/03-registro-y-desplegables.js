@@ -346,6 +346,7 @@ function obtenerOpcionesCache(key) {
                 // ya no debe seguir empujando cambios de estatus a un
                 // paciente que ya no está en esta fila.
                 fila['LE_PacienteKey'] = '';
+                fila['LE_EstatusAnterior'] = '';
                 fila['WhatsApp_Enviado'] = false;
                 fila['WhatsApp_UltimoEnvio'] = null;
             });

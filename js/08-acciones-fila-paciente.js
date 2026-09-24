@@ -455,6 +455,7 @@ function imprimirDia(dayKey) {
         row['Ya_Diferido'] = false;
         row['Ya_Reubicado'] = false;
         row['LE_PacienteKey'] = '';
+        row['LE_EstatusAnterior'] = '';
         row['WhatsApp_Enviado'] = false;
         row['WhatsApp_UltimoEnvio'] = null;
     });
@@ -549,6 +550,7 @@ function imprimirDia(dayKey) {
             row['Ya_Diferido'] = false;
             row['Ya_Reubicado'] = false;
             row['LE_PacienteKey'] = '';
+            row['LE_EstatusAnterior'] = '';
             row['WhatsApp_Enviado'] = false;
             row['WhatsApp_UltimoEnvio'] = null;
         });
@@ -727,6 +729,7 @@ function imprimirDia(dayKey) {
                 // vínculo (queda activo en "Pacientes Diferidos" hasta que
                 // se Reintegre en otra fila).
                 fila['LE_PacienteKey'] = '';
+                fila['LE_EstatusAnterior'] = '';
                 fila['WhatsApp_Enviado'] = false;
                 fila['WhatsApp_UltimoEnvio'] = null;
 
@@ -751,6 +754,7 @@ function imprimirDia(dayKey) {
                     filaVacia['Ya_Diferido'] = false;
                     filaVacia['Ya_Reubicado'] = false;
                     filaVacia['LE_PacienteKey'] = '';
+                    filaVacia['LE_EstatusAnterior'] = '';
                     filaVacia['WhatsApp_Enviado'] = false;
                     filaVacia['WhatsApp_UltimoEnvio'] = null;
                     // 🛟 Sin esto, metadata.ultimo_editor se queda con el valor
@@ -786,6 +790,7 @@ function imprimirDia(dayKey) {
                     // propia copia del vínculo (evita que dos copias del
                     // mismo paciente empujen estatus distintos a la vez).
                     fila['LE_PacienteKey'] = '';
+                    fila['LE_EstatusAnterior'] = '';
                     await guardarFilaEnFirebase(rowKeyOriginal, fila);
                     console.log(`✅ Fila ${docId} actualizada en Firebase (SUSPENDIDO - no se elimina, Diferir y Reubicar bloqueados)`);
                 }
@@ -1143,6 +1148,7 @@ function imprimirDia(dayKey) {
             filaOrigen['Ya_Diferido'] = false;
             filaOrigen['Ya_Reubicado'] = false;
             filaOrigen['LE_PacienteKey'] = '';
+            filaOrigen['LE_EstatusAnterior'] = '';
             filaOrigen['WhatsApp_Enviado'] = false;
             filaOrigen['WhatsApp_UltimoEnvio'] = null;
 
@@ -1166,6 +1172,7 @@ function imprimirDia(dayKey) {
             // esta fila origen queda inerte (bloqueada) y ya no debe seguir
             // empujando cambios de estatus.
             filaOrigen['LE_PacienteKey'] = '';
+            filaOrigen['LE_EstatusAnterior'] = '';
             await guardarFilaEnFirebase(rowKeyOrigenClean, filaOrigen);
         }
 
