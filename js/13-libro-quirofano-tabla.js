@@ -48,37 +48,18 @@
     // =============================================================
     // 📊 EXPORTAR A EXCEL
     // =============================================================
+    // 📊 Exporta TODOS los registros que coinciden con los filtros
+    // actuales, no solo los de la página que se está mirando -- antes leía
+    // los IDs de las filas visibles en el DOM (tabla.querySelectorAll('tbody
+    // tr')), lo que funcionaba mientras la tabla no estaba paginada; desde
+    // que se agregó paginación (REGISTROS_POR_PAGINA_LIBRO), el DOM solo
+    // tiene la página actual, así que la exportación se quedaba solo con
+    // esas 15 filas en vez de todo lo filtrado. Ahora vuelve a leer los
+    // filtros directo del DOM (libroLeerFiltrosDesdeDom()) y aplica el
+    // mismo filtrado que usa la tabla (libroObtenerDatosFiltrados()) sobre
+    // TODOS los registros recién traídos de Firebase, sin recortar por
+    // página.
     function exportarLibroAExcel() {
-        const tabla = document.querySelector('#libroTablaContainer table');
-        if (!tabla) {
-            showModal({
-                title: '⚠️ Sin datos',
-                message: 'No hay datos para exportar.',
-                icon: '⚠️',
-                confirmText: 'Aceptar'
-            });
-            return;
-        }
-
-        const filas = tabla.querySelectorAll('tbody tr');
-        if (filas.length === 0) {
-            showModal({
-                title: '⚠️ Sin datos',
-                message: 'No hay registros visibles para exportar.',
-                icon: '⚠️',
-                confirmText: 'Aceptar'
-            });
-            return;
-        }
-
-        const idsVisibles = [];
-        filas.forEach(fila => {
-            const btn = fila.querySelector('.btn-ver-detalle-libro');
-            if (btn) {
-                idsVisibles.push(btn.dataset.key);
-            }
-        });
-
         showModal({
             title: '⏳ Exportando...',
             message: 'Recopilando datos para exportar...',
@@ -99,7 +80,20 @@
                 return;
             }
 
-            const idsSet = new Set(idsVisibles);
+            const registrosCompletos = Object.keys(allData).map(key => ({ id: key, ...allData[key] }));
+            const filtros = libroLeerFiltrosDesdeDom();
+            const datosFiltrados = libroObtenerDatosFiltrados(registrosCompletos, filtros);
+
+            if (datosFiltrados.length === 0) {
+                showModal({
+                    title: '⚠️ Sin datos',
+                    message: 'No hay registros que coincidan con los filtros actuales.',
+                    icon: '⚠️',
+                    confirmText: 'Aceptar'
+                });
+                return;
+            }
+
             const datosExcel = [];
             const encabezados = [
                 '#', 'FECHA', 'T_Qx', 'Jornada', 'Cirujano', 'Especialidad', 'Anestesista',
@@ -114,54 +108,49 @@
             ];
             datosExcel.push(encabezados);
 
-            let index = 0;
-            Object.keys(allData).forEach(key => {
-                if (idsSet.has(key)) {
-                    const item = allData[key];
-                    const metadata = item.metadata || {};
-                    index++;
+            datosFiltrados.forEach((item, index) => {
+                const metadata = item.metadata || {};
 
-                    let fechaRegistro = '';
-                    if (metadata.fecha_registro) {
-                        const d = new Date(metadata.fecha_registro);
-                        fechaRegistro = d.toLocaleDateString('es-CL') + ' ' + d.toLocaleTimeString('es-CL');
-                    }
-
-                    datosExcel.push([
-                        index,
-                        item.FECHA || '',
-                        item.T_Qx || '',
-                        item.Jornada || '',
-                        item.Cirujano || '',
-                        item.Especialidad || '',
-                        item.Anestesista || '',
-                        item.Nombre_Paciente || '',
-                        item.RUT || '',
-                        item.Edad || '',
-                        item.FICHA || '',
-                        item.Diagnostico || '',
-                        item.Intervencion_propuesta || '',
-                        item.Condicion_LE || '',
-                        item.ESTADO_DE_IQx || '',
-                        item['1ra_Intervencion_Qx_Realizada'] || '',
-                        item.Tipo_Actividad || '',
-                        item['2da_Intervencion_Qx_Realizada'] || '',
-                        item.Tipo_Actividad_2 || '',
-                        item['3ra_Intervencion_Realizada'] || '',
-                        item.Tipo_Actividad_3 || '',
-                        item.Causal_de_suspension || '',
-                        item.Motivo || '',
-                        item.Observaciones || '',
-                        item.T_Retraso || '',
-                        item.Hora_de_entrada || '',
-                        item.Hora_de_salida || '',
-                        item.T_QX || '',
-                        item.DESTINO || '',
-                        metadata.pabellon || '',
-                        metadata.registrado_por || '',
-                        fechaRegistro
-                    ]);
+                let fechaRegistro = '';
+                if (metadata.fecha_registro) {
+                    const d = new Date(metadata.fecha_registro);
+                    fechaRegistro = d.toLocaleDateString('es-CL') + ' ' + d.toLocaleTimeString('es-CL');
                 }
+
+                datosExcel.push([
+                    index + 1,
+                    item.FECHA || '',
+                    item.T_Qx || '',
+                    item.Jornada || '',
+                    item.Cirujano || '',
+                    item.Especialidad || '',
+                    item.Anestesista || '',
+                    item.Nombre_Paciente || '',
+                    item.RUT || '',
+                    item.Edad || '',
+                    item.FICHA || '',
+                    item.Diagnostico || '',
+                    item.Intervencion_propuesta || '',
+                    item.Condicion_LE || '',
+                    item.ESTADO_DE_IQx || '',
+                    item['1ra_Intervencion_Qx_Realizada'] || '',
+                    item.Tipo_Actividad || '',
+                    item['2da_Intervencion_Qx_Realizada'] || '',
+                    item.Tipo_Actividad_2 || '',
+                    item['3ra_Intervencion_Realizada'] || '',
+                    item.Tipo_Actividad_3 || '',
+                    item.Causal_de_suspension || '',
+                    item.Motivo || '',
+                    item.Observaciones || '',
+                    item.T_Retraso || '',
+                    item.Hora_de_entrada || '',
+                    item.Hora_de_salida || '',
+                    item.T_QX || '',
+                    item.DESTINO || '',
+                    metadata.pabellon || '',
+                    metadata.registrado_por || '',
+                    fechaRegistro
+                ]);
             });
 
             try {
@@ -579,7 +568,12 @@
         return '';
     }
 
-    function renderizarTablaLibro(registros, filtros = {}) {
+    // Filtra (y ordena) TODOS los registros que coinciden con los filtros
+    // actuales -- SIN recortar por página. La usan tanto
+    // renderizarTablaLibro() (que después sí recorta para mostrar la
+    // página actual) como exportarLibroAExcel() (que exporta el resultado
+    // completo, sin recortar).
+    function libroObtenerDatosFiltrados(registros, filtros = {}) {
         let datosFiltrados = registros;
 
         if (filtros.fechaInicio) {
@@ -630,7 +624,28 @@
             }
         });
 
-        datosFiltrados = libroOrdenarDatos(datosFiltrados);
+        return libroOrdenarDatos(datosFiltrados);
+    }
+
+    // Reconstruye el objeto de filtros directamente desde el DOM -- mismos
+    // campos que ya lee aplicarFiltros() en inicializarFiltrosLibro(), para
+    // que exportarLibroAExcel() pueda armar el mismo criterio sin depender
+    // de que se le pase el objeto "filtros" ya armado.
+    function libroLeerFiltrosDesdeDom() {
+        const filtros = {};
+        filtros.fechaInicio = document.getElementById('filtroFechaInicio')?.value || '';
+        filtros.fechaFin = document.getElementById('filtroFechaFin')?.value || '';
+        document.querySelectorAll('.filtro-select').forEach(el => {
+            filtros[el.dataset.campo] = el.value || '';
+        });
+        document.querySelectorAll('.filtro-autocomplete').forEach(el => {
+            filtros[el.dataset.campo] = el.value || '';
+        });
+        return filtros;
+    }
+
+    function renderizarTablaLibro(registros, filtros = {}) {
+        const datosFiltrados = libroObtenerDatosFiltrados(registros, filtros);
 
         // --- Paginación: 15 registros por página ---
         const totalFiltrados = datosFiltrados.length;
