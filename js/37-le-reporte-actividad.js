@@ -79,7 +79,7 @@ async function cargarReporteActividadUsuarios() {
         `;
 
         contenedor.querySelectorAll('.reporteAct-btn-rango').forEach(btn => {
-            btn.addEventListener('click', () => reporteActividadAplicarRango(btn.dataset.rango));
+            btn.addEventListener('click', () => reporteActividadAplicarRango(btn.dataset.rango, btn));
         });
         document.getElementById('reporteActBtnGenerar')?.addEventListener('click', reporteActividadGenerar);
     } catch (error) {
@@ -91,7 +91,11 @@ async function cargarReporteActividadUsuarios() {
 // "Esta Semana" = lunes de esta semana hasta hoy. "Este Mes" = día 1 del
 // mes actual hasta hoy -- ambos como "lo que va corrido", no la semana/mes
 // completo (que incluiría días futuros sin datos).
-function reporteActividadAplicarRango(rango) {
+//
+// Además de llenar las fechas, resalta el botón presionado y dispara el
+// reporte de inmediato -- si solo se llenaban las fechas en silencio, el
+// clic no daba ninguna señal visible de que había hecho algo.
+function reporteActividadAplicarRango(rango, btnElement) {
     const hoy = new Date();
     const fmt = (d) => `${d.getFullYear()}-${String(d.getMonth() + 1).padStart(2, '0')}-${String(d.getDate()).padStart(2, '0')}`;
     let desde;
@@ -109,6 +113,19 @@ function reporteActividadAplicarRango(rango) {
     const hastaInput = document.getElementById('reporteActHasta');
     if (desdeInput) desdeInput.value = fmt(desde);
     if (hastaInput) hastaInput.value = fmt(hoy);
+
+    document.querySelectorAll('.reporteAct-btn-rango').forEach(b => {
+        b.style.background = '#f1f5f9';
+        b.style.color = '#334155';
+        b.style.fontWeight = 'normal';
+    });
+    if (btnElement) {
+        btnElement.style.background = '#1e40af';
+        btnElement.style.color = 'white';
+        btnElement.style.fontWeight = '600';
+    }
+
+    reporteActividadGenerar();
 }
 
 async function reporteActividadGenerar() {
