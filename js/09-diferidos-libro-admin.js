@@ -685,6 +685,18 @@
     // =============================================================
     // ⚙️ ADMINISTRADOR - PANEL DE CONTROL
     // =============================================================
+    // El panel tiene demasiadas tarjetas para verlas todas apiladas -- se
+    // agrupan en pestañas. Todas las tarjetas se cargan igual que antes
+    // (los loaders no cambian), solo se oculta/muestra el grupo que
+    // corresponde; adminTabActiva persiste entre visitas a la sección.
+    let adminTabActiva = 'usuarios';
+    const ADMIN_TABS = [
+        { id: 'usuarios', etiqueta: '👥 Usuarios' },
+        { id: 'tabla', etiqueta: '📋 Tabla Quirúrgica' },
+        { id: 'avatar', etiqueta: '🗣️ Avatar' },
+        { id: 'listaEspera', etiqueta: '🔎 Lista de Espera' }
+    ];
+
     async function cargarAdmin() {
         if (!esSuperAdministrador()) {
             adminContent.innerHTML = `
@@ -705,109 +717,138 @@
                         ${currentUserEmail}
                     </span>
                 </div>
-                
-                <div style="background:white; border-radius:12px; border:1px solid #e2e8f0; padding:16px; margin-bottom:16px;">
-                    <div style="font-size:1.1rem; font-weight:600; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;">
-                        <span>👥 Gestión de Usuarios</span>
-                        <button class="btn-sm btn-add" id="crearUsuarioBtn" style="background:#1e293b; color:white; border:none; padding:6px 16px; border-radius:30px; cursor:pointer;">+ Crear Usuario</button>
-                    </div>
-                    <div id="usuariosLista">
-                        <p style="color:#94a3b8; text-align:center; padding:20px;">Cargando usuarios...</p>
-                    </div>
+
+                <div style="display:flex; gap:8px; flex-wrap:wrap; margin-bottom:18px; border-bottom:2px solid #e2e8f0; padding-bottom:14px;">
+                    ${ADMIN_TABS.map(t => `
+                        <button class="admin-tab-btn" data-tab="${t.id}" style="background:${t.id === adminTabActiva ? '#1e3a8a' : '#f1f5f9'}; color:${t.id === adminTabActiva ? 'white' : '#334155'}; font-weight:${t.id === adminTabActiva ? '600' : '500'}; border:none; padding:8px 16px; border-radius:20px; font-size:0.85rem; cursor:pointer;">${t.etiqueta}</button>
+                    `).join('')}
                 </div>
-                
-                <div style="background:white; border-radius:12px; border:1px solid #e2e8f0; padding:16px; margin-bottom:16px;">
-                    <div style="font-size:1.1rem; font-weight:600; margin-bottom:12px;">
-                        📋 Gestión de Desplegables Fijos
-                    </div>
-                    <div id="desplegablesLista">
-                        <p style="color:#94a3b8; text-align:center; padding:20px;">Cargando opciones...</p>
+
+                <div data-admin-tab="usuarios" style="display:${adminTabActiva === 'usuarios' ? 'block' : 'none'};">
+                    <div style="background:white; border-radius:12px; border:1px solid #e2e8f0; padding:16px;">
+                        <div style="font-size:1.1rem; font-weight:600; margin-bottom:12px; display:flex; justify-content:space-between; align-items:center;">
+                            <span>👥 Gestión de Usuarios</span>
+                            <button class="btn-sm btn-add" id="crearUsuarioBtn" style="background:#1e293b; color:white; border:none; padding:6px 16px; border-radius:30px; cursor:pointer;">+ Crear Usuario</button>
+                        </div>
+                        <div id="usuariosLista">
+                            <p style="color:#94a3b8; text-align:center; padding:20px;">Cargando usuarios...</p>
+                        </div>
                     </div>
                 </div>
 
-                <div style="background:white; border-radius:12px; border:1px solid #e2e8f0; padding:16px;">
-                    <div style="font-size:1.1rem; font-weight:600; margin-bottom:4px;">
-                        👨‍⚕️ Médicos por Especialidad (campo Cirujano)
+                <div data-admin-tab="tabla" style="display:${adminTabActiva === 'tabla' ? 'block' : 'none'};">
+                    <div style="background:white; border-radius:12px; border:1px solid #e2e8f0; padding:16px; margin-bottom:16px;">
+                        <div style="font-size:1.1rem; font-weight:600; margin-bottom:12px;">
+                            📋 Gestión de Desplegables Fijos
+                        </div>
+                        <div id="desplegablesLista">
+                            <p style="color:#94a3b8; text-align:center; padding:20px;">Cargando opciones...</p>
+                        </div>
                     </div>
-                    <div style="font-size:0.75rem; color:#64748b; margin-bottom:12px;">
-                        Elige una especialidad para editar su lista de médicos.
+
+                    <div style="background:white; border-radius:12px; border:1px solid #e2e8f0; padding:16px; margin-bottom:16px;">
+                        <div style="font-size:1.1rem; font-weight:600; margin-bottom:4px;">
+                            👨‍⚕️ Médicos por Especialidad (campo Cirujano)
+                        </div>
+                        <div style="font-size:0.75rem; color:#64748b; margin-bottom:12px;">
+                            Elige una especialidad para editar su lista de médicos.
+                        </div>
+                        <div id="medicosEspecialidadLista">
+                            <p style="color:#94a3b8; text-align:center; padding:20px;">Cargando médicos...</p>
+                        </div>
                     </div>
-                    <div id="medicosEspecialidadLista">
-                        <p style="color:#94a3b8; text-align:center; padding:20px;">Cargando médicos...</p>
+
+                    <div style="background:white; border-radius:12px; border:1px solid #e2e8f0; padding:16px; margin-bottom:16px;">
+                        <div style="font-size:1.1rem; font-weight:600; margin-bottom:4px;">
+                            💬 Plantillas de WhatsApp
+                        </div>
+                        <div style="font-size:0.75rem; color:#64748b; margin-bottom:12px;">
+                            Mensajes predeterminados que se pueden enviar desde cada fila de la Tabla Quirúrgica.
+                        </div>
+                        <div id="whatsappPlantillasLista">
+                            <p style="color:#94a3b8; text-align:center; padding:20px;">Cargando plantillas...</p>
+                        </div>
+                    </div>
+
+                    <div style="background:white; border-radius:12px; border:1px solid #e2e8f0; padding:16px;">
+                        <div style="font-size:1.1rem; font-weight:600; margin-bottom:4px;">
+                            🔄 Sistema
+                        </div>
+                        <div style="font-size:0.75rem; color:#64748b; margin-bottom:12px;">
+                            Fuerza a que todos los equipos con sesión iniciada en este momento recarguen la app automáticamente — útil después de subir una corrección al código, para no depender de que cada usuario haga un refresco manual.
+                        </div>
+                        <button class="btn-sm" id="forzarRecargaBtn" style="background:#dc2626; color:white; border:none; padding:8px 18px; border-radius:30px; cursor:pointer;">🔄 Forzar recarga a todos los equipos</button>
                     </div>
                 </div>
 
-                <div style="background:white; border-radius:12px; border:1px solid #e2e8f0; padding:16px; margin-bottom:16px;">
-                    <div style="font-size:1.1rem; font-weight:600; margin-bottom:4px;">
-                        💬 Plantillas de WhatsApp
+                <div data-admin-tab="avatar" style="display:${adminTabActiva === 'avatar' ? 'block' : 'none'};">
+                    <div style="background:white; border-radius:12px; border:1px solid #e2e8f0; padding:16px; margin-bottom:16px;">
+                        <div style="font-size:1.1rem; font-weight:600; margin-bottom:4px;">
+                            🗣️ Mensajes del Avatar
+                        </div>
+                        <div style="font-size:0.75rem; color:#64748b; margin-bottom:12px;">
+                            Mensajes en video ya grabados. Elige a quién se le muestra cada uno al iniciar sesión (además, cada usuario puede activar/desactivar el avatar para sí mismo en "Editar Permisos").
+                        </div>
+                        <div id="avatarAsignacionesLista">
+                            <p style="color:#94a3b8; text-align:center; padding:20px;">Cargando...</p>
+                        </div>
                     </div>
-                    <div style="font-size:0.75rem; color:#64748b; margin-bottom:12px;">
-                        Mensajes predeterminados que se pueden enviar desde cada fila de la Tabla Quirúrgica.
-                    </div>
-                    <div id="whatsappPlantillasLista">
-                        <p style="color:#94a3b8; text-align:center; padding:20px;">Cargando plantillas...</p>
+
+                    <div style="background:white; border-radius:12px; border:1px solid #e2e8f0; padding:16px;">
+                        <div style="font-size:1.1rem; font-weight:600; margin-bottom:4px;">
+                            📝 Recordatorios de Texto
+                        </div>
+                        <div style="font-size:0.75rem; color:#64748b; margin-bottom:12px;">
+                            Se muestran como texto en el panel de recordatorios del avatar (📝, junto al avatar) — no se leen en voz alta. "Para todos" los ve cualquier usuario; "Para un usuario específico" solo el que elijas.
+                        </div>
+                        <div id="recordatoriosTextoAdminLista">
+                            <p style="color:#94a3b8; text-align:center; padding:20px;">Cargando...</p>
+                        </div>
                     </div>
                 </div>
 
-                <div style="background:white; border-radius:12px; border:1px solid #e2e8f0; padding:16px; margin-bottom:16px;">
-                    <div style="font-size:1.1rem; font-weight:600; margin-bottom:4px;">
-                        🔄 Sistema
+                <div data-admin-tab="listaEspera" style="display:${adminTabActiva === 'listaEspera' ? 'block' : 'none'};">
+                    <div style="background:white; border-radius:12px; border:1px solid #e2e8f0; padding:16px; margin-bottom:16px;">
+                        <div style="font-size:1.1rem; font-weight:600; margin-bottom:4px;">
+                            🔎 Vínculos Fantasma (Lista de Espera)
+                        </div>
+                        <div style="font-size:0.75rem; color:#64748b; margin-bottom:12px;">
+                            Revisa toda la Tabla Quirúrgica buscando filas cuyo vínculo interno con Lista de Espera quedó apuntando a un paciente que ya no corresponde (se limpió/eliminó/difirió sin cortar el vínculo) — esto puede pegarle un cambio de estatus a un paciente equivocado. Limpiar solo borra el vínculo viejo de la fila, nunca toca el estatus del paciente.
+                        </div>
+                        <div id="vinculosFantasmaLista">
+                            <p style="color:#94a3b8; text-align:center; padding:20px;">Cargando...</p>
+                        </div>
                     </div>
-                    <div style="font-size:0.75rem; color:#64748b; margin-bottom:12px;">
-                        Fuerza a que todos los equipos con sesión iniciada en este momento recarguen la app automáticamente — útil después de subir una corrección al código, para no depender de que cada usuario haga un refresco manual.
-                    </div>
-                    <button class="btn-sm" id="forzarRecargaBtn" style="background:#dc2626; color:white; border:none; padding:8px 18px; border-radius:30px; cursor:pointer;">🔄 Forzar recarga a todos los equipos</button>
-                </div>
 
-                <div style="background:white; border-radius:12px; border:1px solid #e2e8f0; padding:16px; margin-bottom:16px;">
-                    <div style="font-size:1.1rem; font-weight:600; margin-bottom:4px;">
-                        🗣️ Mensajes del Avatar
-                    </div>
-                    <div style="font-size:0.75rem; color:#64748b; margin-bottom:12px;">
-                        Mensajes en video ya grabados. Elige a quién se le muestra cada uno al iniciar sesión (además, cada usuario puede activar/desactivar el avatar para sí mismo en "Editar Permisos").
-                    </div>
-                    <div id="avatarAsignacionesLista">
-                        <p style="color:#94a3b8; text-align:center; padding:20px;">Cargando...</p>
-                    </div>
-                </div>
-
-                <div style="background:white; border-radius:12px; border:1px solid #e2e8f0; padding:16px; margin-bottom:16px;">
-                    <div style="font-size:1.1rem; font-weight:600; margin-bottom:4px;">
-                        📝 Recordatorios de Texto
-                    </div>
-                    <div style="font-size:0.75rem; color:#64748b; margin-bottom:12px;">
-                        Se muestran como texto en el panel de recordatorios del avatar (📝, junto al avatar) — no se leen en voz alta. "Para todos" los ve cualquier usuario; "Para un usuario específico" solo el que elijas.
-                    </div>
-                    <div id="recordatoriosTextoAdminLista">
-                        <p style="color:#94a3b8; text-align:center; padding:20px;">Cargando...</p>
-                    </div>
-                </div>
-
-                <div style="background:white; border-radius:12px; border:1px solid #e2e8f0; padding:16px; margin-bottom:16px;">
-                    <div style="font-size:1.1rem; font-weight:600; margin-bottom:4px;">
-                        🔎 Vínculos Fantasma (Lista de Espera)
-                    </div>
-                    <div style="font-size:0.75rem; color:#64748b; margin-bottom:12px;">
-                        Revisa toda la Tabla Quirúrgica buscando filas cuyo vínculo interno con Lista de Espera quedó apuntando a un paciente que ya no corresponde (se limpió/eliminó/difirió sin cortar el vínculo) — esto puede pegarle un cambio de estatus a un paciente equivocado. Limpiar solo borra el vínculo viejo de la fila, nunca toca el estatus del paciente.
-                    </div>
-                    <div id="vinculosFantasmaLista">
-                        <p style="color:#94a3b8; text-align:center; padding:20px;">Cargando...</p>
-                    </div>
-                </div>
-
-                <div style="background:white; border-radius:12px; border:1px solid #e2e8f0; padding:16px;">
-                    <div style="font-size:1.1rem; font-weight:600; margin-bottom:4px;">
-                        📊 Reporte de Actividad por Usuario
-                    </div>
-                    <div style="font-size:0.75rem; color:#64748b; margin-bottom:12px;">
-                        Todas las interacciones de un usuario en Lista de Espera dentro de un rango de fechas (ingresos nuevos, registros modificados, llamados realizados, etc.), agrupadas por tipo con su detalle.
-                    </div>
-                    <div id="reporteActividadLista">
-                        <p style="color:#94a3b8; text-align:center; padding:20px;">Cargando...</p>
+                    <div style="background:white; border-radius:12px; border:1px solid #e2e8f0; padding:16px;">
+                        <div style="font-size:1.1rem; font-weight:600; margin-bottom:4px;">
+                            📊 Reporte de Actividad por Usuario
+                        </div>
+                        <div style="font-size:0.75rem; color:#64748b; margin-bottom:12px;">
+                            Todas las interacciones de un usuario en Lista de Espera dentro de un rango de fechas (ingresos nuevos, registros modificados, llamados realizados, etc.), agrupadas por tipo con su detalle.
+                        </div>
+                        <div id="reporteActividadLista">
+                            <p style="color:#94a3b8; text-align:center; padding:20px;">Cargando...</p>
+                        </div>
                     </div>
                 </div>
             </div>
         `;
+
+        adminContent.querySelectorAll('.admin-tab-btn').forEach(btn => {
+            btn.addEventListener('click', function () {
+                adminTabActiva = this.dataset.tab;
+                adminContent.querySelectorAll('.admin-tab-btn').forEach(b => {
+                    const activo = b.dataset.tab === adminTabActiva;
+                    b.style.background = activo ? '#1e3a8a' : '#f1f5f9';
+                    b.style.color = activo ? 'white' : '#334155';
+                    b.style.fontWeight = activo ? '600' : '500';
+                });
+                adminContent.querySelectorAll('[data-admin-tab]').forEach(div => {
+                    div.style.display = div.dataset.adminTab === adminTabActiva ? 'block' : 'none';
+                });
+            });
+        });
 
         await precargarDesplegables();
         cargarUsuarios();
