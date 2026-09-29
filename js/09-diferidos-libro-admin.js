@@ -783,7 +783,7 @@
                     </div>
                 </div>
 
-                <div style="background:white; border-radius:12px; border:1px solid #e2e8f0; padding:16px;">
+                <div style="background:white; border-radius:12px; border:1px solid #e2e8f0; padding:16px; margin-bottom:16px;">
                     <div style="font-size:1.1rem; font-weight:600; margin-bottom:4px;">
                         🔎 Vínculos Fantasma (Lista de Espera)
                     </div>
@@ -791,6 +791,18 @@
                         Revisa toda la Tabla Quirúrgica buscando filas cuyo vínculo interno con Lista de Espera quedó apuntando a un paciente que ya no corresponde (se limpió/eliminó/difirió sin cortar el vínculo) — esto puede pegarle un cambio de estatus a un paciente equivocado. Limpiar solo borra el vínculo viejo de la fila, nunca toca el estatus del paciente.
                     </div>
                     <div id="vinculosFantasmaLista">
+                        <p style="color:#94a3b8; text-align:center; padding:20px;">Cargando...</p>
+                    </div>
+                </div>
+
+                <div style="background:white; border-radius:12px; border:1px solid #e2e8f0; padding:16px;">
+                    <div style="font-size:1.1rem; font-weight:600; margin-bottom:4px;">
+                        📊 Reporte de Actividad por Usuario
+                    </div>
+                    <div style="font-size:0.75rem; color:#64748b; margin-bottom:12px;">
+                        Todas las interacciones de un usuario en Lista de Espera dentro de un rango de fechas (ingresos nuevos, registros modificados, llamados realizados, etc.), agrupadas por tipo con su detalle.
+                    </div>
+                    <div id="reporteActividadLista">
                         <p style="color:#94a3b8; text-align:center; padding:20px;">Cargando...</p>
                     </div>
                 </div>
@@ -805,6 +817,7 @@
         cargarAsignacionesAvatar();
         cargarRecordatoriosTextoAdmin();
         cargarVinculosFantasma();
+        cargarReporteActividadUsuarios();
 
         document.getElementById('crearUsuarioBtn')?.addEventListener('click', function() {
             mostrarModalCrearUsuario();
