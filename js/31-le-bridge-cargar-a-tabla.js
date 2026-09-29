@@ -508,9 +508,19 @@ async function cargarVinculosFantasma() {
             this.textContent = '⏳ Escaneando...';
             cargarVinculosFantasma();
         });
-        document.getElementById('btnLimpiarVinculosFantasma')?.addEventListener('click', function () {
+        document.getElementById('btnLimpiarVinculosFantasma')?.addEventListener('click', async function () {
             console.log('🖱️ Clic en "Limpiar vínculos fantasma"');
-            leLimpiarVinculosFantasmaEncontrados(encontrados);
+            const textoOriginal = this.textContent;
+            this.disabled = true;
+            this.textContent = '⏳ Procesando...';
+            await leLimpiarVinculosFantasmaEncontrados(encontrados);
+            // Si la limpieza terminó bien, cargarVinculosFantasma() ya
+            // reemplazó este botón (this.isConnected === false); si se
+            // canceló o falló, sigue en el DOM y hay que reactivarlo.
+            if (this.isConnected) {
+                this.disabled = false;
+                this.textContent = textoOriginal;
+            }
         });
     } catch (error) {
         console.error('❌ Error al escanear vínculos fantasma:', error);
