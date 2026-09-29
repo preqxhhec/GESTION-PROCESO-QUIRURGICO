@@ -56,7 +56,7 @@ const CAMPOS_CARGAR_A_TABLA_DESDE_LE = {
 // -------------------------------------------------------------
 // 🪟 MODAL: elegir Semana / Día / Pabellón / Fila destino
 // -------------------------------------------------------------
-function leMostrarModalCargarATabla(key) {
+async function leMostrarModalCargarATabla(key) {
     const paciente = patients.find(p => p.firebaseKey === key);
     if (!paciente) {
         showModal({
@@ -69,6 +69,24 @@ function leMostrarModalCargarATabla(key) {
     }
 
     const nombrePaciente = paciente.nombreApellido || 'sin nombre';
+
+    // ⚠️ El botón se ofrece a cualquier paciente gestionable (esGestionable()
+    // en js/23), no solo a los PROGRAMABLE -- pero cargar a la Tabla a
+    // alguien en otro estatus (ej. PENDIENTE EPA, ACTUALIZAR) no siempre es
+    // lo que se quiere hacer, así que se pide una confirmación explícita
+    // antes de mostrar el modal real de "elegir ubicación".
+    const estatusActual = (paciente.estatusTabla || '').toString().trim().toUpperCase();
+    if (estatusActual !== 'PROGRAMABLE') {
+        const confirmado = await showModal({
+            title: '⚠️ Paciente no está en PROGRAMABLE',
+            message: `<strong>${nombrePaciente}</strong> está actualmente en estatus <strong>${paciente.estatusTabla || '(sin estatus)'}</strong>, no PROGRAMABLE.<br><br>¿Confirmas que quieres cargarlo a la Tabla Quirúrgica de todos modos?`,
+            icon: '⚠️',
+            confirmText: 'Sí, cargar de todos modos',
+            cancelText: 'Cancelar',
+            type: 'danger'
+        });
+        if (!confirmado) return;
+    }
 
     const overlay = document.createElement('div');
     overlay.className = 'modal-overlay';
