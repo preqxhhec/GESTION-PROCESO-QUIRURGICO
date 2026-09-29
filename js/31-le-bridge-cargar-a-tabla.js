@@ -462,14 +462,25 @@ async function cargarVinculosFantasma() {
     if (!contenedor) { console.warn('⚠️ No se encontró el contenedor #vinculosFantasmaLista en el DOM.'); return; }
 
     contenedor.innerHTML = `<p style="color:#94a3b8; text-align:center; padding:20px;">🔎 Escaneando toda la Tabla Quirúrgica...</p>`;
+    const inicioEscaneo = Date.now();
 
     try {
         const encontrados = await leDetectarVinculosFantasma();
         console.log(`🔎 Escaneo terminado -- ${encontrados.length} vínculo(s) fantasma encontrado(s).`);
 
+        // El escaneo real suele tardar unos pocos milisegundos (lectura de
+        // Firebase ya en caché) -- sin este mínimo, el mensaje "Escaneando..."
+        // se reemplaza tan rápido que parece que el clic no hizo nada,
+        // sobre todo cuando el resultado es igual al anterior (0 fantasmas).
+        const restante = 500 - (Date.now() - inicioEscaneo);
+        if (restante > 0) await new Promise(r => setTimeout(r, restante));
+
+        const horaEscaneo = new Date().toLocaleTimeString('es-CL');
+
         if (encontrados.length === 0) {
             contenedor.innerHTML = `
                 <p style="color:#16a34a; text-align:center; padding:14px; font-weight:600;">✅ No se encontró ningún vínculo fantasma.</p>
+                <p style="color:#94a3b8; text-align:center; font-size:0.72rem; margin-top:-8px; margin-bottom:10px;">Última verificación: ${horaEscaneo}</p>
                 <div style="text-align:center;"><button id="btnReescanearFantasma" class="btn-sm" style="background:#64748b; color:white; border:none; padding:6px 16px; border-radius:20px; cursor:pointer;">🔄 Volver a escanear</button></div>
             `;
             document.getElementById('btnReescanearFantasma')?.addEventListener('click', function () {
@@ -482,7 +493,8 @@ async function cargarVinculosFantasma() {
         }
 
         let html = `
-            <p style="color:#dc2626; font-weight:600; margin-bottom:10px;">⚠️ ${encontrados.length} fila(s) con vínculo fantasma:</p>
+            <p style="color:#dc2626; font-weight:600; margin-bottom:2px;">⚠️ ${encontrados.length} fila(s) con vínculo fantasma:</p>
+            <p style="color:#94a3b8; font-size:0.72rem; margin-bottom:10px;">Última verificación: ${horaEscaneo}</p>
             <div style="display:flex; flex-direction:column; gap:8px; margin-bottom:14px;">
         `;
         encontrados.forEach(e => {
