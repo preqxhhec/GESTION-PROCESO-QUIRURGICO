@@ -82,6 +82,13 @@ async function cargarReporteActividadUsuarios() {
             btn.addEventListener('click', () => reporteActividadAplicarRango(btn.dataset.rango, btn));
         });
         document.getElementById('reporteActBtnGenerar')?.addEventListener('click', reporteActividadGenerar);
+        // Si ya se generó un reporte (botón rápido activo o resultado visible),
+        // cambiar de usuario debe reflejarse al instante -- si no, el botón
+        // rápido queda marcado como activo pero mostrando datos del usuario
+        // anterior hasta volver a presionarlo.
+        document.getElementById('reporteActUsuario')?.addEventListener('change', () => {
+            if (reporteActividadResultado) reporteActividadGenerar();
+        });
     } catch (error) {
         console.error('❌ Error al cargar usuarios para el reporte de actividad:', error);
         contenedor.innerHTML = `<p style="color:#dc2626; text-align:center; padding:20px;">❌ Error al cargar.</p>`;
