@@ -873,7 +873,9 @@ function renderChatConversacion(cuerpo) {
                 <span id="avatarChatEliminarActual" title="Eliminar conversación" style="cursor:pointer; color:#dc2626; font-size:0.9rem; flex-shrink:0;">🗑️</span>
             </div>
             <div id="avatarChatMensajesCont" style="flex-grow:1; overflow-y:auto; background:#f8fafc; border-radius:8px; padding:8px; margin-bottom:8px;"></div>
-            <div style="display:flex; gap:6px; flex-shrink:0;">
+            <div style="display:flex; gap:6px; flex-shrink:0; position:relative; align-items:center;">
+                <div id="avatarChatPickerEmoji" style="display:none; position:absolute; bottom:38px; left:0; background:white; border:1px solid #dbe3ee; border-radius:8px; padding:6px; box-shadow:0 2px 10px rgba(0,0,0,0.15); grid-template-columns:repeat(8, 1fr); gap:2px; z-index:20; width:210px;"></div>
+                <span id="avatarChatBtnEmoji" title="Emoticones" style="cursor:pointer; font-size:1.05rem; flex-shrink:0;">😊</span>
                 <input type="text" id="avatarChatInputMensaje" placeholder="Escribir mensaje..." style="flex-grow:1; min-width:0; border:1px solid #dbe3ee; border-radius:8px; padding:7px 9px; font-size:0.78rem; box-sizing:border-box;">
                 <button id="avatarChatBtnEnviar" style="background:#1e40af; color:white; border:none; border-radius:8px; padding:0 12px; font-size:1rem; cursor:pointer; flex-shrink:0;">➤</button>
             </div>
@@ -909,8 +911,66 @@ function renderChatConversacion(cuerpo) {
         enviarMensajeChat();
     });
 
+    document.getElementById('avatarChatBtnEmoji')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        avatarChatAlternarPickerEmoji();
+    });
+
     avatarChatActualizarPresenciaConversacion();
     avatarChatRenderMensajes();
+}
+
+// =============================================================
+// 😊 CHAT — EMOTICONES
+// =============================================================
+// Set fijo chico (sin librería externa) -- alcanza para lo que se usa en
+// este tipo de chat interno de trabajo.
+const AVATAR_CHAT_EMOJIS = [
+    '😀', '😂', '🙂', '😉', '😍', '😢', '😮', '😡',
+    '👍', '👎', '🙏', '👏', '💪', '🤝', '✅', '❌',
+    '⚠️', '🔥', '⏰', '📅', '📋', '💬', '❤️', '🎉',
+    '🤔', '😴', '🤒', '🏥', '💉', '🩺', '🚑', '📞'
+];
+
+function avatarChatAlternarPickerEmoji() {
+    const picker = document.getElementById('avatarChatPickerEmoji');
+    if (!picker) return;
+    const abierto = picker.style.display === 'grid';
+    if (abierto) {
+        picker.style.display = 'none';
+        return;
+    }
+    picker.innerHTML = AVATAR_CHAT_EMOJIS.map(em =>
+        `<span class="avatar-chat-emoji-opcion" style="cursor:pointer; font-size:1.05rem; text-align:center; padding:2px; border-radius:4px;">${em}</span>`
+    ).join('');
+    picker.querySelectorAll('.avatar-chat-emoji-opcion').forEach(span => {
+        span.addEventListener('click', (e) => {
+            e.stopPropagation();
+            avatarChatInsertarEmoji(span.textContent);
+        });
+    });
+    picker.style.display = 'grid';
+    picker.addEventListener('click', (e) => e.stopPropagation());
+    // Cerrar al hacer clic afuera -- se registra en el siguiente tick para
+    // que el mismo clic que abrió el picker no lo cierre de inmediato.
+    const cerrarAfuera = () => {
+        picker.style.display = 'none';
+        document.removeEventListener('click', cerrarAfuera);
+    };
+    setTimeout(() => document.addEventListener('click', cerrarAfuera), 0);
+}
+
+function avatarChatInsertarEmoji(emoji) {
+    const input = document.getElementById('avatarChatInputMensaje');
+    if (!input) return;
+    const inicio = input.selectionStart ?? input.value.length;
+    const fin = input.selectionEnd ?? input.value.length;
+    input.value = input.value.slice(0, inicio) + emoji + input.value.slice(fin);
+    const nuevaPos = inicio + emoji.length;
+    input.focus();
+    input.setSelectionRange(nuevaPos, nuevaPos);
+    const picker = document.getElementById('avatarChatPickerEmoji');
+    if (picker) picker.style.display = 'none';
 }
 
 // Actualiza SOLO la línea de presencia del encabezado (no todo el cuerpo)
@@ -1096,7 +1156,13 @@ function escucharChatIndice() {
                     actual.ultimoMensajeTimestamp > (anterior ? (anterior.ultimoMensajeTimestamp || 0) : 0);
                 if (llegoMensajeNuevo && actual.ultimoMensajeDe !== currentUser.uid) {
                     avatarChatReproducirSonidoAlerta();
-                    avatarNotificarNuevoMensaje();
+                    // Con la pestaña de chat abierta, el usuario ya está mirando
+                    // la app -- el aviso en video del avatar (que tapa la
+                    // pantalla) solo hace falta si el chat está cerrado. No
+                    // importa si el mensaje nuevo es del hilo que tiene abierto
+                    // o de otro: el beep ya le avisó.
+                    const chatAbierto = avatarPanelRecordatoriosAbierto && avatarPanelTabActiva === 'chat';
+                    if (!chatAbierto) avatarNotificarNuevoMensaje();
                 }
             });
         }
