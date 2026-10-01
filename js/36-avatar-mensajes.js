@@ -874,7 +874,7 @@ function renderChatConversacion(cuerpo) {
             </div>
             <div id="avatarChatMensajesCont" style="flex-grow:1; overflow-y:auto; background:#f8fafc; border-radius:8px; padding:8px; margin-bottom:8px;"></div>
             <div style="display:flex; gap:6px; flex-shrink:0; position:relative; align-items:center;">
-                <div id="avatarChatPickerEmoji" style="display:none; position:absolute; bottom:38px; left:0; background:white; border:1px solid #dbe3ee; border-radius:8px; padding:6px; box-shadow:0 2px 10px rgba(0,0,0,0.15); grid-template-columns:repeat(8, 1fr); gap:2px; z-index:20; width:210px;"></div>
+                <div id="avatarChatPickerEmoji" style="display:none; position:absolute; bottom:38px; left:0; background:white; border:1px solid #dbe3ee; border-radius:8px; padding:6px; box-shadow:0 2px 10px rgba(0,0,0,0.15); grid-template-columns:repeat(8, 1fr); gap:2px; z-index:20; width:210px; max-height:180px; overflow-y:auto;"></div>
                 <span id="avatarChatBtnEmoji" title="Emoticones" style="cursor:pointer; font-size:1.05rem; flex-shrink:0;">😊</span>
                 <input type="text" id="avatarChatInputMensaje" placeholder="Escribir mensaje..." style="flex-grow:1; min-width:0; border:1px solid #dbe3ee; border-radius:8px; padding:7px 9px; font-size:0.78rem; box-sizing:border-box;">
                 <button id="avatarChatBtnEnviar" style="background:#1e40af; color:white; border:none; border-radius:8px; padding:0 12px; font-size:1rem; cursor:pointer; flex-shrink:0;">➤</button>
@@ -926,10 +926,22 @@ function renderChatConversacion(cuerpo) {
 // Set fijo chico (sin librería externa) -- alcanza para lo que se usa en
 // este tipo de chat interno de trabajo.
 const AVATAR_CHAT_EMOJIS = [
-    '😀', '😂', '🙂', '😉', '😍', '😢', '😮', '😡',
-    '👍', '👎', '🙏', '👏', '💪', '🤝', '✅', '❌',
-    '⚠️', '🔥', '⏰', '📅', '📋', '💬', '❤️', '🎉',
-    '🤔', '😴', '🤒', '🏥', '💉', '🩺', '🚑', '📞'
+    '😀', '😁', '😂', '🤣', '🙂', '😉', '😊', '😇',
+    '🥰', '😍', '😘', '😎', '🤩', '🥳', '😏', '😅',
+    '😬', '🙄', '😐', '😴', '🥱', '😮', '😯', '😲',
+    '😢', '😭', '😤', '😠', '😡', '🤬', '🥺', '😱',
+    '🤒', '🤕', '🤧', '🤢', '🥵', '🥶', '😵', '🤔',
+    '🤫', '🤭', '😳', '🫡', '🙃', '😶', '🫠', '😌',
+    '👍', '👎', '👏', '🙏', '💪', '🤝', '👋', '✌️',
+    '🤞', '👌', '✍️', '🤲', '👆', '👉', '🫶', '🙌',
+    '❤️', '🧡', '💛', '💚', '💙', '💜', '🖤', '🤍',
+    '💔', '💕', '💯', '✅', '❌', '⚠️', '❗', '❓',
+    '🔥', '⭐', '✨', '🎉', '🎊', '🏆', '🚨', '📌',
+    '⏰', '⏳', '📅', '📆', '📋', '📝', '📎', '💬',
+    '📞', '📱', '✉️', '🔔', '🔕', '🔒', '🔑', '💡',
+    '🏥', '🩺', '💉', '💊', '🚑', '🧪', '🩹', '🦷',
+    '🫀', '🧠', '🦴', '👨‍⚕️', '👩‍⚕️', '🧑‍⚕️', '🛏️', '🩻',
+    '☕', '🍔', '🥪', '🍪', '🎂', '🚗', '🏠', '📍'
 ];
 
 function avatarChatAlternarPickerEmoji() {
