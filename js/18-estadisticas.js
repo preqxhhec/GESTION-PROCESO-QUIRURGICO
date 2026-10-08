@@ -28,6 +28,7 @@ let estadisticasChartEspecialidad = null;
 let estadisticasChartIndices = null;
 let estadisticasIndicesPorMesAnio = null;
 let estadisticasChartIndicesPorMes = null;
+let estadisticasChartIndicesPorMesSusp = null;
 
 // =============================================================
 // 📊 ESTADÍSTICAS · PARTE 2: REM (Cmay) / ESPECIALIDADES QUIRÚRGICAS
@@ -1188,8 +1189,14 @@ function renderEstadisticasIndicesPorMes() {
             <span style="font-size:0.72rem; color:#94a3b8;">No se ve afectado por el filtro de fecha general — siempre muestra el año completo, mes a mes.</span>
         </div>
 
-        <div style="position:relative; height:320px;">
-            <canvas id="chartIndicesPorMes"></canvas>
+        <div style="font-size:0.78rem; font-weight:600; color:#475569; margin-bottom:4px;">📋 Pac. Programados Cmay</div>
+        <div style="position:relative; height:200px;">
+            <canvas id="chartProgCmayPorMes"></canvas>
+        </div>
+
+        <div style="font-size:0.78rem; font-weight:600; color:#475569; margin:14px 0 4px;">📉 Índices de Suspensión (%)</div>
+        <div style="position:relative; height:200px;">
+            <canvas id="chartSuspensionPorMes"></canvas>
         </div>
 
         <div class="stats-table-wrap" style="max-height:none; margin-top:14px;">
@@ -1223,58 +1230,72 @@ function renderEstadisticasIndicesPorMes() {
     dibujarChartIndicesPorMes(datos);
 }
 
+// Dos gráficos separados (no un solo gráfico con eje dual) -- Programados
+// Cmay es un conteo (decenas/cientos) y los índices son porcentajes
+// (0-100), escalas tan distintas que mezclarlas en un solo eje hacía que
+// las líneas de porcentaje se vieran pegadas al piso o se cruzaran de forma
+// confusa con la de conteo.
 function dibujarChartIndicesPorMes(datos) {
-    const canvas = document.getElementById('chartIndicesPorMes');
-    if (!canvas || typeof Chart === 'undefined') return;
-
-    if (estadisticasChartIndicesPorMes) {
-        estadisticasChartIndicesPorMes.destroy();
-    }
-
     const labels = [...ESTADISTICAS_NOMBRES_MES.map(m => m.slice(0, 3)), 'Prom. Acum.'];
     const progCmaySerie = [...datos.meses.map(m => m.progCmay), datos.promedio.progCmay];
     const indiceSuspSerie = [...datos.meses.map(m => m.indiceSuspension), datos.promedio.indiceSuspension];
     const indiceSuspSinUrgSerie = [...datos.meses.map(m => m.indiceSuspensionSinUrgencia), datos.promedio.indiceSuspensionSinUrgencia];
 
-    estadisticasChartIndicesPorMes = new Chart(canvas.getContext('2d'), {
-        type: 'line',
-        data: {
-            labels,
-            datasets: [
-                {
+    const canvasProg = document.getElementById('chartProgCmayPorMes');
+    if (canvasProg && typeof Chart !== 'undefined') {
+        if (estadisticasChartIndicesPorMes) estadisticasChartIndicesPorMes.destroy();
+        estadisticasChartIndicesPorMes = new Chart(canvasProg.getContext('2d'), {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [{
                     label: 'Pac. Programados Cmay',
                     data: progCmaySerie,
-                    labelsTexto: progCmaySerie.map(v => String(v)),
-                    borderColor: '#1a6d8a', backgroundColor: '#1a6d8a',
-                    yAxisID: 'y', tension: 0.25
-                },
-                {
-                    label: 'Índice de Suspensión (%)',
-                    data: indiceSuspSerie,
-                    labelsTexto: indiceSuspSerie.map(v => v.toFixed(1) + '%'),
-                    borderColor: '#c0392b', backgroundColor: '#c0392b',
-                    yAxisID: 'y1', tension: 0.25
-                },
-                {
-                    label: 'Índice de Suspensión sin Urgencia (%)',
-                    data: indiceSuspSinUrgSerie,
-                    labelsTexto: indiceSuspSinUrgSerie.map(v => v.toFixed(1) + '%'),
-                    borderColor: '#0e7c7c', backgroundColor: '#0e7c7c',
-                    yAxisID: 'y1', tension: 0.25
-                }
-            ]
-        },
-        options: {
-            responsive: true,
-            maintainAspectRatio: false,
-            layout: { padding: { top: 22 } },
-            plugins: { legend: { position: 'bottom' } },
-            scales: {
-                y: { type: 'linear', position: 'left', beginAtZero: true, title: { display: true, text: 'N° Pac. Programados Cmay' } },
-                y1: { type: 'linear', position: 'right', beginAtZero: true, grid: { drawOnChartArea: false }, title: { display: true, text: 'Índice de Suspensión (%)' } }
+                    labelsTexto: progCmaySerie.map(v => (Number.isInteger(v) ? String(v) : v.toFixed(1))),
+                    borderColor: '#1a6d8a', backgroundColor: '#1a6d8a', tension: 0.25
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                layout: { padding: { top: 22 } },
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true } }
             }
-        }
-    });
+        });
+    }
+
+    const canvasSusp = document.getElementById('chartSuspensionPorMes');
+    if (canvasSusp && typeof Chart !== 'undefined') {
+        if (estadisticasChartIndicesPorMesSusp) estadisticasChartIndicesPorMesSusp.destroy();
+        estadisticasChartIndicesPorMesSusp = new Chart(canvasSusp.getContext('2d'), {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [
+                    {
+                        label: 'Índice de Suspensión (%)',
+                        data: indiceSuspSerie,
+                        labelsTexto: indiceSuspSerie.map(v => v.toFixed(1) + '%'),
+                        borderColor: '#c0392b', backgroundColor: '#c0392b', tension: 0.25
+                    },
+                    {
+                        label: 'Índice de Suspensión sin Urgencia (%)',
+                        data: indiceSuspSinUrgSerie,
+                        labelsTexto: indiceSuspSinUrgSerie.map(v => v.toFixed(1) + '%'),
+                        borderColor: '#0e7c7c', backgroundColor: '#0e7c7c', tension: 0.25
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                layout: { padding: { top: 22 } },
+                plugins: { legend: { position: 'bottom' } },
+                scales: { y: { beginAtZero: true, ticks: { callback: (v) => v + '%' } } }
+            }
+        });
+    }
 }
 
 // =============================================================
