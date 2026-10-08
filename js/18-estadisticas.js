@@ -1155,19 +1155,27 @@ function calcularIndicesSuspensionPorMes(registros, anio) {
         meses.push({
             progCmay: kpisMes.progCmay,
             indiceSuspension: kpisMes.indiceSuspension,
-            indiceSuspensionSinUrgencia: kpisMes.indiceSuspensionSinUrgencia
+            indiceSuspensionSinUrgencia: kpisMes.indiceSuspensionSinUrgencia,
+            // Sin esto, un mes futuro sin ningún registro cargado (ej.
+            // octubre-diciembre cuando solo hay datos hasta septiembre) se
+            // promediaría como "0% real" en vez de excluirse -- arrastrando
+            // el promedio hacia abajo sin que corresponda.
+            tieneDatos: registrosMes.length > 0
         });
     }
 
+    const mesesConDatos = meses.filter(m => m.tieneDatos);
+
     // Pac. Programados Cmay es un conteo -- el cierre de año es el TOTAL
-    // acumulado (suma de los 12 meses), no un promedio. Los índices son
-    // porcentajes -- ahí sí tiene sentido el promedio simple de los 12 meses.
+    // acumulado (suma de los meses CON datos), no un promedio. Los índices
+    // son porcentajes -- ahí sí tiene sentido el promedio simple, pero solo
+    // de los meses que ya tienen información cargada.
     const avg = (arr) => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
     const sum = (arr) => arr.reduce((a, b) => a + b, 0);
     const acumulado = {
-        progCmay: sum(meses.map(m => m.progCmay)),
-        indiceSuspension: avg(meses.map(m => m.indiceSuspension)),
-        indiceSuspensionSinUrgencia: avg(meses.map(m => m.indiceSuspensionSinUrgencia))
+        progCmay: sum(mesesConDatos.map(m => m.progCmay)),
+        indiceSuspension: avg(mesesConDatos.map(m => m.indiceSuspension)),
+        indiceSuspensionSinUrgencia: avg(mesesConDatos.map(m => m.indiceSuspensionSinUrgencia))
     };
 
     return { meses, acumulado };
@@ -2583,17 +2591,25 @@ function calcularOcupacionRendimientoPorMes(registros, anio) {
             rendimientoTotalCx: kpis.rendimientoTotalCx,
             horasHabilitadas: kpis.horasHabilitadas,
             horasTrabajadas: kpis.horasTrabajadas,
-            bloquesInhabilitados: bloquesInhabilitadosMes
+            bloquesInhabilitados: bloquesInhabilitadosMes,
+            // Igual que en Programados Cmay: un mes sin ningún registro
+            // cargado (todavía no llega esa fecha, ej. octubre-diciembre
+            // con datos solo hasta septiembre) no debe contar como "0% real"
+            // en el promedio.
+            tieneDatos: registrosMes.length > 0
         });
     }
 
+    const mesesConDatos = meses.filter(x => x.tieneDatos);
+
     // Los 3 son tasas/porcentajes (no conteos como Pac. Programados Cmay),
-    // así que el cierre de año sí es un promedio simple de los 12 meses.
+    // así que el cierre de año es un promedio simple, pero solo de los
+    // meses que ya tienen información cargada.
     const avg = (arr) => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
     const promedio = {
-        porcentajeOcupacion: avg(meses.map(x => x.porcentajeOcupacion)),
-        rendimientoSoloProgCmay: avg(meses.map(x => x.rendimientoSoloProgCmay)),
-        rendimientoTotalCx: avg(meses.map(x => x.rendimientoTotalCx))
+        porcentajeOcupacion: avg(mesesConDatos.map(x => x.porcentajeOcupacion)),
+        rendimientoSoloProgCmay: avg(mesesConDatos.map(x => x.rendimientoSoloProgCmay)),
+        rendimientoTotalCx: avg(mesesConDatos.map(x => x.rendimientoTotalCx))
     };
 
     return { meses, promedio, inhabilitados };
