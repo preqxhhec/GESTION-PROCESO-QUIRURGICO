@@ -475,7 +475,17 @@ async function cargarEstadisticas() {
         // Producción Anualizada dentro de REM, Perianalgesia y Metas).
         // Por defecto, el año más reciente con datos.
         estadisticasFiltroFechaInicio = `${anioReciente}-01-01`;
-        estadisticasFiltroFechaFin = `${anioReciente}-12-31`;
+        // El "Hasta" por defecto NO es el 31 de diciembre fijo -- si solo hay
+        // datos cargados hasta septiembre, fijarlo a diciembre hacía que
+        // Ocupación/Rendimiento (y cualquier otro cálculo que divida por
+        // "días hábiles del período") contara oct-dic como días que
+        // debieron trabajarse, inflando el denominador y mostrando % de
+        // ocupación/rendimiento más bajos de lo real. Usar la última fecha
+        // con datos reales como cierre por defecto evita ese sesgo; el
+        // usuario igual puede ampliar el rango manualmente si quiere ver el
+        // año completo a propósito.
+        const fechaMasReciente = estadisticasObtenerFechaMasReciente(registros);
+        estadisticasFiltroFechaFin = fechaMasReciente || `${anioReciente}-12-31`;
 
         const hoy = new Date();
         await obtenerFeriados([hoy.getFullYear()]);
@@ -1325,6 +1335,18 @@ function estadisticasObtenerAnioMasReciente(registros) {
         if (!isNaN(anio) && (anioMax === null || anio > anioMax)) anioMax = anio;
     });
     return anioMax || new Date().getFullYear();
+}
+
+// Última fecha "YYYY-MM-DD" con algún registro -- comparación de strings
+// (seguro para fechas ISO con ceros a la izquierda, igual criterio que el
+// fix de calcularDiasHabiles contra el corrimiento de horario de verano).
+function estadisticasObtenerFechaMasReciente(registros) {
+    let fechaMax = null;
+    registros.forEach(r => {
+        const f = normalizarFechaComparable(r.FECHA);
+        if (f && (fechaMax === null || f > fechaMax)) fechaMax = f;
+    });
+    return fechaMax;
 }
 
 // Cuenta, entre las 3 intervenciones (Tipo_Actividad/2/3) de cada fila,
