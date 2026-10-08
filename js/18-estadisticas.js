@@ -26,6 +26,8 @@ let estadisticasFiltrosColumnaCausales = estadisticasFiltrosColumnaCausalesPorDe
 
 let estadisticasChartEspecialidad = null;
 let estadisticasChartIndices = null;
+let estadisticasIndicesPorMesAnio = null;
+let estadisticasChartIndicesPorMes = null;
 
 // =============================================================
 // 📊 ESTADÍSTICAS · PARTE 2: REM (Cmay) / ESPECIALIDADES QUIRÚRGICAS
@@ -480,6 +482,7 @@ async function cargarEstadisticas() {
         estadisticasPerianalgesiaAnio = anioReciente;
         estadisticasProdEspAnio = anioReciente;
         estadisticasAmbAnio = anioReciente;
+        estadisticasIndicesPorMesAnio = anioReciente;
 
         const metasGuardadas = await cargarMetasProduccion();
         estadisticasMetas.produccionGeneral = metasGuardadas.produccionGeneral || { meta: 0, anio: anioReciente };
@@ -548,6 +551,11 @@ function renderEstadisticas() {
                             <canvas id="chartIndicesSuspension"></canvas>
                         </div>
                     </div>
+                </div>
+
+                <div style="background:white; border-radius:16px; border:1px solid #e2e8f0; padding:14px; margin-top:16px;">
+                    <div style="font-weight:700; font-size:1rem; color:#1e293b; margin-bottom:8px;">📈 Programados Cmay e Índices de Suspensión — Mes a Mes</div>
+                    <div id="estadisticasIndicesPorMesContainer"></div>
                 </div>
             </div>
 
@@ -638,6 +646,7 @@ function renderEstadisticas() {
     inicializarFiltrosChartEspecialidad(registrosFiltrados);
     dibujarChartEspecialidad(registrosFiltrados);
     dibujarChartIndicesSuspension(kpis);
+    renderEstadisticasIndicesPorMes();
 
     renderEstadisticasRem();
     renderEstadisticasProdEsp();
@@ -1115,6 +1124,154 @@ function dibujarChartIndicesSuspension(kpis) {
             plugins: { legend: { display: false } },
             scales: {
                 y: { beginAtZero: true }
+            }
+        }
+    });
+}
+
+// =============================================================
+// 📈 PROGRAMADOS CMAY / ÍNDICES DE SUSPENSIÓN — MES A MES (AÑO COMPLETO)
+// Fijo por año, igual que Perianalgesia por Mes: NO se ve afectado por el
+// filtro de fecha general de Estadísticas, siempre muestra los 12 meses
+// del año elegido. Reutiliza calcularKPIsEstadisticas() recalculada solo
+// con los registros de cada mes, para no duplicar la fórmula de
+// progCmay/indiceSuspension/indiceSuspensionSinUrgencia.
+// =============================================================
+function calcularIndicesSuspensionPorMes(registros, anio) {
+    const meses = [];
+    for (let m = 1; m <= 12; m++) {
+        const registrosMes = registros.filter(r => {
+            const f = normalizarFechaComparable(r.FECHA);
+            if (!f) return false;
+            const [y, mm] = f.split('-');
+            return parseInt(y, 10) === anio && parseInt(mm, 10) === m;
+        });
+        const kpisMes = calcularKPIsEstadisticas(registrosMes);
+        meses.push({
+            progCmay: kpisMes.progCmay,
+            indiceSuspension: kpisMes.indiceSuspension,
+            indiceSuspensionSinUrgencia: kpisMes.indiceSuspensionSinUrgencia
+        });
+    }
+
+    // Promedio acumulado = promedio simple de los 12 meses (mismo criterio
+    // para las 3 líneas, tal como se pidió).
+    const avg = (arr) => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
+    const promedio = {
+        progCmay: avg(meses.map(m => m.progCmay)),
+        indiceSuspension: avg(meses.map(m => m.indiceSuspension)),
+        indiceSuspensionSinUrgencia: avg(meses.map(m => m.indiceSuspensionSinUrgencia))
+    };
+
+    return { meses, promedio };
+}
+
+function renderEstadisticasIndicesPorMes() {
+    const container = document.getElementById('estadisticasIndicesPorMesContainer');
+    if (!container) return;
+
+    const datos = calcularIndicesSuspensionPorMes(estadisticasRegistros, estadisticasIndicesPorMesAnio);
+    const anios = obtenerValoresUnicosOrdenados(
+        estadisticasRegistros.map(r => {
+            const f = normalizarFechaComparable(r.FECHA);
+            return f ? f.slice(0, 4) : '';
+        })
+    );
+    const fmtPct = (v) => v.toLocaleString('es-CL', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%';
+
+    container.innerHTML = `
+        <div style="background:#f8fafc; border-radius:12px; border:1px solid #e2e8f0; padding:10px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:14px;">
+            <span style="font-size:0.8rem; font-weight:600; color:#64748b;">📅 Año</span>
+            <select id="estadisticasIndicesPorMesFiltroAnio" style="padding:5px 8px; border:1px solid #d1d9e6; border-radius:6px; font-size:0.8rem;">
+                ${anios.map(a => `<option value="${a}" ${String(estadisticasIndicesPorMesAnio) === a ? 'selected' : ''}>${a}</option>`).join('')}
+            </select>
+            <span style="font-size:0.72rem; color:#94a3b8;">No se ve afectado por el filtro de fecha general — siempre muestra el año completo, mes a mes.</span>
+        </div>
+
+        <div style="position:relative; height:320px;">
+            <canvas id="chartIndicesPorMes"></canvas>
+        </div>
+
+        <div class="stats-table-wrap" style="max-height:none; margin-top:14px;">
+            <table style="width:100%; min-width:0; table-layout:fixed; font-size:0.78rem;">
+                <thead><tr><th>Mes</th><th>Prog. Cmay</th><th>Índice Susp.</th><th>Índice Susp. sin Urg.</th></tr></thead>
+                <tbody>
+                    ${ESTADISTICAS_NOMBRES_MES.map((nombreMes, i) => `
+                        <tr>
+                            <td>${nombreMes}</td>
+                            <td style="text-align:center; font-weight:700;">${datos.meses[i].progCmay}</td>
+                            <td style="text-align:center;">${fmtPct(datos.meses[i].indiceSuspension)}</td>
+                            <td style="text-align:center;">${fmtPct(datos.meses[i].indiceSuspensionSinUrgencia)}</td>
+                        </tr>
+                    `).join('')}
+                    <tr style="font-weight:700; background:#f1f5f9;">
+                        <td>Promedio Acumulado</td>
+                        <td style="text-align:center;">${datos.promedio.progCmay.toFixed(1)}</td>
+                        <td style="text-align:center;">${fmtPct(datos.promedio.indiceSuspension)}</td>
+                        <td style="text-align:center;">${fmtPct(datos.promedio.indiceSuspensionSinUrgencia)}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    `;
+
+    document.getElementById('estadisticasIndicesPorMesFiltroAnio')?.addEventListener('change', function() {
+        estadisticasIndicesPorMesAnio = parseInt(this.value, 10);
+        renderEstadisticasIndicesPorMes();
+    });
+
+    dibujarChartIndicesPorMes(datos);
+}
+
+function dibujarChartIndicesPorMes(datos) {
+    const canvas = document.getElementById('chartIndicesPorMes');
+    if (!canvas || typeof Chart === 'undefined') return;
+
+    if (estadisticasChartIndicesPorMes) {
+        estadisticasChartIndicesPorMes.destroy();
+    }
+
+    const labels = [...ESTADISTICAS_NOMBRES_MES.map(m => m.slice(0, 3)), 'Prom. Acum.'];
+    const progCmaySerie = [...datos.meses.map(m => m.progCmay), datos.promedio.progCmay];
+    const indiceSuspSerie = [...datos.meses.map(m => m.indiceSuspension), datos.promedio.indiceSuspension];
+    const indiceSuspSinUrgSerie = [...datos.meses.map(m => m.indiceSuspensionSinUrgencia), datos.promedio.indiceSuspensionSinUrgencia];
+
+    estadisticasChartIndicesPorMes = new Chart(canvas.getContext('2d'), {
+        type: 'line',
+        data: {
+            labels,
+            datasets: [
+                {
+                    label: 'Pac. Programados Cmay',
+                    data: progCmaySerie,
+                    labelsTexto: progCmaySerie.map(v => String(v)),
+                    borderColor: '#1a6d8a', backgroundColor: '#1a6d8a',
+                    yAxisID: 'y', tension: 0.25
+                },
+                {
+                    label: 'Índice de Suspensión (%)',
+                    data: indiceSuspSerie,
+                    labelsTexto: indiceSuspSerie.map(v => v.toFixed(1) + '%'),
+                    borderColor: '#c0392b', backgroundColor: '#c0392b',
+                    yAxisID: 'y1', tension: 0.25
+                },
+                {
+                    label: 'Índice de Suspensión sin Urgencia (%)',
+                    data: indiceSuspSinUrgSerie,
+                    labelsTexto: indiceSuspSinUrgSerie.map(v => v.toFixed(1) + '%'),
+                    borderColor: '#0e7c7c', backgroundColor: '#0e7c7c',
+                    yAxisID: 'y1', tension: 0.25
+                }
+            ]
+        },
+        options: {
+            responsive: true,
+            maintainAspectRatio: false,
+            layout: { padding: { top: 22 } },
+            plugins: { legend: { position: 'bottom' } },
+            scales: {
+                y: { type: 'linear', position: 'left', beginAtZero: true, title: { display: true, text: 'N° Pac. Programados Cmay' } },
+                y1: { type: 'linear', position: 'right', beginAtZero: true, grid: { drawOnChartArea: false }, title: { display: true, text: 'Índice de Suspensión (%)' } }
             }
         }
     });
