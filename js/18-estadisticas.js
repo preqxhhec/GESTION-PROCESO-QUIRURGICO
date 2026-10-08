@@ -80,6 +80,9 @@ let estadisticasAmbAnio = null;
 let estadisticasFeriadosCache = new Set();
 let estadisticasDisponibilidadPabellon = {};
 let estadisticasChartsGaugeOcup = {};
+let estadisticasOcupPorMesAnio = null;
+let estadisticasChartOcupPorMes = null;
+let estadisticasChartRendPorMes = null;
 
 // =============================================================
 // 📑 PAGINACIÓN / PRESENTACIÓN / EXPORTAR A PPT
@@ -484,6 +487,7 @@ async function cargarEstadisticas() {
         estadisticasProdEspAnio = anioReciente;
         estadisticasAmbAnio = anioReciente;
         estadisticasIndicesPorMesAnio = anioReciente;
+        estadisticasOcupPorMesAnio = anioReciente;
 
         const metasGuardadas = await cargarMetasProduccion();
         estadisticasMetas.produccionGeneral = metasGuardadas.produccionGeneral || { meta: 0, anio: anioReciente };
@@ -1155,16 +1159,18 @@ function calcularIndicesSuspensionPorMes(registros, anio) {
         });
     }
 
-    // Promedio acumulado = promedio simple de los 12 meses (mismo criterio
-    // para las 3 líneas, tal como se pidió).
+    // Pac. Programados Cmay es un conteo -- el cierre de año es el TOTAL
+    // acumulado (suma de los 12 meses), no un promedio. Los índices son
+    // porcentajes -- ahí sí tiene sentido el promedio simple de los 12 meses.
     const avg = (arr) => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
-    const promedio = {
-        progCmay: avg(meses.map(m => m.progCmay)),
+    const sum = (arr) => arr.reduce((a, b) => a + b, 0);
+    const acumulado = {
+        progCmay: sum(meses.map(m => m.progCmay)),
         indiceSuspension: avg(meses.map(m => m.indiceSuspension)),
         indiceSuspensionSinUrgencia: avg(meses.map(m => m.indiceSuspensionSinUrgencia))
     };
 
-    return { meses, promedio };
+    return { meses, acumulado };
 }
 
 function renderEstadisticasIndicesPorMes() {
@@ -1212,10 +1218,10 @@ function renderEstadisticasIndicesPorMes() {
                         </tr>
                     `).join('')}
                     <tr style="font-weight:700; background:#f1f5f9;">
-                        <td>Promedio Acumulado</td>
-                        <td style="text-align:center;">${datos.promedio.progCmay.toFixed(1)}</td>
-                        <td style="text-align:center;">${fmtPct(datos.promedio.indiceSuspension)}</td>
-                        <td style="text-align:center;">${fmtPct(datos.promedio.indiceSuspensionSinUrgencia)}</td>
+                        <td>Total / Promedio Año</td>
+                        <td style="text-align:center;">${datos.acumulado.progCmay}</td>
+                        <td style="text-align:center;">${fmtPct(datos.acumulado.indiceSuspension)}</td>
+                        <td style="text-align:center;">${fmtPct(datos.acumulado.indiceSuspensionSinUrgencia)}</td>
                     </tr>
                 </tbody>
             </table>
@@ -1236,10 +1242,11 @@ function renderEstadisticasIndicesPorMes() {
 // las líneas de porcentaje se vieran pegadas al piso o se cruzaran de forma
 // confusa con la de conteo.
 function dibujarChartIndicesPorMes(datos) {
-    const labels = [...ESTADISTICAS_NOMBRES_MES.map(m => m.slice(0, 3)), 'Prom. Acum.'];
-    const progCmaySerie = [...datos.meses.map(m => m.progCmay), datos.promedio.progCmay];
-    const indiceSuspSerie = [...datos.meses.map(m => m.indiceSuspension), datos.promedio.indiceSuspension];
-    const indiceSuspSinUrgSerie = [...datos.meses.map(m => m.indiceSuspensionSinUrgencia), datos.promedio.indiceSuspensionSinUrgencia];
+    const labelsProg = [...ESTADISTICAS_NOMBRES_MES.map(m => m.slice(0, 3)), 'Total Año'];
+    const labelsSusp = [...ESTADISTICAS_NOMBRES_MES.map(m => m.slice(0, 3)), 'Prom. Año'];
+    const progCmaySerie = [...datos.meses.map(m => m.progCmay), datos.acumulado.progCmay];
+    const indiceSuspSerie = [...datos.meses.map(m => m.indiceSuspension), datos.acumulado.indiceSuspension];
+    const indiceSuspSinUrgSerie = [...datos.meses.map(m => m.indiceSuspensionSinUrgencia), datos.acumulado.indiceSuspensionSinUrgencia];
 
     const canvasProg = document.getElementById('chartProgCmayPorMes');
     if (canvasProg && typeof Chart !== 'undefined') {
@@ -1247,7 +1254,7 @@ function dibujarChartIndicesPorMes(datos) {
         estadisticasChartIndicesPorMes = new Chart(canvasProg.getContext('2d'), {
             type: 'line',
             data: {
-                labels,
+                labels: labelsProg,
                 datasets: [{
                     label: 'Pac. Programados Cmay',
                     data: progCmaySerie,
@@ -1271,7 +1278,7 @@ function dibujarChartIndicesPorMes(datos) {
         estadisticasChartIndicesPorMesSusp = new Chart(canvasSusp.getContext('2d'), {
             type: 'line',
             data: {
-                labels,
+                labels: labelsSusp,
                 datasets: [
                     {
                         label: 'Índice de Suspensión (%)',
@@ -2416,6 +2423,8 @@ async function renderEstadisticasOcup() {
             </div>
         </div>
 
+        <div id="estadisticasOcupPorMesContainer" style="margin-bottom:20px;"></div>
+
         <div id="estadisticasOcupDisponibilidadWrap">
             <div style="font-weight:700; font-size:1rem; color:#1e293b; margin-bottom:8px;">🗓️ Disponibilidad de Pabellón por Día ${esAdmin ? '' : '(solo lectura — el administrador puede editar)'}</div>
             <div class="stats-table-wrap" style="max-height:320px;">
@@ -2443,6 +2452,7 @@ async function renderEstadisticasOcup() {
 
     if (esAdmin) inicializarTogglesDisponibilidad();
     dibujarGaugesOcupacion(kpis);
+    renderEstadisticasOcupPorMes();
 }
 
 function renderCeldaDisponibilidad(fecha, pabellon, bloque, esAdmin) {
@@ -2526,6 +2536,227 @@ function dibujarGaugesOcupacion(kpis) {
     crearGaugeChart('gaugeOcupacion', kpis.porcentajeOcupacion, Math.max(100, kpis.porcentajeOcupacion), '#1a6d8a', 'ocupacion', kpis.porcentajeOcupacion.toFixed(1));
     crearGaugeChart('gaugeRendProg', kpis.rendimientoSoloProgCmay, Math.max(4, kpis.rendimientoSoloProgCmay), '#0e7c7c', 'rendProg', kpis.rendimientoSoloProgCmay.toFixed(2));
     crearGaugeChart('gaugeRendTotal', kpis.rendimientoTotalCx, Math.max(4, kpis.rendimientoTotalCx), '#d2691e', 'rendTotal', kpis.rendimientoTotalCx.toFixed(2));
+}
+
+// =============================================================
+// 🏨 OCUPACIÓN Y RENDIMIENTO — MES A MES (AÑO COMPLETO)
+// Fijo por año, mismo patrón que Programados Cmay/Índices de Suspensión:
+// NO se ve afectado por el filtro de fecha general, siempre muestra los 12
+// meses del año elegido. Recalcula calcularKpisOcupacion() con los días
+// hábiles y registros de CADA mes por separado, y además junta qué bloques
+// de pabellón quedaron marcados "inhabilitados" ese año (dato clave para
+// interpretar el % de ocupación: deshabilitar bloques reduce las horas
+// habilitadas, lo que puede INFLAR el % de ocupación sin que se haya
+// trabajado más).
+// =============================================================
+function calcularOcupacionRendimientoPorMes(registros, anio) {
+    const meses = [];
+    const inhabilitados = [];
+
+    for (let m = 1; m <= 12; m++) {
+        const ultimoDia = new Date(anio, m, 0).getDate();
+        const fechaInicioMes = `${anio}-${String(m).padStart(2, '0')}-01`;
+        const fechaFinMes = `${anio}-${String(m).padStart(2, '0')}-${String(ultimoDia).padStart(2, '0')}`;
+
+        const diasHabilesMes = calcularDiasHabiles(fechaInicioMes, fechaFinMes);
+        const registrosMes = registros.filter(r => {
+            const f = normalizarFechaComparable(r.FECHA);
+            return f && f >= fechaInicioMes && f <= fechaFinMes;
+        });
+        const kpis = calcularKpisOcupacion(registrosMes, diasHabilesMes);
+
+        let bloquesInhabilitadosMes = 0;
+        diasHabilesMes.forEach(fecha => {
+            OCUP_PABELLONES.forEach((pab, idx) => {
+                ['AM', 'PM'].forEach(bloque => {
+                    if (!estaHabilitado(fecha, pab, bloque)) {
+                        bloquesInhabilitadosMes++;
+                        inhabilitados.push({ fecha, pabellon: idx === 0 ? 'Pabellón 1' : 'Pabellón 2', bloque });
+                    }
+                });
+            });
+        });
+
+        meses.push({
+            porcentajeOcupacion: kpis.porcentajeOcupacion,
+            rendimientoSoloProgCmay: kpis.rendimientoSoloProgCmay,
+            rendimientoTotalCx: kpis.rendimientoTotalCx,
+            horasHabilitadas: kpis.horasHabilitadas,
+            horasTrabajadas: kpis.horasTrabajadas,
+            bloquesInhabilitados: bloquesInhabilitadosMes
+        });
+    }
+
+    // Los 3 son tasas/porcentajes (no conteos como Pac. Programados Cmay),
+    // así que el cierre de año sí es un promedio simple de los 12 meses.
+    const avg = (arr) => arr.length ? arr.reduce((a, b) => a + b, 0) / arr.length : 0;
+    const promedio = {
+        porcentajeOcupacion: avg(meses.map(x => x.porcentajeOcupacion)),
+        rendimientoSoloProgCmay: avg(meses.map(x => x.rendimientoSoloProgCmay)),
+        rendimientoTotalCx: avg(meses.map(x => x.rendimientoTotalCx))
+    };
+
+    return { meses, promedio, inhabilitados };
+}
+
+async function renderEstadisticasOcupPorMes() {
+    const container = document.getElementById('estadisticasOcupPorMesContainer');
+    if (!container) return;
+
+    await obtenerFeriados([estadisticasOcupPorMesAnio]);
+
+    const datos = calcularOcupacionRendimientoPorMes(estadisticasRegistros, estadisticasOcupPorMesAnio);
+    const anios = obtenerValoresUnicosOrdenados(
+        estadisticasRegistros.map(r => {
+            const f = normalizarFechaComparable(r.FECHA);
+            return f ? f.slice(0, 4) : '';
+        })
+    );
+    const fmtPct = (v) => v.toLocaleString('es-CL', { minimumFractionDigits: 1, maximumFractionDigits: 1 }) + '%';
+
+    container.innerHTML = `
+        <div style="background:#f8fafc; border-radius:12px; border:1px solid #e2e8f0; padding:10px; display:flex; align-items:center; gap:10px; flex-wrap:wrap; margin-bottom:14px;">
+            <span style="font-size:0.8rem; font-weight:600; color:#64748b;">📅 Año</span>
+            <select id="estadisticasOcupPorMesFiltroAnio" style="padding:5px 8px; border:1px solid #d1d9e6; border-radius:6px; font-size:0.8rem;">
+                ${anios.map(a => `<option value="${a}" ${String(estadisticasOcupPorMesAnio) === a ? 'selected' : ''}>${a}</option>`).join('')}
+            </select>
+            <span style="font-size:0.72rem; color:#94a3b8;">No se ve afectado por el filtro de fecha general — siempre muestra el año completo, mes a mes.</span>
+        </div>
+
+        <div style="font-size:0.78rem; font-weight:600; color:#475569; margin-bottom:4px;">🏨 % Ocupación de Pabellón</div>
+        <div style="position:relative; height:200px;">
+            <canvas id="chartOcupacionPorMes"></canvas>
+        </div>
+        <div class="stats-table-wrap" style="max-height:none; margin-top:10px;">
+            <table style="width:100%; min-width:0; table-layout:fixed; font-size:0.78rem;">
+                <thead><tr><th>Mes</th><th>% Ocupación</th><th>Hrs. Habilitadas</th><th>Hrs. Trabajadas</th><th>Bloques Inhabilitados</th></tr></thead>
+                <tbody>
+                    ${ESTADISTICAS_NOMBRES_MES.map((nombreMes, i) => `
+                        <tr>
+                            <td>${nombreMes}</td>
+                            <td style="text-align:center; font-weight:700;">${fmtPct(datos.meses[i].porcentajeOcupacion)}</td>
+                            <td style="text-align:center;">${estadisticasFormatearHoras(datos.meses[i].horasHabilitadas)}</td>
+                            <td style="text-align:center;">${estadisticasFormatearHoras(datos.meses[i].horasTrabajadas)}</td>
+                            <td style="text-align:center;">${datos.meses[i].bloquesInhabilitados}</td>
+                        </tr>
+                    `).join('')}
+                    <tr style="font-weight:700; background:#f1f5f9;">
+                        <td>Promedio Año</td>
+                        <td style="text-align:center;">${fmtPct(datos.promedio.porcentajeOcupacion)}</td>
+                        <td style="text-align:center;" colspan="3">—</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+
+        ${datos.inhabilitados.length > 0 ? `
+            <div style="font-size:0.78rem; font-weight:600; color:#475569; margin:14px 0 4px;">⛔ Detalle de bloques marcados inhabilitados en ${estadisticasOcupPorMesAnio} (${datos.inhabilitados.length})</div>
+            <div class="stats-table-wrap" style="max-height:180px;">
+                <table style="width:100%; min-width:0; table-layout:fixed; font-size:0.75rem;">
+                    <thead><tr><th>Fecha</th><th>Pabellón</th><th>Bloque</th></tr></thead>
+                    <tbody>
+                        ${datos.inhabilitados.map(x => `
+                            <tr><td>${x.fecha}</td><td style="text-align:center;">${x.pabellon}</td><td style="text-align:center;">${x.bloque}</td></tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>
+        ` : `<p style="color:#94a3b8; font-size:0.75rem; margin-top:10px;">Ningún bloque fue marcado como inhabilitado en ${estadisticasOcupPorMesAnio}.</p>`}
+
+        <div style="font-size:0.78rem; font-weight:600; color:#475569; margin:18px 0 4px;">⚙️ Rendimiento por Pabellón (casos/pabellón/día)</div>
+        <div style="position:relative; height:200px;">
+            <canvas id="chartRendimientoPorMes"></canvas>
+        </div>
+        <div class="stats-table-wrap" style="max-height:none; margin-top:10px;">
+            <table style="width:100%; min-width:0; table-layout:fixed; font-size:0.78rem;">
+                <thead><tr><th>Mes</th><th>Rend. Solo Prog. Cmay</th><th>Rend. Total CX</th></tr></thead>
+                <tbody>
+                    ${ESTADISTICAS_NOMBRES_MES.map((nombreMes, i) => `
+                        <tr>
+                            <td>${nombreMes}</td>
+                            <td style="text-align:center; font-weight:700;">${datos.meses[i].rendimientoSoloProgCmay.toFixed(2)}</td>
+                            <td style="text-align:center;">${datos.meses[i].rendimientoTotalCx.toFixed(2)}</td>
+                        </tr>
+                    `).join('')}
+                    <tr style="font-weight:700; background:#f1f5f9;">
+                        <td>Promedio Año</td>
+                        <td style="text-align:center;">${datos.promedio.rendimientoSoloProgCmay.toFixed(2)}</td>
+                        <td style="text-align:center;">${datos.promedio.rendimientoTotalCx.toFixed(2)}</td>
+                    </tr>
+                </tbody>
+            </table>
+        </div>
+    `;
+
+    document.getElementById('estadisticasOcupPorMesFiltroAnio')?.addEventListener('change', function() {
+        estadisticasOcupPorMesAnio = parseInt(this.value, 10);
+        renderEstadisticasOcupPorMes();
+    });
+
+    dibujarChartOcupacionRendimientoPorMes(datos);
+}
+
+function dibujarChartOcupacionRendimientoPorMes(datos) {
+    const labels = [...ESTADISTICAS_NOMBRES_MES.map(m => m.slice(0, 3)), 'Prom. Año'];
+    const ocupSerie = [...datos.meses.map(m => m.porcentajeOcupacion), datos.promedio.porcentajeOcupacion];
+    const rendProgSerie = [...datos.meses.map(m => m.rendimientoSoloProgCmay), datos.promedio.rendimientoSoloProgCmay];
+    const rendTotalSerie = [...datos.meses.map(m => m.rendimientoTotalCx), datos.promedio.rendimientoTotalCx];
+
+    const canvasOcup = document.getElementById('chartOcupacionPorMes');
+    if (canvasOcup && typeof Chart !== 'undefined') {
+        if (estadisticasChartOcupPorMes) estadisticasChartOcupPorMes.destroy();
+        estadisticasChartOcupPorMes = new Chart(canvasOcup.getContext('2d'), {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [{
+                    label: '% Ocupación',
+                    data: ocupSerie,
+                    labelsTexto: ocupSerie.map(v => v.toFixed(1) + '%'),
+                    borderColor: '#1a6d8a', backgroundColor: '#1a6d8a', tension: 0.25
+                }]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                layout: { padding: { top: 22 } },
+                plugins: { legend: { display: false } },
+                scales: { y: { beginAtZero: true, ticks: { callback: (v) => v + '%' } } }
+            }
+        });
+    }
+
+    const canvasRend = document.getElementById('chartRendimientoPorMes');
+    if (canvasRend && typeof Chart !== 'undefined') {
+        if (estadisticasChartRendPorMes) estadisticasChartRendPorMes.destroy();
+        estadisticasChartRendPorMes = new Chart(canvasRend.getContext('2d'), {
+            type: 'line',
+            data: {
+                labels,
+                datasets: [
+                    {
+                        label: 'Rend. Solo Prog. Cmay',
+                        data: rendProgSerie,
+                        labelsTexto: rendProgSerie.map(v => v.toFixed(2)),
+                        borderColor: '#0e7c7c', backgroundColor: '#0e7c7c', tension: 0.25
+                    },
+                    {
+                        label: 'Rend. Total CX',
+                        data: rendTotalSerie,
+                        labelsTexto: rendTotalSerie.map(v => v.toFixed(2)),
+                        borderColor: '#d2691e', backgroundColor: '#d2691e', tension: 0.25
+                    }
+                ]
+            },
+            options: {
+                responsive: true,
+                maintainAspectRatio: false,
+                layout: { padding: { top: 22 } },
+                plugins: { legend: { position: 'bottom' } },
+                scales: { y: { beginAtZero: true } }
+            }
+        });
+    }
 }
 
 // =============================================================
