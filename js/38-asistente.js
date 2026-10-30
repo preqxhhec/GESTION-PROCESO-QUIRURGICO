@@ -269,12 +269,12 @@ function asisExtraerRango(t) {
 // =============================================================
 const ASIS_FAMILIAS_ESPECIALIDAD = [
     { etiqueta: 'ODONTOPEDIATRÍA', re: /\b(odonto\w*|dental)\b/, dato: v => v.includes('odonto') },
-    { etiqueta: 'TRAUMATOLOGÍA', re: /\btrauma\w*\b/, dato: v => v.includes('traumat') },
-    { etiqueta: 'GINECOLOGÍA', re: /\b(gine\w*|obstetric\w*)\b/, dato: v => v.includes('ginec') || v.includes('obstet') },
-    { etiqueta: 'OFTALMOLOGÍA', re: /\b(oftalmo\w*|oftlamo\w*|oft)\b/, dato: v => v.includes('oftal') || v.includes('oftla') },
-    { etiqueta: 'ORL', re: /\b(orl|otorrino\w*)\b/, dato: v => /\borl\b/.test(v) || v.includes('otorrino') },
-    { etiqueta: 'MAXILOFACIAL', re: /\bmaxilo\w*\b/, dato: v => v.includes('maxilo') },
-    { etiqueta: 'UROLOGÍA', re: /\buro(logia|logica|logo|logos)?\b/, dato: v => v.includes('urolog') },
+    { etiqueta: 'TRAUMATOLOGÍA', re: /\b(trauma\w*|tramato\w*|traumto\w*)\b/, dato: v => v.includes('traumat') },
+    { etiqueta: 'GINECOLOGÍA', re: /\b(gine\w*|jine\w*|ginco\w*|obstetric\w*)\b/, dato: v => v.includes('ginec') || v.includes('obstet') },
+    { etiqueta: 'OFTALMOLOGÍA', re: /\b(oftal\w*|oftlamo\w*|ofta|oft|oftam\w*|ofatl\w*)\b/, dato: v => v.includes('oftal') || v.includes('oftla') },
+    { etiqueta: 'ORL', re: /\b(orl|otorr?ino\w*|otorin\w*|otorrinolar\w*)\b/, dato: v => /\borl\b/.test(v) || v.includes('otorrino') },
+    { etiqueta: 'MAXILOFACIAL', re: /\b(maxilo\w*|maxil\w*|maxsilo\w*)\b/, dato: v => v.includes('maxilo') },
+    { etiqueta: 'UROLOGÍA', re: /\buro(l[oj]\w*|lgia)?\b/, dato: v => v.includes('urolog') },
     { etiqueta: 'CIRUGÍA INFANTIL', re: /\b(cirugia infantil|infantil|cirugia pediatrica|pediatric\w*)\b/, dato: v => v.includes('infantil') || (v.includes('pediatr') && !v.includes('odonto')) },
     { etiqueta: 'CIRUGÍA GENERAL / ADULTO', re: /\bcirugia (general|adulto|de adulto)\b/, dato: v => v.includes('cirugia general') || v.includes('cirugia adulto') }
 ];
@@ -415,6 +415,93 @@ function asisDetectarNombre(t) {
     return tokens;
 }
 
+// =============================================================
+// 🧱 COLUMNAS DE LA TABLA: "sin primera intervención", "con hora de
+// salida", "destino CMA"... Sirve para cualquier columna de la Tabla
+// Quirúrgica / Libro, por su nombre o por sinónimos.
+// =============================================================
+const ASIS_COLUMNAS = [
+    { col: '1ra_Intervencion_Qx_Realizada', etiqueta: '1ra Intervención Qx Realizada', sin: ['1ra intervencion', '1a intervencion', 'primera intervencion', '1ra_intervencion', 'intervencion realizada', 'intervencion qx realizada'] },
+    { col: '2da_Intervencion_Qx_Realizada', etiqueta: '2da Intervención Qx Realizada', sin: ['2da intervencion', '2a intervencion', 'segunda intervencion', '2da_intervencion'] },
+    { col: '3ra_Intervencion_Realizada', etiqueta: '3ra Intervención Realizada', sin: ['3ra intervencion', '3a intervencion', 'tercera intervencion', '3ra_intervencion'] },
+    { col: 'Tipo_Actividad_2', etiqueta: 'Tipo de Actividad 2', sin: ['tipo de actividad 2', 'tipo actividad 2', 'tipo_actividad_2'] },
+    { col: 'Tipo_Actividad_3', etiqueta: 'Tipo de Actividad 3', sin: ['tipo de actividad 3', 'tipo actividad 3', 'tipo_actividad_3'] },
+    { col: 'Tipo_Actividad', etiqueta: 'Tipo de Actividad', sin: ['tipo de actividad', 'tipo actividad', 'tipo_actividad'] },
+    { col: 'Intervencion_propuesta', etiqueta: 'Intervención Propuesta', sin: ['intervencion propuesta', 'intervencion_propuesta', 'cirugia propuesta'] },
+    { col: 'Causal_de_suspension', etiqueta: 'Causal de Suspensión', sin: ['causal de suspension', 'causal_de_suspension', 'causal'] },
+    { col: 'Hora_de_entrada', etiqueta: 'Hora de Entrada', sin: ['hora de entrada', 'hora entrada', 'hora_de_entrada'] },
+    { col: 'Hora_de_salida', etiqueta: 'Hora de Salida', sin: ['hora de salida', 'hora salida', 'hora_de_salida'] },
+    { col: 'T_Retraso', etiqueta: 'T. Retraso', sin: ['t retraso', 'tiempo de retraso', 't_retraso', 'retraso'] },
+    { col: 'T_Qx', etiqueta: 'T_Qx (programado)', sin: ['tiempo programado', 't qx programado', 'tqx programado'] },
+    { col: 'T_QX', etiqueta: 'T_QX (tiempo quirúrgico)', sin: ['t qx', 'tqx', 't_qx', 'tiempo quirurgico', 'duracion'] },
+    { col: 'Condicion_LE', etiqueta: 'Condición LE', sin: ['condicion le', 'condicion_le', 'condicion'] },
+    { col: 'ESTADO_DE_IQx', etiqueta: 'ESTADO DE IQx', sin: ['estado de iqx', 'estado iqx', 'estado_de_iqx', 'estado de la cirugia', 'resultado'] },
+    { col: 'Nombre_Paciente', etiqueta: 'Nombre', sin: ['nombre del paciente', 'nombre_paciente', 'nombre'] },
+    { col: 'Anestesista', etiqueta: 'Anestesista', sin: ['anestesista', 'anestesiologo'] },
+    { col: 'Diagnostico', etiqueta: 'Diagnóstico', sin: ['diagnostico'] },
+    { col: 'Observaciones', etiqueta: 'Observaciones', sin: ['observacion', 'observaciones'] },
+    { col: 'Especialidad', etiqueta: 'Especialidad', sin: ['especialidad'] },
+    { col: 'Cirujano', etiqueta: 'Cirujano', sin: ['cirujano'] },
+    { col: 'Jornada', etiqueta: 'Jornada', sin: ['jornada'] },
+    { col: 'DESTINO', etiqueta: 'Destino', sin: ['destino'] },
+    { col: 'Motivo', etiqueta: 'Motivo', sin: ['motivo'] },
+    { col: 'FICHA', etiqueta: 'Ficha', sin: ['ficha', 'numero de ficha'] },
+    { col: 'Edad', etiqueta: 'Edad', sin: ['edad'] },
+    { col: 'RUT', etiqueta: 'RUT', sin: ['rut'] },
+    { col: 'FECHA', etiqueta: 'Fecha', sin: ['fecha de cirugia', 'columna fecha'] }
+];
+
+function asisValorVacio(v) {
+    const x = (v == null ? '' : String(v)).trim();
+    return x === '' || x.toLowerCase() === 'seleccione' || x === '-';
+}
+
+const ASIS_RE_VACIO = /\b(sin|vaci[oa]s?|en blanco|pendientes?|falta\w*|no (tiene\w*|tienen|registra\w*|ha\w* (sido )?(completad|llenad|ingresad)\w*)|sin (dato|datos|informacion)|incomplet\w*|por (completar|llenar|ingresar)|no (esta|estan) (llen|complet)\w*|nulos?)\b/;
+const ASIS_RE_LLENO = /\b(con|tienen|tiene|completad\w*|llen[oa]s?|registrad\w*|ingresad\w*)\b/;
+
+function asisDetectarColumna(t) {
+    const candidatos = [];
+    ASIS_COLUMNAS.forEach(c => c.sin.forEach(sn => candidatos.push({ c, sn })));
+    candidatos.sort((a, b) => b.sn.length - a.sn.length);
+    const tok = asisTokens(t);
+    for (const { c, sn } of candidatos) {
+        const partes = sn.split(' ');
+        let pos = -1;
+        for (let i = 0; i + partes.length <= tok.length; i++) {
+            if (partes.every((p, j) => j === partes.length - 1 ? tok[i + j].startsWith(p) : tok[i + j] === p)) { pos = i; break; }
+        }
+        if (pos === -1) continue;
+        const antes = tok.slice(Math.max(0, pos - 6), pos).join(' ');
+        const todo = t;
+        let modo = null;
+        if (ASIS_RE_VACIO.test(antes) || ASIS_RE_VACIO.test(todo.replace(/\bpendientes? epa\b/g, ''))) modo = 'vacio';
+        else if (ASIS_RE_LLENO.test(antes)) modo = 'lleno';
+        // "destino cma", "jornada am": valor a continuación del nombre de la columna
+        const despues = tok.slice(pos + partes.length).filter(x => !ASIS_STOPWORDS.has(x) && !ASIS_PALABRAS_NO_NOMBRE.has(x) && !/^\d/.test(x) && !['desde', 'hasta', 'entre', 'tabla'].includes(x)).slice(0, 3);
+        const categorica = ['DESTINO', 'Jornada', 'Tipo_Actividad', 'Tipo_Actividad_2', 'Tipo_Actividad_3', 'Causal_de_suspension', 'Motivo', 'Anestesista', 'Condicion_LE', 'ESTADO_DE_IQx', '1ra_Intervencion_Qx_Realizada', '2da_Intervencion_Qx_Realizada', '3ra_Intervencion_Realizada', 'Intervencion_propuesta', 'Diagnostico'].includes(c.col);
+        if (modo === 'lleno' && categorica && despues.length) modo = 'valor';
+        if (!modo && categorica && despues.length && despues[0].length >= 2) modo = 'valor';
+        if (!modo) continue;
+        return { col: c.col, etiqueta: c.etiqueta, modo, valorTokens: modo === 'valor' ? despues : null };
+    }
+    return null;
+}
+
+function asisCoincideColumna(fila, columna) {
+    const v = fila[columna.col];
+    if (columna.modo === 'vacio') return asisValorVacio(v);
+    if (columna.modo === 'lleno') return !asisValorVacio(v);
+    if (asisValorVacio(v)) return false;
+    const n = asisNorm(v);
+    return columna.valorTokens.every(tk => n.split(' ').some(w => w.startsWith(tk)));
+}
+
+function asisDescribirColumna(columna) {
+    if (columna.modo === 'vacio') return `sin dato en <b>${asisEsc(columna.etiqueta)}</b>`;
+    if (columna.modo === 'lleno') return `con dato en <b>${asisEsc(columna.etiqueta)}</b>`;
+    return `con <b>${asisEsc(columna.etiqueta)}</b> = "${asisEsc(columna.valorTokens.join(' '))}"`;
+}
+
 function asisEsComoHacer(t) {
     return /^(que es|que son|que significa|que significan|que quiere decir|para que (sirve|sirven|es)|que hace|que hacen|donde (esta|estan|encuentro|veo|aparece|aparecen|se ve|se encuentra)|se puede|puedo|es posible|explica|explicame|cual es la diferencia|que diferencia|por que (no|se|aparece|desaparece|me|esta|estan|sale))\b/.test(t)
         || /\bcomo (se |lo |la |le |puedo |hago |hacer |debo |funciona|uso |usar |cambio |agrego |agregar |elimino |eliminar |borro |borrar |creo |crear |doy |activo |desactivo |veo |ver |busco |buscar |filtro |exporto |exportar |imprimo |imprimir |cargo |cargar |registro |registrar |difiero |diferir |reubico |reubicar |reintegro |reintegrar |envio |enviar |recupero |recuperar |configuro |asigno |quito |pongo |saco |descargo |descargar |marco |marcar |edito |editar |modifico |ingreso |ingresar |programo |programar |cancelo |cierro |abro |accedo |entro |guardo |guardar |subo |calcula|se calcula|funcionan|mando |mandar |limpio |limpiar |silencio |muevo |mover |renombro |inicio |cambiar )/.test(t)
@@ -422,10 +509,10 @@ function asisEsComoHacer(t) {
 }
 
 function asisAnalizar(original) {
-    const t = asisNorm(original);
+    const t = asisNumerosATexto(asisNorm(original));
     const ctx = {
         original, t,
-        rango: asisExtraerRango(t),
+        rango: asisRangoExtra(t) || asisExtraerRango(t),
         esp: asisDetectarEspecialidad(t),
         pab: asisDetectarPabellon(t),
         jornada: asisDetectarJornada(t),
@@ -437,10 +524,19 @@ function asisAnalizar(original) {
         ges: asisDetectarGes(t),
         n: asisDetectarN(t),
         nombreTokens: asisDetectarNombre(t),
+        columna: asisDetectarColumna(t),
+        columnaLE: asisDetectarColumnaLE(t),
+        umbral: asisDetectarUmbralDias(t),
+        edad: asisDetectarEdad(t),
+        comuna: asisDetectarComuna(t),
         esComoHacer: asisEsComoHacer(t),
         esCuanto: /\b(cuant[oa]s?|numero de|cantidad de|total de|cuenta)\b/.test(t),
         esLista: /\b(quien(es)?|cuales|lista(do)?|detalle|nombres?|que pacientes|muestra(me)?|dime (los|las|quienes)|ver (los|las)|cuales son)\b/.test(t)
     };
+    // "1ra intervención realizada" es el nombre de una columna, no "operados".
+    if (ctx.columna && ctx.estadoIqx && ctx.estadoIqx.etiqueta.startsWith('OPERADO (cualquier')
+        && !/\b(operad\w*|se (hicieron|realizaron|operaron|opero))\b/.test(t)) ctx.estadoIqx = null;
+    if (ctx.edad && ctx.esp && ctx.esp.etiqueta === 'CIRUGÍA INFANTIL' && !/\b(infantil|cirugia pediatrica)\b/.test(t)) ctx.esp = null;
     ctx.contextoLE = /\b(lista de espera|en espera|esperando|le|epa|programables?|prioridad|ges|folio|llamad\w*|llamar|ingres\w*|estatus|tratante|preoperatorio)\b/.test(t)
         || !!ctx.prioridad || !!ctx.ges;
     ctx.contextoTabla = /\b(tabla|programad\w*|pabellon|cupos?|filas?|jornada|operan|opera|operara|operaran|se opera\w*|agendad\w*|cirugias?|intervenciones|cirujano)\b/.test(t)
@@ -586,6 +682,10 @@ function asisDescribirFiltros(ctx, opciones = {}) {
     if (ctx.jornada) partes.push(`jornada <b>${ctx.jornada}</b>`);
     if (ctx.medico) partes.push(`con <b>${asisEsc(ctx.medico.etiqueta)}</b>`);
     if (ctx.estadoIqx && !opciones.sinEstado && !opciones.conLE) partes.push(`en estado <b>${asisEsc(ctx.estadoIqx.etiqueta)}</b>`);
+    if (ctx.columna && opciones.conColumna) partes.push(asisDescribirColumna(ctx.columna));
+    if (ctx.comuna && opciones.conLE) partes.push(`de la comuna <b>${asisEsc(ctx.comuna)}</b>`);
+    if (ctx.umbral && opciones.conLE) partes.push(`con ${asisEsc(ctx.umbral.texto)} de espera`);
+    if (ctx.edad) partes.push(asisEsc(ctx.edad.texto));
     if (ctx.estatusLE && opciones.conEstatusLE) partes.push(`en estatus <b>${asisEsc(ctx.estatusLE)}</b>`);
     if (ctx.prioridad && opciones.conLE) partes.push(`prioridad <b>P${ctx.prioridad}</b>`);
     if (ctx.ges && opciones.conLE) partes.push(ctx.ges === 'SI' ? '<b>GES</b>' : '<b>no GES</b>');
@@ -910,11 +1010,12 @@ async function asisHandlerRegistros(ctx) {
         && (!ctx.pab || x.pab === ctx.pab)
         && (!ctx.jornada || (x.fila.Jornada || '').toString().toUpperCase() === ctx.jornada)
         && (!ctx.medico || asisCoincideTokens(x.fila.Cirujano, ctx.medico.tokens))
-        && (!ctx.estadoIqx || ctx.estadoIqx.coincide(x.fila.ESTADO_DE_IQx)));
+        && (!ctx.estadoIqx || ctx.estadoIqx.coincide(x.fila.ESTADO_DE_IQx))
+        && (!ctx.columna || asisCoincideColumna(x.fila, ctx.columna)));
 
     filtradas.sort((a, b) => (a.fecha + a.pab + (a.fila.Jornada || '')).localeCompare(b.fecha + b.pab + (b.fila.Jornada || '')));
 
-    const filtros = asisDescribirFiltros(ctx);
+    const filtros = asisDescribirFiltros(ctx, { conColumna: true });
     const n = filtradas.length;
     const avisoPermisos = !puedeTabla ? '<div class="asis-nota">ℹ️ Solo incluí el Libro de Quirófano (no tienes acceso a la Tabla Quirúrgica).</div>'
         : (!puedeLibro && rango.desde < hoyStr ? '<div class="asis-nota">ℹ️ Solo incluí la Tabla Quirúrgica (no tienes acceso al Libro de Quirófano, donde quedan los días ya registrados).</div>' : '');
@@ -942,12 +1043,13 @@ async function asisHandlerRegistros(ctx) {
         html += `<div class="asis-sub">Principales causales:</div>${asisChipsConteo(causales, 5)}`;
     }
 
-    if (ctx.esLista || n <= ASIS_MAX_ITEMS_LISTA || !ctx.esCuanto) {
+    if (ctx.esLista || n <= ASIS_MAX_ITEMS_LISTA || !ctx.esCuanto || ctx.columna) {
         html += asisListaHtml(filtradas, x => {
             const f = x.fila;
             const estado = (f.ESTADO_DE_IQx && f.ESTADO_DE_IQx !== 'Seleccione') ? ` · <i>${asisEsc(f.ESTADO_DE_IQx)}</i>` : '';
+            const valorCol = (ctx.columna && ctx.columna.modo !== 'vacio' && !['Nombre_Paciente', 'Especialidad', 'Cirujano', 'ESTADO_DE_IQx', 'Intervencion_propuesta'].includes(ctx.columna.col)) ? ` · ${asisEsc(ctx.columna.etiqueta)}: <b>${asisEsc(f[ctx.columna.col])}</b>` : '';
             const ir = x.origen === 'tabla' ? asisBotonInline('↗', () => asisIrTabla(x.semanaIdx, x.diaIdx), 'Ver en la Tabla') : '<span title="Libro de Quirófano">📘</span>';
-            return `<li>${ir} ${asisFechaCorta(x.fecha)} · ${asisEsc(x.pab || '')}${f.Jornada && f.Jornada !== 'Seleccione' ? ' ' + asisEsc(f.Jornada) : ''} — <b>${asisEsc(f.Nombre_Paciente || '(sin nombre)')}</b>${f.Especialidad && f.Especialidad !== 'Seleccione' ? ' · ' + asisEsc(f.Especialidad) : ''}${f.Cirujano && f.Cirujano !== 'Seleccione' ? ' · ' + asisEsc(f.Cirujano) : ''}${f.Intervencion_propuesta ? ' · ' + asisEsc(f.Intervencion_propuesta) : ''}${estado}</li>`;
+            return `<li>${ir} ${asisFechaCorta(x.fecha)} · ${asisEsc(x.pab || '')}${f.Jornada && f.Jornada !== 'Seleccione' ? ' ' + asisEsc(f.Jornada) : ''} — <b>${asisEsc(f.Nombre_Paciente || '(sin nombre)')}</b>${f.Especialidad && f.Especialidad !== 'Seleccione' ? ' · ' + asisEsc(f.Especialidad) : ''}${f.Cirujano && f.Cirujano !== 'Seleccione' ? ' · ' + asisEsc(f.Cirujano) : ''}${f.Intervencion_propuesta ? ' · ' + asisEsc(f.Intervencion_propuesta) : ''}${estado}${valorCol}${x.origen === 'tabla' ? ` <span class="asis-nota">(Sem ${x.semanaIdx + 1})</span>` : ''}</li>`;
         });
     }
     html += avisoPermisos;
@@ -1187,7 +1289,10 @@ function asisFiltrarLE(pacientes, ctx, { soloGestionables = true } = {}) {
         && (!ctx.esp || ctx.esp.coincide(p.especialidad))
         && (!ctx.prioridad || (p.prioridad || '').toString().replace(/\D/g, '') === ctx.prioridad)
         && (!ctx.ges || (p.ges || '').toString().trim().toUpperCase() === ctx.ges)
-        && (!ctx.medico || asisCoincideTokens(p.medicoTratante, ctx.medico.tokens)));
+        && (!ctx.medico || asisCoincideTokens(p.medicoTratante, ctx.medico.tokens))
+        && (!ctx.comuna || asisNorm(p.comuna) === asisNorm(ctx.comuna))
+        && asisCumpleEdad(p, ctx.edad)
+        && (!ctx.umbral || (d => d !== null && (ctx.umbral.tipo === 'mas' ? d > ctx.umbral.dias : d < ctx.umbral.dias))(asisDiasEspera(p, 'fechaIndQx'))));
 }
 
 async function asisHandlerMayorEspera(ctx) {
@@ -1770,6 +1875,8 @@ const ASIS_INTENCIONES = {
 
 function asisDetectarIntencionDatos(ctx) {
     const t = ctx.t;
+    // Filtro por columna (vacía / con dato): manda sobre horarios, etc.
+    if (ctx.columna && ctx.columna.modo !== 'valor' && !ctx.contextoLE && !ctx.esComoHacer) return 'registros';
     if (!ctx.esComoHacer) {
         if (/\b(horario inhabil|fuera de horario|inhabil|despues de las 17|fin(es)? de semana)\b/.test(t)) return 'inhabil';
         if (/\b(hora (de )?(entrada|salida|inicio|termino|cierre)|horarios?|entra\w* (mas )?(temprano|tarde|antes|despues)|empieza\w*|comienza\w*|inici\w* (el |del )?bloque|cierr\w* (el |del )?bloque|termina\w* (mas )?(temprano|tarde)|sal\w* mas (temprano|tarde)|atraso\w*|atrasad\w*|puntual\w*|bloque (am|pm))\b/.test(t) && !ctx.contextoLE) return 'horarios';
@@ -1792,6 +1899,7 @@ function asisDetectarIntencionDatos(ctx) {
     if (/\b(mediana|percentil\w*|p(25|50|75|90)|tiempo (promedio|medio) de espera|promedio de espera|cuanto (se )?espera(n)?|tiempo de espera)\b/.test(t)) return 'mediana';
     if (/\bdiferid\w*/.test(t) && !/\ben lista de diferidos\b/.test(t)) return 'diferidos';
     if (/\b(ingres\w*|nuevos? pacientes?|pacientes? nuevos?)\b/.test(t) && (ctx.contextoLE || ctx.rango)) return 'ingresos';
+    if (ctx.columna && !ctx.contextoLE && !ctx.esComoHacer) return 'registros';
     if (ctx.rut) return 'buscar';
     if (ctx.nombreTokens && !/\b(boton|opcion|seccion|menu|pestana|funcion|filtro)\b/.test(t)) return 'buscar';
     if (ctx.contextoLE && !ctx.contextoTabla) return 'leConteo';
@@ -1802,9 +1910,884 @@ function asisDetectarIntencionDatos(ctx) {
     return null;
 }
 
+// =============================================================
+// ➕ AMPLIACIÓN: más preguntas (Tabla día a día, Estadísticas,
+// Lista de Espera, paciente puntual, usuarios, acciones, lenguaje)
+// =============================================================
+
+// --- Lenguaje: números escritos ("los diez que más esperan") ---
+const ASIS_NUMEROS_TEXTO = { dos: 2, tres: 3, cuatro: 4, cinco: 5, seis: 6, siete: 7, ocho: 8, nueve: 9, diez: 10, once: 11, doce: 12, quince: 15, veinte: 20, treinta: 30, cuarenta: 40, cincuenta: 50, sesenta: 60, setenta: 70, cien: 100 };
+function asisNumerosATexto(t) {
+    return t.replace(/\b(dos|tres|cuatro|cinco|seis|siete|ocho|nueve|diez|once|doce|quince|veinte|treinta|cuarenta|cincuenta|sesenta|setenta|cien)\b/g, m => String(ASIS_NUMEROS_TEXTO[m]));
+}
+
+// --- Lenguaje: fechas relativas adicionales ---
+function asisRangoExtra(t) {
+    const hoy = asisHoy();
+    const r = (desde, hasta, etiqueta) => ({ desde: asisFmt(desde), hasta: asisFmt(hasta), etiqueta });
+    let m = t.match(/\bhace (\d{1,3}) (dias?|semanas?|mes(es)?)\b/);
+    if (m) {
+        const n = +m[1];
+        if (m[2].startsWith('dia')) { const d = asisSumarDias(hoy, -n); return r(d, d, `hace ${n} días (${asisFechaLarga(d)})`); }
+        if (m[2].startsWith('semana')) { const l = asisSumarDias(asisLunesDe(hoy), -7 * n); return r(l, asisSumarDias(l, 6), `la semana de hace ${n} semanas`); }
+        const a = new Date(hoy.getFullYear(), hoy.getMonth() - n, 1);
+        return r(a, new Date(a.getFullYear(), a.getMonth() + 1, 0), `hace ${n} meses (${ASIS_MESES[a.getMonth()]})`);
+    }
+    m = t.match(/\b(?:ultimos|ultimas|pasados|pasadas) (\d{1,3}) (semanas?|mes(es)?)\b/);
+    if (m) {
+        const n = +m[1];
+        const desde = m[2].startsWith('semana') ? asisSumarDias(hoy, -7 * n + 1) : new Date(hoy.getFullYear(), hoy.getMonth() - n + 1, 1);
+        return r(desde, hoy, `en los últimos ${n} ${m[2]}`);
+    }
+    m = t.match(/\bdesde el (lunes|martes|miercoles|jueves|viernes|sabado|domingo)\b/);
+    if (m) {
+        const idx = (ASIS_DIAS_SEMANA.indexOf(m[1]) + 6) % 7;
+        let d = asisSumarDias(asisLunesDe(hoy), idx);
+        if (d > hoy) d = asisSumarDias(d, -7);
+        return r(d, hoy, `desde el ${asisFechaLarga(d)}`);
+    }
+    const trimestre = mes => Math.floor(mes / 3);
+    if (/\b(trimestre pasado|ultimo trimestre|trimestre anterior)\b/.test(t)) {
+        let q = trimestre(hoy.getMonth()) - 1, y = hoy.getFullYear();
+        if (q < 0) { q = 3; y--; }
+        return r(new Date(y, q * 3, 1), new Date(y, q * 3 + 3, 0), `el trimestre pasado`);
+    }
+    if (/\b(este trimestre|trimestre actual)\b/.test(t)) {
+        const q = trimestre(hoy.getMonth());
+        return r(new Date(hoy.getFullYear(), q * 3, 1), new Date(hoy.getFullYear(), q * 3 + 3, 0), 'este trimestre');
+    }
+    m = t.match(/\b(primer|1er|segundo|2do) semestre(?: (?:de |del )?(20\d\d))?\b/);
+    if (m) {
+        const y = m[2] ? +m[2] : hoy.getFullYear();
+        const primero = /^(primer|1er)$/.test(m[1]);
+        return r(new Date(y, primero ? 0 : 6, 1), new Date(y, primero ? 6 : 12, 0), `el ${primero ? 'primer' : 'segundo'} semestre ${y}`);
+    }
+    m = t.match(/\b(primer|segundo|tercer|cuarto) trimestre(?: (?:de |del )?(20\d\d))?\b/);
+    if (m) {
+        const y = m[2] ? +m[2] : hoy.getFullYear();
+        const q = ['primer', 'segundo', 'tercer', 'cuarto'].indexOf(m[1]);
+        return r(new Date(y, q * 3, 1), new Date(y, q * 3 + 3, 0), `el ${m[1]} trimestre ${y}`);
+    }
+    return null;
+}
+
+// --- Umbrales de días y edad ---
+function asisDetectarUmbralDias(t) {
+    const m = t.match(/\b(mas|menos) de (\d{1,4}) (dias?|semanas?|mes(es)?|anos?)\b/);
+    if (!m) return null;
+    const factor = m[3].startsWith('dia') ? 1 : m[3].startsWith('semana') ? 7 : m[3].startsWith('mes') ? 30 : 365;
+    return { tipo: m[1], dias: +m[2] * factor, texto: `${m[1] === 'mas' ? 'más' : 'menos'} de ${m[2]} ${m[3]}` };
+}
+
+function asisDetectarEdad(t) {
+    let m = t.match(/\b(mayores?|menores?) de (\d{1,3})( anos)?\b/);
+    if (m) return m[1].startsWith('mayor') ? { min: +m[2], texto: `mayores de ${m[2]} años` } : { max: +m[2] - 1, texto: `menores de ${m[2]} años` };
+    m = t.match(/\b(adult\w*|pediatric\w*|ninos?)\b/);
+    if (m && /\b(edad|pacientes?|cuant\w*|rem)\b/.test(t)) return m[1].startsWith('adult') ? { min: 15, texto: '≥15 años' } : { max: 14, texto: '<15 años' };
+    return null;
+}
+
+function asisEdadDe(p) {
+    if (p.fechaNac && typeof calculateAge === 'function') { const e = calculateAge(p.fechaNac); if (e > 0) return e; }
+    const n = parseInt(p.edad != null ? p.edad : p.Edad, 10);
+    return isNaN(n) ? null : n;
+}
+
+function asisCumpleEdad(p, edad) {
+    if (!edad) return true;
+    const e = asisEdadDe(p);
+    if (e === null) return false;
+    return (edad.min == null || e >= edad.min) && (edad.max == null || e <= edad.max);
+}
+
+// --- Comuna (Lista de Espera) ---
+function asisDetectarComuna(t) {
+    const cands = new Set();
+    try { (comunasLista || []).forEach(c => c && cands.add(String(c))); } catch (e) { /* sin lista */ }
+    asisPacientesLESinc().forEach(p => p.comuna && cands.add(String(p.comuna)));
+    const orden = Array.from(cands).sort((a, b) => b.length - a.length);
+    for (const c of orden) {
+        const n = asisNorm(c);
+        if (n.length >= 4 && asisTiene(t, n)) return c;
+    }
+    return null;
+}
+
+// --- Columnas de la ficha de Lista de Espera ---
+const ASIS_COLUMNAS_LE = [
+    { campo: 'contactos', etiqueta: 'Teléfono', sin: ['telefono', 'telefonos', 'fono', 'celular', 'numero de contacto', 'contacto'] },
+    { campo: 'folio', etiqueta: 'Folio', sin: ['folio'] },
+    { campo: 'emailPaciente', etiqueta: 'Correo', sin: ['correo', 'email', 'mail'] },
+    { campo: 'direccion', etiqueta: 'Dirección', sin: ['direccion', 'domicilio'] },
+    { campo: 'comuna', etiqueta: 'Comuna', sin: ['comuna'] },
+    { campo: 'fechaNac', etiqueta: 'Fecha de Nacimiento', sin: ['fecha de nacimiento', 'nacimiento'] },
+    { campo: 'diagnostico', etiqueta: 'Diagnóstico', sin: ['diagnostico'] },
+    { campo: 'intervencion', etiqueta: 'Intervención', sin: ['intervencion'] },
+    { campo: 'medicoTratante', etiqueta: 'Médico Tratante', sin: ['medico tratante', 'tratante'] },
+    { campo: 'prioridad', etiqueta: 'Prioridad', sin: ['prioridad'] },
+    { campo: 'estatusEpa', etiqueta: 'Estatus EPA', sin: ['estatus epa'] },
+    { campo: 'fechaEpa', etiqueta: 'Fecha EPA', sin: ['fecha epa', 'fecha de epa'] },
+    { campo: 'fechaEstatusProgram', etiqueta: 'Fecha Estatus Programable', sin: ['fecha estatus programable', 'fecha de estatus'] },
+    { campo: 'fechaCirugia', etiqueta: 'Fecha de Cirugía', sin: ['fecha de cirugia', 'fecha cirugia'] },
+    { campo: 'fechaProximoLlamado', etiqueta: 'Próximo Llamado', sin: ['proximo llamado', 'fecha de llamado'] },
+    { campo: 'anestesiologo', etiqueta: 'Anestesiólogo', sin: ['anestesiologo', 'anestesista'] },
+    { campo: 'indicacionesAnest', etiqueta: 'Indicaciones Anestesista', sin: ['indicaciones'] },
+    { campo: 'lateralidad', etiqueta: 'Lateralidad', sin: ['lateralidad'] },
+    { campo: 'observaciones', etiqueta: 'Observaciones', sin: ['observacion', 'observaciones'] },
+    { campo: 'patologiasCronicas', etiqueta: 'Patologías Crónicas', sin: ['patologias', 'patologia cronica', 'cronicas'] },
+    { campo: 'medicamentosCronicos', etiqueta: 'Medicamentos Crónicos', sin: ['medicamentos'] },
+    { campo: 'taco', etiqueta: 'TACO', sin: ['taco'] },
+    { campo: 'asa', etiqueta: 'ASA', sin: ['asa'] },
+    { campo: 'ekg', etiqueta: 'EKG', sin: ['ekg', 'electrocardiograma', 'electro'] },
+    { campo: 'rx', etiqueta: 'RX', sin: ['rx', 'radiografia'] },
+    { campo: 'eco', etiqueta: 'ECO', sin: ['eco', 'ecografia'] }
+];
+const ASIS_CAMPOS_EXAMEN = ['taco', 'asa', 'ekg', 'rx', 'eco'];
+
+function asisValorLE(p, campo) {
+    if (campo === 'contactos') return typeof leObtenerContactosPaciente === 'function' ? leObtenerContactosPaciente(p).join(', ') : (p.nContacto || '');
+    return p[campo] == null ? '' : String(p[campo]);
+}
+
+function asisDetectarColumnaLE(t) {
+    const cands = [];
+    ASIS_COLUMNAS_LE.forEach(c => c.sin.forEach(sn => cands.push({ c, sn })));
+    cands.sort((a, b) => b.sn.length - a.sn.length);
+    for (const { c, sn } of cands) {
+        if (!asisTiene(t, sn)) continue;
+        const esExamen = ASIS_CAMPOS_EXAMEN.includes(c.campo);
+        let modo = null;
+        if (ASIS_RE_VACIO.test(t) || /\bno (tienen|tiene)\b/.test(t)) modo = 'vacio';
+        else if (/\b(con|tienen|tiene)\b/.test(t)) modo = 'lleno';
+        else if (esExamen || /\b(cuant\w*|quienes|cuales|lista)\b/.test(t)) modo = 'resumen';
+        if (!modo) continue;
+        return { ...c, modo, esExamen };
+    }
+    return null;
+}
+
+// --- Usuarios (para "qué hizo X", "última vez que entró X") ---
+async function asisDetectarUsuario(t) {
+    const data = await asisLeerNodoCacheado('usuarios', 60000);
+    const lista = Object.keys(data).map(uid => ({ uid, email: (data[uid] && data[uid].email) || '' })).filter(u => u.email);
+    for (const tok of asisTokens(t)) {
+        if (tok.length < 3 || ASIS_STOPWORDS.has(tok) || ASIS_PALABRAS_NO_NOMBRE.has(tok)) continue;
+        const enc = lista.filter(u => asisNorm(u.email.split('@')[0]).replace(/[._-]/g, ' ').split(' ').some(w => w.startsWith(tok)) || asisNorm(u.email).startsWith(tok));
+        if (enc.length === 1) return enc[0];
+    }
+    return null;
+}
+
+// --- Colores de fila ---
+function asisNombreColor(hex) {
+    const m = (hex || '').toString().match(/^#?([0-9a-f]{6})$/i);
+    if (!m) return hex || '';
+    const n = parseInt(m[1], 16), r = (n >> 16) & 255, g = (n >> 8) & 255, b = n & 255;
+    const max = Math.max(r, g, b), min = Math.min(r, g, b);
+    if (max - min < 20) return max > 200 ? 'blanco' : max < 60 ? 'negro' : 'gris';
+    let h;
+    if (max === r) h = ((g - b) / (max - min)) % 6; else if (max === g) h = (b - r) / (max - min) + 2; else h = (r - g) / (max - min) + 4;
+    h = (h * 60 + 360) % 360;
+    if (h < 15 || h >= 345) return 'rojo';
+    if (h < 40) return 'naranjo';
+    if (h < 65) return 'amarillo';
+    if (h < 170) return 'verde';
+    if (h < 200) return 'celeste';
+    if (h < 255) return 'azul';
+    if (h < 290) return 'morado';
+    return 'rosado';
+}
+
+// --- Fuente combinada Tabla + Libro en un período (con permisos) ---
+async function asisRegistrosCombinados(ctx, porDefecto) {
+    const puedeTabla = asisPuede('registro'), puedeLibro = asisPuede('libro') || asisPuede('estadisticas');
+    const hoy = asisHoy(), hoyStr = asisFmt(hoy);
+    let rango = ctx.rango;
+    if (!rango) {
+        if (porDefecto === 'futuro') {
+            const fs = asisFilasTabla().map(x => x.fecha).filter(f => f && f >= hoyStr).sort();
+            rango = { desde: hoyStr, hasta: fs.length ? fs[fs.length - 1] : hoyStr, etiqueta: 'desde hoy en adelante (lo armado en la Tabla)' };
+        } else if (porDefecto === 'anio') {
+            rango = { desde: asisFmt(new Date(hoy.getFullYear(), 0, 1)), hasta: hoyStr, etiqueta: `este año (${hoy.getFullYear()})` };
+        } else {
+            rango = { desde: asisFmt(new Date(hoy.getFullYear(), hoy.getMonth(), 1)), hasta: hoyStr, etiqueta: `este mes (${ASIS_MESES[hoy.getMonth()]})` };
+        }
+    }
+    const fuentes = [];
+    if (puedeTabla) fuentes.push(...asisFilasTabla());
+    if (puedeLibro && rango.desde <= hoyStr) fuentes.push(...await asisRegistrosLibro());
+    const regs = fuentes.filter(x => x.fecha && x.fecha >= rango.desde && x.fecha <= rango.hasta
+        && (!ctx.esp || ctx.esp.coincide(x.fila.Especialidad))
+        && (!ctx.pab || x.pab === ctx.pab)
+        && (!ctx.jornada || (x.fila.Jornada || '').toString().toUpperCase() === ctx.jornada)
+        && (!ctx.medico || asisCoincideTokens(x.fila.Cirujano, ctx.medico.tokens))
+        && (!ctx.estadoIqx || ctx.estadoIqx.coincide(x.fila.ESTADO_DE_IQx))
+        && (!ctx.columna || asisCoincideColumna(x.fila, ctx.columna))
+        && asisCumpleEdad(x.fila, ctx.edad));
+    return { rango, regs, sinPermiso: !puedeTabla && !puedeLibro };
+}
+
+function asisItemFila(x, extra) {
+    const f = x.fila;
+    const ir = x.origen === 'tabla' ? asisBotonInline('↗', () => asisIrTabla(x.semanaIdx, x.diaIdx), 'Ver en la Tabla') : '<span title="Libro de Quirófano">📘</span>';
+    return `<li>${ir} ${x.fecha ? asisFechaCorta(x.fecha) : 'sin fecha'} · ${asisEsc(x.pab || '')}${f.Jornada && f.Jornada !== 'Seleccione' ? ' ' + asisEsc(f.Jornada) : ''} — <b>${asisEsc(f.Nombre_Paciente || '(sin nombre)')}</b>${f.Especialidad && f.Especialidad !== 'Seleccione' ? ' · ' + asisEsc(f.Especialidad) : ''}${extra ? ' · ' + extra : ''}</li>`;
+}
+
+const ASIS_NO_ELECTIVO = ['SUSPENDIDO', 'URGENCIA', 'CONDICIONAL (NO OPERADO)', 'PERIANALGESIA (PARTO)'];
+
+// =============================================================
+// 📋 TABLA QUIRÚRGICA — día a día
+// =============================================================
+async function asisHandlerTablaIncompletas(ctx) {
+    if (!asisPuede('registro')) return asisSinAcceso('la Tabla Quirúrgica');
+    const soloFecha = /\bsin fecha\b/.test(ctx.t);
+    const claves = ['FECHA', 'RUT', 'Especialidad', 'Cirujano', 'Jornada', 'Intervencion_propuesta'];
+    const lista = asisFilasTabla().filter(x => (!ctx.esp || ctx.esp.coincide(x.fila.Especialidad)) && (!ctx.pab || x.pab === ctx.pab))
+        .map(x => ({ x, faltan: (soloFecha ? ['FECHA'] : claves).filter(k => asisValorVacio(x.fila[k])) }))
+        .filter(o => o.faltan.length);
+    const html = `🧩 <b>${asisPlural(lista.length, 'fila')}</b> de la Tabla ${soloFecha ? 'con paciente pero <b>sin FECHA</b>' : 'con datos clave incompletos (FECHA, RUT, Especialidad, Cirujano, Jornada o Intervención)'}:`
+        + asisListaHtml(lista, o => `<li>${asisBotonInline('↗', () => asisIrTabla(o.x.semanaIdx, o.x.diaIdx), 'Ver en la Tabla')} Sem ${o.x.semanaIdx + 1} ${['LUN', 'MAR', 'MIE', 'JUE', 'VIE', 'SAB', 'DOM'][o.x.diaIdx]} · ${asisEsc(o.x.pab)} — <b>${asisEsc(o.x.fila.Nombre_Paciente || '(sin nombre)')}</b> · falta: ${o.faltan.join(', ')}</li>`, 25);
+    return { html, voz: `Hay ${asisPlural(lista.length, 'fila incompleta', 'filas incompletas')}.` };
+}
+
+async function asisHandlerColores(ctx) {
+    if (!asisPuede('registro')) return asisSinAcceso('la Tabla Quirúrgica');
+    const m = ctx.t.match(/\b(rojo|roja|naranjo|naranja|amarillo|amarilla|verde|celeste|azul|morado|morada|rosado|rosada|gris)\b/);
+    const buscado = m ? m[1].replace(/a$/, 'o').replace('naranjo', 'naranjo').replace('roso', 'rosado') : null;
+    const lista = asisFilasTabla().filter(x => !asisValorVacio(x.fila.Color) && !/^#?f{6}$/i.test(x.fila.Color))
+        .map(x => ({ x, nombre: asisNombreColor(x.fila.Color) }))
+        .filter(o => !buscado || o.nombre.startsWith(buscado.slice(0, 4)));
+    const resumen = asisContarPor(lista, o => o.nombre);
+    return {
+        html: `🎨 <b>${asisPlural(lista.length, 'fila marcada', 'filas marcadas')}</b> con color${buscado ? ` ${asisEsc(buscado)}` : ''} en la Tabla.${lista.length ? asisChipsConteo(resumen) : ''}`
+            + asisListaHtml(lista, o => asisItemFila(o.x, `<span style="display:inline-block;width:10px;height:10px;border-radius:50%;background:${asisEsc(o.x.fila.Color)};vertical-align:middle;"></span> ${asisEsc(o.nombre)}`)),
+        voz: `Hay ${asisPlural(lista.length, 'fila marcada', 'filas marcadas')} con color.`
+    };
+}
+
+function asisHandlerEditando() {
+    if (!asisPuede('registro')) return asisSinAcceso('la Tabla Quirúrgica');
+    const mapa = typeof edicionEnCursoRemota !== 'undefined' ? edicionEnCursoRemota : {};
+    const ahora = Date.now();
+    const activos = [];
+    Object.keys(mapa || {}).forEach(docId => Object.values(mapa[docId] || {}).forEach(e => {
+        if (e && e.usuario && (!e.ts || ahora - e.ts < 5 * 60000)) activos.push({ docId, ...e });
+    }));
+    if (activos.length === 0) return { html: '✏️ Nadie está editando filas de la Tabla en este momento.', voz: 'Nadie está editando la tabla ahora.' };
+    const porUsuario = asisContarPor(activos, e => e.usuario);
+    return { html: `✏️ <b>${asisPlural(activos.length, 'fila', 'filas')}</b> en edición ahora:${asisChipsConteo(porUsuario.map(([u, n]) => [u, n + ' fila(s)']))}`, voz: `Hay ${porUsuario.length} personas editando la tabla.` };
+}
+
+async function asisHandlerVinculoLE(ctx) {
+    if (!asisPuede('registro')) return asisSinAcceso('la Tabla Quirúrgica');
+    const sinVinculo = /\b(no|sin) (vinculad\w*|vinculo|vienen)|no (estan|esta) vinculad/.test(ctx.t);
+    const { rango, regs } = await asisRegistrosCombinados(ctx, 'futuro');
+    const lista = regs.filter(x => x.origen === 'tabla').filter(x => sinVinculo ? asisValorVacio(x.fila.LE_PacienteKey) : !asisValorVacio(x.fila.LE_PacienteKey));
+    return {
+        html: `🔗 <b>${asisPlural(lista.length, 'paciente')}</b> de la Tabla ${sinVinculo ? '<b>sin</b> vínculo' : '<b>vinculados</b>'} con Lista de Espera ${asisEsc(rango.etiqueta)}.${asisListaHtml(lista, x => asisItemFila(x))}<div class="asis-nota">Vinculado = cargado con "📋 Cargar a la Tabla": su estatus en Lista de Espera se actualiza solo.</div>`,
+        voz: `${asisPlural(lista.length, 'paciente')} ${sinVinculo ? 'sin vínculo' : 'vinculados'} con lista de espera.`
+    };
+}
+
+async function asisHandlerWhatsapp(ctx) {
+    if (!asisPuede('registro')) return asisSinAcceso('la Tabla Quirúrgica');
+    const noEnviado = /\b(no|sin|falta\w*|pendiente\w*)\b/.test(ctx.t);
+    const { rango, regs } = await asisRegistrosCombinados(ctx, 'futuro');
+    const lista = regs.filter(x => x.origen === 'tabla').filter(x => noEnviado ? !x.fila.WhatsApp_Enviado : !!x.fila.WhatsApp_Enviado);
+    return {
+        html: `💬 <b>${asisPlural(lista.length, 'paciente')}</b> ${noEnviado ? '<b>sin</b> WhatsApp enviado' : 'con WhatsApp enviado (✅)'} ${asisDescribirFiltros(ctx)} ${asisEsc(rango.etiqueta)}.${asisListaHtml(lista, x => asisItemFila(x, x.fila.WhatsApp_UltimoEnvio && x.fila.WhatsApp_UltimoEnvio.plantilla ? asisEsc(x.fila.WhatsApp_UltimoEnvio.plantilla) : ''))}`,
+        voz: `${asisPlural(lista.length, 'paciente')} ${noEnviado ? 'sin whatsapp enviado' : 'con whatsapp enviado'} ${rango.etiqueta}.`
+    };
+}
+
+async function asisHandlerResumenTabla(ctx) {
+    if (!asisPuede('registro') && !asisPuede('libro')) return asisSinAcceso('la Tabla Quirúrgica ni al Libro');
+    const hoy = asisHoy();
+    const ctx2 = ctx.rango ? ctx : { ...ctx, rango: { desde: asisFmt(asisLunesDe(hoy)), hasta: asisFmt(asisSumarDias(asisLunesDe(hoy), 6)), etiqueta: 'esta semana' } };
+    const { rango, regs } = await asisRegistrosCombinados(ctx2, 'futuro');
+    const porDia = {};
+    regs.forEach(x => {
+        const k = x.fecha;
+        porDia[k] = porDia[k] || { 'PAB 1': 0, 'PAB 2': 0, susp: 0, total: 0 };
+        porDia[k][x.pab] = (porDia[k][x.pab] || 0) + 1;
+        porDia[k].total++;
+        if ((x.fila.ESTADO_DE_IQx || '').toUpperCase() === 'SUSPENDIDO') porDia[k].susp++;
+    });
+    const dias = Object.keys(porDia).sort();
+    return {
+        html: `🗓️ Resumen ${asisEsc(rango.etiqueta)}: <b>${asisPlural(regs.length, 'paciente')}</b> en ${asisPlural(dias.length, 'día')}.<ul class="asis-lista">${dias.map(d => `<li><b>${asisFechaCorta(d)}</b>: ${porDia[d].total} (PAB 1: ${porDia[d]['PAB 1'] || 0} · PAB 2: ${porDia[d]['PAB 2'] || 0})${porDia[d].susp ? ` · ⛔ ${porDia[d].susp} suspendido(s)` : ''}</li>`).join('')}</ul>`
+            + (regs.length > 1 ? `<div class="asis-sub">Por especialidad:</div>${asisChipsConteo(asisContarPor(regs, x => x.fila.Especialidad))}` : ''),
+        voz: `${rango.etiqueta} hay ${asisPlural(regs.length, 'paciente')} en ${asisPlural(dias.length, 'día')}.`
+    };
+}
+
+async function asisHandlerRankingPersonas(ctx) {
+    const esAnest = /\banestesi\w*/.test(ctx.t);
+    const campo = esAnest ? 'Anestesista' : 'Cirujano';
+    const pasado = ctx.contextoLibro || /\b(opero|operaron|hizo|hicieron|realizo|mes pasado|ano)\b/.test(ctx.t);
+    const { rango, regs, sinPermiso } = await asisRegistrosCombinados({ ...ctx, medico: null }, pasado ? 'mes' : 'futuro');
+    if (sinPermiso) return asisSinAcceso('la Tabla Quirúrgica ni al Libro');
+    const validas = regs.filter(x => !asisValorVacio(x.fila[campo]) && (x.fila.ESTADO_DE_IQx || '').toUpperCase() !== 'SUSPENDIDO');
+    const ranking = asisContarPor(validas, x => x.fila[campo]);
+    if (ranking.length === 0) return { html: `No hay ${esAnest ? 'anestesistas' : 'cirujanos'} registrados ${asisEsc(rango.etiqueta)}.` };
+    const menos = /\bmenos\b/.test(ctx.t);
+    const top = menos ? ranking[ranking.length - 1] : ranking[0];
+    return {
+        html: `👨‍⚕️ ${esAnest ? 'Anestesistas' : 'Cirujanos'} por cantidad de pacientes ${asisDescribirFiltros(ctx)} ${asisEsc(rango.etiqueta)} (sin suspendidos):<div>${menos ? '🔻' : '🏆'} <b>${asisEsc(top[0])}</b>: ${top[1]}</div><ul class="asis-lista">${ranking.map(([k, n]) => `<li>${asisEsc(k)}: <b>${n}</b></li>`).join('')}</ul>`,
+        voz: `${menos ? 'El que menos tiene' : 'El que más tiene'} es ${top[0]}, con ${top[1]} pacientes.`
+    };
+}
+
+async function asisHandlerIntervenciones(ctx) {
+    const pasado = ctx.contextoLibro || /\b(frecuentes|comunes|realizad\w*|se hicieron|mas se hacen|mas se operan)\b/.test(ctx.t) || (ctx.rango && ctx.rango.hasta < asisFmt(asisHoy()));
+    const { rango, regs, sinPermiso } = await asisRegistrosCombinados(ctx, pasado ? 'anio' : 'futuro');
+    if (sinPermiso) return asisSinAcceso('la Tabla Quirúrgica ni al Libro');
+    const campo = pasado ? '1ra_Intervencion_Qx_Realizada' : 'Intervencion_propuesta';
+    const validas = regs.filter(x => !asisValorVacio(x.fila[campo]) && (x.fila.ESTADO_DE_IQx || '').toUpperCase() !== 'SUSPENDIDO');
+    const ranking = asisContarPor(validas, x => x.fila[campo]);
+    const n = ctx.n || 15;
+    return {
+        html: `🔪 ${pasado ? 'Intervenciones realizadas más frecuentes' : 'Intervenciones programadas'} ${asisDescribirFiltros(ctx)} ${asisEsc(rango.etiqueta)} (${asisPlural(validas.length, 'caso')}):<ul class="asis-lista">${ranking.slice(0, n).map(([k, c]) => `<li>${asisEsc(k)}: <b>${c}</b></li>`).join('')}</ul>${ranking.length > n ? `<div class="asis-nota">…y ${ranking.length - n} más.</div>` : ''}`,
+        voz: ranking.length ? `La más frecuente es ${ranking[0][0]}, con ${ranking[0][1]} casos.` : 'No hay intervenciones registradas.'
+    };
+}
+
+async function asisHandlerDuplicadosTabla(ctx) {
+    if (!asisPuede('registro')) return asisSinAcceso('la Tabla Quirúrgica');
+    const grupos = {};
+    asisFilasTabla().forEach(x => { const r = asisRutLimpio(x.fila.RUT); if (r.length >= 7) (grupos[r] = grupos[r] || []).push(x); });
+    const dup = Object.values(grupos).filter(g => g.length > 1);
+    return {
+        html: `👥 <b>${asisPlural(dup.length, 'paciente')}</b> aparece(n) más de una vez en la Tabla (mismo RUT):${dup.length ? `<ul class="asis-lista">${dup.map(g => `<li><b>${asisEsc(g[0].fila.Nombre_Paciente || '')}</b> (${asisEsc(asisRutBonito(g[0].fila.RUT))}): ${g.map(x => `${asisBotonInline('↗', () => asisIrTabla(x.semanaIdx, x.diaIdx), 'Ver')} ${x.fecha ? asisFechaCorta(x.fecha) : 'sin fecha'} ${asisEsc(x.pab)}`).join(' · ')}</li>`).join('')}</ul>` : ''}`,
+        voz: dup.length ? `Hay ${asisPlural(dup.length, 'paciente repetido', 'pacientes repetidos')} en la tabla.` : 'No hay pacientes repetidos en la tabla.'
+    };
+}
+
+// =============================================================
+// 📊 ESTADÍSTICAS — comparaciones, tendencias, REM, metas, etc.
+// =============================================================
+async function asisKpisDeRango(ctx, rango) {
+    const libro = await asisRegistrosLibro();
+    const regs = libro.filter(x => x.fecha >= rango.desde && x.fecha <= rango.hasta && (!ctx.esp || ctx.esp.coincide(x.fila.Especialidad))).map(x => x.fila);
+    const k = typeof calcularKPIsEstadisticas === 'function' ? calcularKPIsEstadisticas(regs) : null;
+    let ko = null;
+    if (typeof calcularKpisOcupacion === 'function' && typeof calcularDiasHabiles === 'function') {
+        try {
+            if (typeof obtenerFeriados === 'function') await obtenerFeriados([+rango.desde.slice(0, 4), +rango.hasta.slice(0, 4)]);
+            if (typeof cargarDisponibilidadPabellon === 'function' && typeof estadisticasDisponibilidadPabellon !== 'undefined' && Object.keys(estadisticasDisponibilidadPabellon || {}).length === 0) await cargarDisponibilidadPabellon();
+            const ultima = libro.map(x => x.fecha).filter(Boolean).sort().pop() || rango.hasta;
+            ko = calcularKpisOcupacion(regs, calcularDiasHabiles(rango.desde, rango.hasta > ultima ? ultima : rango.hasta));
+        } catch (e) { ko = null; }
+    }
+    return { n: regs.length, k, ko };
+}
+
+function asisSepararRangosComparacion(t) {
+    const partes = t.split(/\b(?:vs|versus|contra|comparad\w* con|comparar con|respecto (?:a|al|de)|frente a|mejor que|peor que|mas que|menos que|que (?:el|la|en))\b/);
+    const rangos = partes.map(p => asisExtraerRango(p) || asisRangoExtra(p)).filter(Boolean);
+    if (rangos.length >= 2) return rangos.slice(0, 2);
+    const unicos = [];
+    const meses = t.match(new RegExp(`\\b(${ASIS_MESES.join('|')})\\b(?: (?:de |del )?20\\d\\d)?`, 'g')) || [];
+    meses.forEach(mm => { const r = asisExtraerRango(mm); if (r) unicos.push(r); });
+    if (unicos.length >= 2) return unicos.slice(0, 2);
+    return null;
+}
+
+async function asisHandlerComparar(ctx) {
+    ctx = { ...ctx, estadoIqx: null };
+    const sin = asisSinAccesoEstadisticas(); if (sin) return sin;
+    const rangos = asisSepararRangosComparacion(ctx.t);
+    if (!rangos) return { html: 'Dime los dos períodos a comparar, por ejemplo: <i>"ocupación de octubre vs septiembre"</i> o <i>"suspensión este año vs el año pasado"</i>.' };
+    const [a, b] = await Promise.all(rangos.map(r => asisKpisDeRango(ctx, r)));
+    const t = ctx.t;
+    const filas = [];
+    const fila = (nombre, va, vb, formato, mayorEsMejor) => {
+        if (va == null || vb == null) return;
+        const dif = va - vb;
+        const flecha = Math.abs(dif) < 0.05 ? '＝' : (dif > 0 ? '▲' : '▼');
+        const bueno = Math.abs(dif) < 0.05 ? '' : ((dif > 0) === mayorEsMejor ? ' (mejor)' : ' (peor)');
+        filas.push(`<li><b>${nombre}</b>: ${formato(va)} vs ${formato(vb)} ${flecha}${bueno}</li>`);
+    };
+    const pct = v => asisFmtNum(v) + '%';
+    const num = v => String(v);
+    const todo = !/\b(suspen|ambulator|ocupacion|rendimiento|produccion|operad)/.test(t);
+    if (a.k && b.k) {
+        if (todo || /suspen/.test(t)) { fila('Índice de suspensión Cmay', a.k.indiceSuspension, b.k.indiceSuspension, pct, false); fila('Suspensión sin urgencia', a.k.indiceSuspensionSinUrgencia, b.k.indiceSuspensionSinUrgencia, pct, false); }
+        if (todo || /ambulator/.test(t)) fila('Ambulatorización', a.k.indiceAmbulatorizacion, b.k.indiceAmbulatorizacion, pct, true);
+        if (todo || /produccion|operad/.test(t)) { fila('Operados', a.k.totalOperados, b.k.totalOperados, num, true); fila('Programados Cmay', a.k.progCmay, b.k.progCmay, num, true); fila('Urgencias', a.k.totalUrgencia, b.k.totalUrgencia, num, false); }
+    }
+    if (a.ko && b.ko) {
+        if (todo || /ocupacion/.test(t)) fila('Ocupación de pabellón', a.ko.porcentajeOcupacion, b.ko.porcentajeOcupacion, pct, true);
+        if (todo || /rendimiento/.test(t)) fila('Rendimiento total Cx (casos/pab/día)', a.ko.rendimientoTotalCx, b.ko.rendimientoTotalCx, v => v.toFixed(2), true);
+    }
+    return {
+        html: `⚖️ Comparación ${asisDescribirFiltros(ctx)}: <b>${asisEsc(rangos[0].etiqueta)}</b> (${a.n} reg.) vs <b>${asisEsc(rangos[1].etiqueta)}</b> (${b.n} reg.):<ul class="asis-lista">${filas.join('')}</ul><div class="asis-nota">"Mejor/peor" según el sentido del indicador (por ejemplo, menos suspensión es mejor).</div>`,
+        voz: `Comparando ${rangos[0].etiqueta} con ${rangos[1].etiqueta}. ${asisTextoPlano(filas[0] || '')}`
+    };
+}
+
+async function asisHandlerTendencia(ctx) {
+    ctx = { ...ctx, estadoIqx: null };
+    const sin = asisSinAccesoEstadisticas(); if (sin) return sin;
+    const libro = await asisRegistrosLibro();
+    const anioM = ctx.t.match(/\b(20\d\d)\b/);
+    const anio = anioM ? +anioM[1] : (ctx.rango ? +ctx.rango.desde.slice(0, 4) : asisHoy().getFullYear());
+    const regs = libro.filter(x => !ctx.esp || ctx.esp.coincide(x.fila.Especialidad)).map(x => x.fila);
+    const t = ctx.t;
+    const filas = [];
+    if (/\b(ocupacion|rendimiento)\b/.test(t) && typeof calcularOcupacionRendimientoPorMes === 'function') {
+        try {
+            if (typeof obtenerFeriados === 'function') await obtenerFeriados([anio]);
+            if (typeof cargarDisponibilidadPabellon === 'function' && typeof estadisticasDisponibilidadPabellon !== 'undefined' && Object.keys(estadisticasDisponibilidadPabellon || {}).length === 0) await cargarDisponibilidadPabellon();
+        } catch (e) { /* sin feriados */ }
+        const d = calcularOcupacionRendimientoPorMes(regs, anio);
+        d.meses.forEach((m, i) => { if (m.tieneDatos) filas.push(`<li>${ASIS_MESES[i]}: ocupación <b>${asisFmtNum(m.porcentajeOcupacion)}%</b> · rend. ${m.rendimientoTotalCx.toFixed(2)}</li>`); });
+        filas.push(`<li><b>Promedio</b>: ocupación ${asisFmtNum(d.promedio.porcentajeOcupacion)}% · rend. ${d.promedio.rendimientoTotalCx.toFixed(2)}</li>`);
+    } else if (/\bsuspen/.test(t) && typeof calcularIndicesSuspensionPorMes === 'function') {
+        const d = calcularIndicesSuspensionPorMes(regs, anio);
+        d.meses.forEach((m, i) => { if (m.tieneDatos) filas.push(`<li>${ASIS_MESES[i]}: <b>${asisFmtNum(m.indiceSuspension)}%</b> (sin urg. ${asisFmtNum(m.indiceSuspensionSinUrgencia)}%) · prog. Cmay ${m.progCmay}</li>`); });
+        filas.push(`<li><b>Promedio</b>: ${asisFmtNum(d.acumulado.indiceSuspension)}% (sin urg. ${asisFmtNum(d.acumulado.indiceSuspensionSinUrgencia)}%) · total prog. Cmay ${d.acumulado.progCmay}</li>`);
+    } else {
+        const porMes = new Array(12).fill(0);
+        regs.forEach(r => { const f = asisFechaDesdeValor(r.FECHA); if (f && +f.slice(0, 4) === anio && (r.ESTADO_DE_IQx || '').toUpperCase().startsWith('OPERADO')) porMes[+f.slice(5, 7) - 1]++; });
+        porMes.forEach((n, i) => { if (n) filas.push(`<li>${ASIS_MESES[i]}: <b>${n}</b> operados</li>`); });
+    }
+    return {
+        html: `📈 Evolución mes a mes ${asisDescribirFiltros(ctx)} en ${anio}:<ul class="asis-lista">${filas.join('') || '<li>Sin datos.</li>'}</ul>`,
+        acciones: asisPuede('estadisticas') ? [{ texto: '📊 Ver gráficos en Estadísticas', fn: () => asisIrSeccion('estadisticas') }] : [],
+        voz: `Esta es la evolución mes a mes en ${anio}.`
+    };
+}
+
+async function asisHandlerRem(ctx) {
+    const sin = asisSinAccesoEstadisticas(); if (sin) return sin;
+    const { rango, regs, nota } = await asisLibroEnRango(ctx, { porDefecto: 'mes' });
+    const excl = typeof REM_ESTADOS_EXCLUIDOS_GENERAL !== 'undefined' ? REM_ESTADOS_EXCLUIDOS_GENERAL : ASIS_NO_ELECTIVO;
+    const cuenta = (lista) => { const c = { Cmay: 0, Cmen: 0, Proc: 0 }; lista.forEach(r => [r.Tipo_Actividad, r.Tipo_Actividad_2, r.Tipo_Actividad_3].forEach(tp => { if (c[tp] != null) c[tp]++; })); return c; };
+    const general = regs.filter(r => !excl.includes(r.ESTADO_DE_IQx) && asisCumpleEdad(r, ctx.edad));
+    const urg = regs.filter(r => r.ESTADO_DE_IQx === 'URGENCIA' && asisCumpleEdad(r, ctx.edad));
+    const c = cuenta(general), cu = cuenta(urg);
+    const cmayFilas = general.filter(r => [r.Tipo_Actividad, r.Tipo_Actividad_2, r.Tipo_Actividad_3].includes('Cmay'));
+    const mayores = cmayFilas.filter(r => { const e = asisEdadDe(r); return e !== null && e >= 15; }).length;
+    const menores = cmayFilas.filter(r => { const e = asisEdadDe(r); return e !== null && e < 15; }).length;
+    return {
+        html: `🏥 Producción REM ${asisDescribirFiltros(ctx)}${asisEsc(rango.etiqueta)} — <b>intervenciones</b> (cada fila aporta hasta 3):<div class="asis-bloques"><div>General (sin urgencias): <b>${c.Cmay + c.Cmen + c.Proc}</b> → Cmay <b>${c.Cmay}</b> · Cmen <b>${c.Cmen}</b> · Proc <b>${c.Proc}</b></div><div>Urgencias (aparte): <b>${cu.Cmay + cu.Cmen + cu.Proc}</b> → Cmay ${cu.Cmay} · Cmen ${cu.Cmen} · Proc ${cu.Proc}</div><div>Pacientes con Cmay: <b>${cmayFilas.length}</b> (≥15 años: ${mayores} · &lt;15 años: ${menores})</div></div>${nota}`,
+        voz: `${rango.etiqueta} hubo ${c.Cmay} intervenciones de cirugía mayor, ${c.Cmen} de cirugía menor y ${c.Proc} procedimientos, sin contar urgencias.`
+    };
+}
+
+async function asisHandlerMetas() {
+    const sin = asisSinAccesoEstadisticas(); if (sin) return sin;
+    if (typeof cargarMetasProduccion !== 'function' || typeof calcularProduccionGeneralAnio !== 'function') return { html: 'Las metas no están disponibles en este momento.' };
+    const metas = await cargarMetasProduccion();
+    if (typeof estadisticasRegistros !== 'undefined' && (!estadisticasRegistros || estadisticasRegistros.length === 0)) {
+        estadisticasRegistros = (await asisRegistrosLibro()).map(x => ({ id: x.id, ...x.fila }));
+    }
+    const anioDef = asisHoy().getFullYear();
+    const defs = [
+        ['produccionGeneral', '🏥 Producción general (intervenciones)', calcularProduccionGeneralAnio, false],
+        ['produccionCmay', '🔪 Producción Cmay (intervenciones)', calcularProduccionCmayAnio, false],
+        ['produccionGeneralPacientes', '🏥 Producción general (pacientes)', calcularProduccionGeneralPacientesAnio, false],
+        ['produccionCmayPacientes', '🔪 Producción Cmay (pacientes)', calcularProduccionCmayPacientesAnio, false],
+        ['ambulatorizacion', '🚶 % Ambulatorización', calcularAmbulatorizacionAnio, true]
+    ];
+    const anios = [...new Set(defs.map(([k]) => (metas[k] && metas[k].anio) || anioDef))];
+    if (typeof obtenerFeriados === 'function') { try { await obtenerFeriados(anios); } catch (e) { /* */ } }
+    const filas = [];
+    const voz = [];
+    defs.forEach(([k, nombre, fn, esPct]) => {
+        const cfg = metas[k] || {};
+        const anio = cfg.anio || anioDef;
+        const actual = typeof fn === 'function' ? fn(anio) : 0;
+        if (!cfg.meta) { filas.push(`<li>${nombre} ${anio}: ${esPct ? asisFmtNum(actual) + '%' : actual} <span class="asis-nota">(sin meta definida)</span></li>`); return; }
+        const avance = esPct ? actual / cfg.meta * 100 : actual / cfg.meta * 100;
+        filas.push(`<li>${nombre} ${anio}: <b>${esPct ? asisFmtNum(actual) + '%' : actual}</b> de ${esPct ? cfg.meta + '%' : cfg.meta} → <b>${asisFmtNum(avance)}%</b> de avance</li>`);
+        voz.push(`${nombre.replace(/[^\wáéíóúñ() ]/gi, '')} va en ${asisFmtNum(avance)} por ciento`);
+    });
+    return {
+        html: `🎯 Cumplimiento de metas:<ul class="asis-lista">${filas.join('')}</ul><div class="asis-nota">Producción en horario hábil, sin suspendidos, urgencias, condicionales no operados ni perianalgesias (mismo criterio que Estadísticas → Cumplimiento de Metas).</div>`,
+        acciones: asisPuede('estadisticas') ? [{ texto: '🎯 Abrir Estadísticas', fn: () => asisIrSeccion('estadisticas') }] : [],
+        voz: voz.slice(0, 2).join('. ') + '.'
+    };
+}
+
+async function asisHandlerDiaSemana(ctx) {
+    const sin = asisSinAccesoEstadisticas(); if (sin) return sin;
+    const { rango, regs, nota } = await asisLibroEnRango(ctx);
+    const conteo = Array.from({ length: 7 }, () => ({ op: 0, susp: 0 }));
+    regs.forEach(r => { const d = asisParseFecha(asisFechaDesdeValor(r.FECHA)); if (!d) return; const i = (d.getDay() + 6) % 7; const e = (r.ESTADO_DE_IQx || '').toUpperCase(); if (e.startsWith('OPERADO')) conteo[i].op++; if (e === 'SUSPENDIDO') conteo[i].susp++; });
+    const nombres = ['lunes', 'martes', 'miércoles', 'jueves', 'viernes', 'sábado', 'domingo'];
+    const porSusp = /\bsuspen/.test(ctx.t);
+    const orden = conteo.map((c, i) => ({ ...c, n: nombres[i] })).filter(c => c.op || c.susp).sort((a, b) => porSusp ? b.susp - a.susp : b.op - a.op);
+    if (!orden.length) return { html: `No hay datos ${asisEsc(rango.etiqueta)}.` };
+    return {
+        html: `📅 Por día de la semana ${asisDescribirFiltros(ctx, { sinEstado: true })} ${asisEsc(rango.etiqueta)} (${porSusp ? 'ordenado por suspensiones' : 'ordenado por operados'}):<ul class="asis-lista">${orden.map(c => `<li><b>${c.n}</b>: ${c.op} operados · ${c.susp} suspendidos</li>`).join('')}</ul>${nota}`,
+        voz: porSusp ? `El día con más suspensiones es el ${orden[0].n}.` : `El día que más se opera es el ${orden[0].n}, y el que menos el ${orden[orden.length - 1].n}.`
+    };
+}
+
+async function asisHandlerPromedioDia(ctx) {
+    const sin = asisSinAccesoEstadisticas(); if (sin) return sin;
+    const { rango, regs, nota } = await asisLibroEnRango(ctx, { porDefecto: 'mes' });
+    const oper = regs.filter(r => (r.ESTADO_DE_IQx || '').toUpperCase().startsWith('OPERADO'));
+    const dias = new Set(oper.map(r => asisFechaDesdeValor(r.FECHA)).filter(Boolean));
+    const porPab = asisContarPor(oper, r => (r.metadata && r.metadata.pabellon) || 'Sin pabellón');
+    const prom = dias.size ? oper.length / dias.size : 0;
+    return {
+        html: `📊 ${asisEsc(rango.etiqueta)}: <b>${oper.length}</b> operados en <b>${dias.size}</b> días con actividad → <b>${asisFmtNum(prom)}</b> pacientes por día.<ul class="asis-lista">${porPab.map(([k, n]) => `<li>${asisEsc(k)}: ${n} → ${asisFmtNum(dias.size ? n / dias.size : 0)} por día</li>`).join('')}</ul>${nota}`,
+        voz: `En promedio se operan ${asisFmtNum(prom)} pacientes por día.`
+    };
+}
+
+async function asisHandlerRetraso(ctx) {
+    const sin = asisSinAccesoEstadisticas(); if (sin) return sin;
+    const { rango, regs, nota } = await asisLibroEnRango(ctx);
+    const parsear = typeof parsearDuracionHoras === 'function' ? parsearDuracionHoras : (v => { const s = (v || '').toString().match(/^(\d{1,2}):(\d{2})/); return s ? +s[1] + (+s[2]) / 60 : 0; });
+    const con = regs.filter(r => !asisValorVacio(r.T_Retraso)).map(r => ({ r, h: parsear(r.T_Retraso) })).filter(o => o.h > 0);
+    if (!con.length) return { html: `No hay T. Retraso registrado ${asisEsc(rango.etiqueta)}.` };
+    const fmtH = h => typeof estadisticasFormatearHoras === 'function' ? estadisticasFormatearHoras(h) : asisFmtNum(h, 2);
+    const prom = con.reduce((a, o) => a + o.h, 0) / con.length;
+    const grupos = {};
+    con.forEach(o => { const k = o.r.Especialidad || 'Sin especialidad'; (grupos[k] = grupos[k] || []).push(o.h); });
+    const filas = Object.keys(grupos).map(k => [k, grupos[k].reduce((a, b) => a + b, 0) / grupos[k].length, grupos[k].length]).sort((a, b) => b[1] - a[1]);
+    return {
+        html: `⏳ T. Retraso promedio ${asisDescribirFiltros(ctx)} ${asisEsc(rango.etiqueta)}: <b>${fmtH(prom)}</b> (${con.length} casos con dato).<ul class="asis-lista">${filas.map(([k, p, n]) => `<li>${asisEsc(k)}: ${fmtH(p)} (${n})</li>`).join('')}</ul>${nota}`,
+        voz: `El retraso promedio es de ${fmtH(prom).replace(':', ' horas con ')} minutos.`
+    };
+}
+
+// =============================================================
+// 🩺 LISTA DE ESPERA — EPA, columnas de ficha, llamadas, salidas,
+// duplicados/multi-especialidad
+// =============================================================
+async function asisHandlerEpa(ctx) {
+    if (!asisPuede('listaEspera')) return asisSinAcceso('Lista de Espera');
+    const umbral = ctx.umbral || { tipo: 'mas', dias: 180, texto: 'más de 6 meses' };
+    ctx = { ...ctx, umbral: null };
+    const lista = asisFiltrarLE(await asisPacientesLE(), ctx)
+        .filter(p => p.fechaEpa)
+        .map(p => ({ p, dias: calculateWaitingDays(p.fechaEpa) }))
+        .filter(o => umbral.tipo === 'mas' ? o.dias > umbral.dias : o.dias < umbral.dias)
+        .sort((a, b) => b.dias - a.dias);
+    return {
+        html: `🩺 <b>${asisPlural(lista.length, 'paciente')}</b> gestionables ${asisDescribirFiltros(ctx, { conLE: true, conEstatusLE: true })} con su EPA (Fecha EPA) de ${asisEsc(umbral.texto)}:${asisListaHtml(lista, o => `<li>${asisAccionesPaciente(o.p)} <b>${asisEsc(o.p.nombreApellido || '')}</b> · ${asisEsc(o.p.especialidad || '')} · EPA ${formatDate(o.p.fechaEpa)} (${o.dias} días)${o.p.estatusEpa ? ' · ' + asisEsc(o.p.estatusEpa) : ''}</li>`)}`,
+        acciones: [{ texto: '📋 Ver en Lista de Espera (con los filtros aplicados)', fn: () => asisAbrirListaPacientesFiltrada(ctx) }],
+        voz: `${asisPlural(lista.length, 'paciente tiene', 'pacientes tienen')} su EPA de ${umbral.texto}.`
+    };
+}
+
+async function asisHandlerColumnaLE(ctx) {
+    if (!asisPuede('listaEspera')) return asisSinAcceso('Lista de Espera');
+    const c = ctx.columnaLE;
+    const base = asisFiltrarLE(await asisPacientesLE(), ctx);
+    const vacio = v => { const x = (v || '').toString().trim().toUpperCase(); return x === '' || (c.esExamen && x === 'NO'); };
+    if (c.modo === 'resumen') {
+        const conteo = asisContarPor(base, p => asisValorLE(p, c.campo) || '(vacío)');
+        return {
+            html: `🩺 <b>${asisEsc(c.etiqueta)}</b> en ${asisPlural(base.length, 'paciente')} gestionables ${asisDescribirFiltros(ctx, { conLE: true, conEstatusLE: true })}:${asisChipsConteo(conteo, 15)}`,
+            voz: `Este es el resumen de ${c.etiqueta}.`
+        };
+    }
+    const lista = base.filter(p => c.modo === 'vacio' ? vacio(asisValorLE(p, c.campo)) : !vacio(asisValorLE(p, c.campo)));
+    return {
+        html: `🩺 <b>${asisPlural(lista.length, 'paciente')}</b> gestionables ${asisDescribirFiltros(ctx, { conLE: true, conEstatusLE: true })} ${c.modo === 'vacio' ? `<b>sin ${asisEsc(c.etiqueta)}</b>${c.esExamen ? ' (vacío o NO)' : ''}` : `con ${asisEsc(c.etiqueta)}`}:${asisListaHtml(lista, p => `<li>${asisAccionesPaciente(p)} <b>${asisEsc(p.nombreApellido || '')}</b> · ${asisEsc(p.especialidad || '')} · <i>${asisEsc(p.estatusTabla || '')}</i>${c.modo !== 'vacio' ? ' · ' + asisEsc(asisValorLE(p, c.campo)) : ''}</li>`)}`,
+        acciones: [{ texto: '📋 Abrir Lista de Espera (con los filtros aplicados)', fn: () => asisAbrirListaPacientesFiltrada(ctx) }],
+        voz: `${asisPlural(lista.length, 'paciente')} ${c.modo === 'vacio' ? 'sin' : 'con'} ${c.etiqueta}.`
+    };
+}
+
+async function asisHandlerLlamadasStats(ctx) {
+    ctx = { ...ctx, estadoIqx: null };
+    if (!asisPuede('listaEspera')) return asisSinAcceso('Lista de Espera');
+    const hoy = asisHoy();
+    const rango = ctx.rango || { desde: asisFmt(new Date(hoy.getFullYear(), hoy.getMonth(), 1)), hasta: asisFmt(hoy), etiqueta: `este mes (${ASIS_MESES[hoy.getMonth()]})` };
+    const llamadas = [];
+    (await asisPacientesLE()).forEach(p => {
+        if (ctx.esp && !ctx.esp.coincide(p.especialidad)) return;
+        Object.values(p.historialLlamadas || {}).forEach(l => {
+            const f = (l.fechaLlamada || '').toString().slice(0, 10);
+            if (f && f >= rango.desde && f <= rango.hasta) llamadas.push({ p, l, f });
+        });
+    });
+    const t = ctx.t;
+    const respuestas = { 'no contest': 'NO RESPONDE LLAMADA', 'no respond': 'NO RESPONDE LLAMADA', 'rechaz': 'RECHAZA', 'acept': 'ACEPTA', 'posterg': 'POSTERGA', 'egres': 'EGRESO', 'extrasistema': 'REALIZADA EN EXTRASISTEMA', 'entregara': 'ENTREGARA INFORMACION' };
+    const clave = Object.keys(respuestas).find(k => t.includes(k));
+    const filtradas = clave ? llamadas.filter(o => (o.l.respuesta || '').toUpperCase() === respuestas[clave]) : llamadas;
+    filtradas.sort((a, b) => b.f.localeCompare(a.f));
+    let html = `📞 <b>${asisPlural(filtradas.length, 'llamada')}</b>${clave ? ` con respuesta <b>${respuestas[clave]}</b>` : ''} ${asisDescribirFiltros(ctx)} ${asisEsc(rango.etiqueta)}.`;
+    if (!clave && llamadas.length) {
+        html += `<div class="asis-sub">Por respuesta:</div>${asisChipsConteo(asisContarPor(llamadas, o => o.l.respuesta))}<div class="asis-sub">Por motivo:</div>${asisChipsConteo(asisContarPor(llamadas, o => o.l.motivo))}<div class="asis-sub">Por quién la registró:</div>${asisChipsConteo(asisContarPor(llamadas, o => o.l.registradoPor || o.l.usuario))}`;
+    }
+    if (clave || ctx.esLista || filtradas.length <= 10) {
+        html += asisListaHtml(filtradas, o => `<li>${asisAccionesPaciente(o.p)} ${asisFechaCorta(o.f)} — <b>${asisEsc(o.p.nombreApellido || '')}</b> · ${asisEsc(o.l.motivo || '')} → <i>${asisEsc(o.l.respuesta || '')}</i></li>`);
+    }
+    return { html, voz: `${asisPlural(filtradas.length, 'llamada')}${clave ? ' con respuesta ' + respuestas[clave].toLowerCase() : ''} ${rango.etiqueta}.` };
+}
+
+async function asisHandlerSalidasLE(ctx) {
+    ctx = { ...ctx, estadoIqx: null };
+    if (!asisPuede('listaEspera')) return asisSinAcceso('Lista de Espera');
+    const hoy = asisHoy();
+    const rango = ctx.rango || { desde: asisFmt(new Date(hoy.getFullYear(), hoy.getMonth(), 1)), hasta: asisFmt(hoy), etiqueta: `este mes (${ASIS_MESES[hoy.getMonth()]})` };
+    const t = ctx.t;
+    const objetivos = /\begres/.test(t) ? ['EGRESO'] : /\brechaz/.test(t) ? ['RECHAZO'] : /\btraslad/.test(t) ? ['TRASLADO INTERNO'] : /\bextrasistema/.test(t) ? ['REALIZADA EN EXTRASISTEMA'] : ['EGRESO', 'RECHAZO', 'TRASLADO INTERNO', 'REALIZADA EN EXTRASISTEMA', 'OPERADO'];
+    const salidas = [];
+    (await asisPacientesLE()).forEach(p => {
+        if (ctx.esp && !ctx.esp.coincide(p.especialidad)) return;
+        Object.values(p.historial || {}).forEach(h => {
+            const f = (h.fecha || '').toString().slice(0, 10);
+            if (!f || f < rango.desde || f > rango.hasta) return;
+            const arr = Array.isArray(h.cambios) ? h.cambios : (h.cambios ? [h.cambios] : []);
+            arr.forEach(cm => {
+                const m = String(cm).match(/estatusTabla<\/strong>:\s*".*?"\s*→\s*"(.+?)"/i);
+                if (m && objetivos.includes(m[1].trim().toUpperCase())) salidas.push({ p, f, a: m[1].trim().toUpperCase(), u: h.usuario });
+            });
+            const desc = (h.descripcion || '').toString().toUpperCase();
+            if (!arr.length && objetivos.some(o => desc.includes('→ "' + o + '"') || desc.includes('A ' + o))) {
+                const o = objetivos.find(x => desc.includes(x));
+                salidas.push({ p, f, a: o, u: h.usuario });
+            }
+        });
+    });
+    salidas.sort((a, b) => b.f.localeCompare(a.f));
+    return {
+        html: `🚪 <b>${asisPlural(salidas.length, 'cambio')}</b> de estatus a ${objetivos.join(' / ')} ${asisDescribirFiltros(ctx)} ${asisEsc(rango.etiqueta)} (según el historial de cada ficha).${salidas.length > 1 ? asisChipsConteo(asisContarPor(salidas, o => o.a)) : ''}${asisListaHtml(salidas, o => `<li>${asisAccionesPaciente(o.p)} ${asisFechaCorta(o.f)} — <b>${asisEsc(o.p.nombreApellido || '')}</b> → ${asisEsc(o.a)}${o.u ? ' · ' + asisEsc(o.u) : ''}</li>`)}`,
+        voz: `${asisPlural(salidas.length, 'paciente pasó', 'pacientes pasaron')} a ${objetivos.length === 1 ? objetivos[0].toLowerCase() : 'un estatus de salida'} ${rango.etiqueta}.`
+    };
+}
+
+async function asisHandlerDuplicadosLE(ctx) {
+    if (!asisPuede('listaEspera')) return asisSinAcceso('Lista de Espera');
+    const multi = /\bmulti|mas de una especialidad|varias especialidades|distintas especialidades/.test(ctx.t);
+    const grupos = {};
+    (await asisPacientesLE()).forEach(p => { const r = asisRutLimpio(p.rut); if (r.length >= 7) (grupos[r] = grupos[r] || []).push(p); });
+    const lista = Object.values(grupos).filter(g => {
+        if (g.length < 2) return false;
+        const esps = g.map(p => asisNorm(p.especialidad));
+        return multi ? new Set(esps).size > 1 : esps.length !== new Set(esps).size;
+    });
+    return {
+        html: `👥 <b>${asisPlural(lista.length, 'RUT')}</b> ${multi ? 'en <b>más de una especialidad</b>' : '<b>duplicados</b> (mismo RUT + misma especialidad)'} en Lista de Espera:${asisListaHtml(lista, g => `<li><b>${asisEsc(g[0].nombreApellido || '')}</b> (${asisEsc(asisRutBonito(g[0].rut))}): ${g.map(p => `${asisAccionesPaciente(p)} ${asisEsc(p.especialidad || '')} <i>${asisEsc(p.estatusTabla || '')}</i>`).join(' · ')}</li>`)}`,
+        acciones: [{ texto: '📋 Abrir Lista de Pacientes', fn: () => asisIrSeccion('listaEspera', 'listaPacientes') }],
+        voz: `Hay ${asisPlural(lista.length, 'caso')} ${multi ? 'con más de una especialidad' : 'duplicados'}.`
+    };
+}
+
+// =============================================================
+// 🔎 PACIENTE PUNTUAL — un dato específico de su ficha
+// =============================================================
+const ASIS_ATRIBUTOS_PACIENTE = [
+    { re: /\b(ultima llamada|ultimo llamado|ultima vez que (se )?(le )?llam)/, id: 'ultimaLlamada' },
+    { re: /\b(llamadas|llamados)\b/, id: 'llamadas' },
+    { re: /\bhistorial\b|\bquien (lo |la )?(modifico|cambio|cargo|edito|creo|ingreso|registro|llamo)\b/, id: 'historial' },
+    { re: /\b(telefono|fono|celular|numero|contacto)\b/, id: 'contactos', etiqueta: 'Teléfono' },
+    { re: /\bindicaciones\b/, id: 'indicacionesAnest', etiqueta: 'Indicaciones del anestesista' },
+    { re: /\bdiagnostico\b/, id: 'diagnostico', etiqueta: 'Diagnóstico' },
+    { re: /\b(medico|tratante|doctor)\b/, id: 'medicoTratante', etiqueta: 'Médico tratante' },
+    { re: /\bprioridad\b/, id: 'prioridad', etiqueta: 'Prioridad' },
+    { re: /\bfolio\b/, id: 'folio', etiqueta: 'Folio' },
+    { re: /\bcomuna\b/, id: 'comuna', etiqueta: 'Comuna' },
+    { re: /\b(direccion|domicilio)\b/, id: 'direccion', etiqueta: 'Dirección' },
+    { re: /\b(correo|email|mail)\b/, id: 'emailPaciente', etiqueta: 'Correo' },
+    { re: /\bedad\b/, id: 'edad', etiqueta: 'Edad' },
+    { re: /\bepa\b/, id: 'epa' },
+    { re: /\b(cuanto (lleva|tiempo)|esperando|espera)\b/, id: 'espera' },
+    { re: /\bobservacion\w*/, id: 'observaciones', etiqueta: 'Observaciones' }
+];
+
+function asisRespuestaAtributo(p, attr) {
+    const nombre = `<b>${asisEsc(p.nombreApellido || '')}</b>`;
+    if (attr.id === 'ultimaLlamada' || attr.id === 'llamadas') {
+        const ll = Object.values(p.historialLlamadas || {}).sort((a, b) => (b.fechaLlamada || '').localeCompare(a.fechaLlamada || ''));
+        if (!ll.length) return { html: `📞 ${nombre} no tiene llamadas registradas.`, voz: 'No tiene llamadas registradas.' };
+        const lista = attr.id === 'ultimaLlamada' ? ll.slice(0, 1) : ll.slice(0, 10);
+        return { html: `📞 ${attr.id === 'ultimaLlamada' ? 'Última llamada' : 'Llamadas'} de ${nombre}:<ul class="asis-lista">${lista.map(l => `<li>${asisEsc((l.fechaLlamada || '').replace('T', ' '))} · ${asisEsc(l.motivo || '')} → <b>${asisEsc(l.respuesta || '')}</b>${l.nombreRec ? ' · habló con ' + asisEsc(l.nombreRec) : ''}${l.registradoPor ? ' · ' + asisEsc(l.registradoPor) : ''}${l.observaciones ? '<br><i>' + asisEsc(l.observaciones) + '</i>' : ''}</li>`).join('')}</ul>`, voz: `La última llamada fue el ${formatDate((ll[0].fechaLlamada || '').slice(0, 10))}, respuesta ${(ll[0].respuesta || '').toLowerCase()}.` };
+    }
+    if (attr.id === 'historial') {
+        const h = Object.values(p.historial || {}).sort((a, b) => (b.fecha || '').localeCompare(a.fecha || '')).slice(0, 12);
+        return { html: `🕓 Historial de ${nombre} (más reciente primero):<ul class="asis-lista">${h.map(x => `<li>${asisEsc(new Date(x.fecha).toLocaleString('es-CL'))} · <b>${asisEsc(x.accion || '')}</b> · ${asisEsc(x.usuario || '')}${x.descripcion ? '<br><span class="asis-nota">' + asisEsc(asisTextoPlano(x.descripcion)) + '</span>' : ''}</li>`).join('')}</ul>`, voz: h.length ? `El último cambio fue ${h[0].accion}, por ${h[0].usuario}.` : 'No tiene historial.' };
+    }
+    if (attr.id === 'epa') return { html: `🩺 EPA de ${nombre}: estatus <b>${asisEsc(p.estatusEpa || '—')}</b> · fecha ${p.fechaEpa ? formatDate(p.fechaEpa) : '—'} · anestesiólogo ${asisEsc(p.anestesiologo || '—')}`, voz: `Estatus EPA ${p.estatusEpa || 'sin dato'}.` };
+    if (attr.id === 'espera') {
+        const d = asisDiasEspera(p, 'fechaIndQx'), d2 = asisDiasEspera(p, 'fechaEstatusProgram');
+        return { html: `⏳ ${nombre} lleva <b>${d != null ? d : '—'} días</b> desde la Indicación Qx${d2 != null ? ` y <b>${d2} días</b> desde Estatus Programable` : ''} (estatus ${asisEsc(p.estatusTabla || '')}).`, voz: `Lleva ${d} días de espera.` };
+    }
+    if (attr.id === 'edad') { const e = asisEdadDe(p); return { html: `🎂 ${nombre}: <b>${e != null ? e + ' años' : 'sin dato'}</b>`, voz: e != null ? `Tiene ${e} años.` : 'Sin dato de edad.' }; }
+    const v = asisValorLE(p, attr.id);
+    return { html: `📄 ${asisEsc(attr.etiqueta)} de ${nombre}: <b>${v ? asisEsc(v) : 'sin dato'}</b>`, voz: v ? `${attr.etiqueta}: ${v}.` : `No tiene ${attr.etiqueta.toLowerCase()} registrado.` };
+}
+
+// Busca "<atributo> de <paciente>": devuelve null si no aplica.
+async function asisIntentarAtributoPaciente(ctx) {
+    if (!asisPuede('listaEspera')) return null;
+    const attr = ASIS_ATRIBUTOS_PACIENTE.find(a => a.re.test(ctx.t));
+    if (!attr) return null;
+    let tokens = ctx.nombreTokens;
+    if (!tokens && !ctx.rut) {
+        const m = ctx.t.match(/\b(?:de|del|a|al|para|con)\s+([a-z]+(?:\s+[a-z]+){0,3})\s*$/);
+        if (m) tokens = asisTokens(m[1]).filter(x => x.length >= 3 && !ASIS_STOPWORDS.has(x) && !ASIS_PALABRAS_NO_NOMBRE.has(x));
+        if (!tokens || !tokens.length || !asisPacientesLESinc().some(p => asisCoincideTokens(p.nombreApellido, tokens))) {
+            const ATTR = /^(ultim\w*|llamad\w*|llamo|historial|quien|modifico|cambio|cargo|edito|creo|telefono|fono|celular|numero|contacto|indicaciones|diagnostico|medico|tratante|doctor|prioridad|folio|comuna|direccion|domicilio|correo|email|mail|edad|epa|cuanto|tiempo|lleva|esperando|espera|observacion\w*|vez|dime|cual|tiene)$/;
+            tokens = asisTokens(ctx.t).filter(x => x.length >= 3 && !ASIS_STOPWORDS.has(x) && !ASIS_PALABRAS_NO_NOMBRE.has(x) && !ATTR.test(x));
+        }
+    }
+    if (!ctx.rut && (!tokens || !tokens.length)) return null;
+    const pacientes = (await asisPacientesLE()).filter(p => ctx.rut ? asisRutLimpio(p.rut) === ctx.rut : asisCoincideTokens(p.nombreApellido, tokens));
+    if (pacientes.length !== 1) return pacientes.length > 1 ? { html: `Encontré ${pacientes.length} pacientes con ese nombre: ${pacientes.slice(0, 8).map(p => '<b>' + asisEsc(p.nombreApellido) + '</b>').join(', ')}. Agrega el apellido o el RUT.` } : null;
+    const r = asisRespuestaAtributo(pacientes[0], attr);
+    const extra = asisAccionesPaciente(pacientes[0]);
+    return { ...r, html: r.html + (extra ? `<div class="asis-acciones-inline">${extra}</div>` : '') };
+}
+
+// =============================================================
+// 👥 USUARIOS (solo superadministrador)
+// =============================================================
+async function asisHandlerActividadUsuario(ctx) {
+    if (typeof esSuperAdministrador !== 'function' || !esSuperAdministrador()) return { html: '⛔ La actividad de otros usuarios solo la puede consultar el superadministrador.' };
+    const u = await asisDetectarUsuario(ctx.t);
+    if (!u) return { html: 'Dime de qué usuario, por ejemplo: <i>"¿qué hizo sandra hoy?"</i> (con la parte del correo antes de la @).' };
+    const hoy = asisHoy();
+    const rango = ctx.rango || { desde: asisFmt(hoy), hasta: asisFmt(hoy), etiqueta: 'hoy' };
+    const desdeMs = new Date(rango.desde + 'T00:00:00').getTime(), hastaMs = new Date(rango.hasta + 'T23:59:59.999').getTime();
+    const ent = [];
+    (await asisPacientesLE()).forEach(p => Object.values(p.historial || {}).forEach(h => {
+        const ms = new Date(h.fecha).getTime();
+        if (h.usuario === u.email && ms >= desdeMs && ms <= hastaMs) ent.push({ p, h, ms });
+    }));
+    ent.sort((a, b) => b.ms - a.ms);
+    return {
+        html: `👤 Actividad de <b>${asisEsc(u.email)}</b> en Lista de Espera ${asisEsc(rango.etiqueta)}: <b>${asisPlural(ent.length, 'interacción', 'interacciones')}</b>.${ent.length ? asisChipsConteo(asisContarPor(ent, o => o.h.accion)) : ''}${asisListaHtml(ent, o => `<li>${asisEsc(new Date(o.ms).toLocaleTimeString('es-CL', { hour: '2-digit', minute: '2-digit' }))} ${rango.desde !== rango.hasta ? asisFechaCorta(asisFmt(new Date(o.ms))) : ''} · <b>${asisEsc(o.h.accion || '')}</b> · ${asisEsc(o.p.nombreApellido || '')}</li>`)}`,
+        acciones: [{ texto: '📊 Abrir Reporte de Actividad', fn: () => asisIrSeccion('admin') }],
+        voz: `${u.email.split('@')[0]} tuvo ${asisPlural(ent.length, 'interacción', 'interacciones')} ${rango.etiqueta}.`
+    };
+}
+
+async function asisHandlerUltimoAcceso(ctx) {
+    if (typeof esSuperAdministrador !== 'function' || !esSuperAdministrador()) return { html: '⛔ La bitácora de accesos solo la puede consultar el superadministrador.' };
+    const u = await asisDetectarUsuario(ctx.t);
+    if (!u) return { html: 'Dime de qué usuario, por ejemplo: <i>"¿cuándo entró por última vez sandra?"</i>.' };
+    const snap = await database.ref('bitacora_accesos/' + u.uid).limitToLast(5).once('value');
+    const regs = Object.values(snap.val() || {}).sort((a, b) => (b.fecha_hora || 0) - (a.fecha_hora || 0));
+    if (!regs.length) return { html: `No hay accesos registrados para <b>${asisEsc(u.email)}</b>.` };
+    const fmt = ms => new Date(ms).toLocaleString('es-CL');
+    return {
+        html: `🕐 Últimos accesos de <b>${asisEsc(u.email)}</b>:<ul class="asis-lista">${regs.map(r => `<li>${asisEsc(fmt(r.fecha_hora))}${r.dispositivo ? ' · <span class="asis-nota">' + asisEsc(/Mobi|Android|iPhone/i.test(r.dispositivo) ? 'celular' : 'computador') + '</span>' : ''}</li>`).join('')}</ul>`,
+        voz: `Entró por última vez el ${fmt(regs[0].fecha_hora)}.`
+    };
+}
+
+// =============================================================
+// 🧭 ACCIONES: abrir ficha, exportar con filtros, imprimir día
+// =============================================================
+async function asisHandlerAbrirFicha(ctx) {
+    if (!asisPuede('listaEspera')) return asisSinAcceso('Lista de Espera');
+    const m = ctx.t.match(/\bficha (?:de(?:l)?|a(?:l)?)\s+(.+)$/);
+    const tokens = ctx.rut ? null : (m ? asisTokens(m[1]).filter(x => x.length >= 2 && !ASIS_STOPWORDS.has(x)) : ctx.nombreTokens);
+    if (!ctx.rut && (!tokens || !tokens.length)) return { html: 'Dime de qué paciente, por ejemplo: <i>"abre la ficha de Georgina Tordecilla"</i>.' };
+    const enc = (await asisPacientesLE()).filter(p => ctx.rut ? asisRutLimpio(p.rut) === ctx.rut : asisCoincideTokens(p.nombreApellido, tokens));
+    if (enc.length === 1 && asisPacienteEnMemoria(enc[0].firebaseKey)) {
+        asisVerFicha(enc[0].firebaseKey);
+        return { html: `👁️ Abrí la ficha de <b>${asisEsc(enc[0].nombreApellido)}</b>.`, voz: `Abrí la ficha de ${enc[0].nombreApellido}.` };
+    }
+    if (enc.length === 0) return { html: 'No encontré a ese paciente en Lista de Espera.' };
+    return { html: `Encontré ${enc.length} pacientes; elige uno:${asisListaHtml(enc, p => `<li>${asisAccionesPaciente(p)} <b>${asisEsc(p.nombreApellido)}</b> · ${asisEsc(p.especialidad || '')}</li>`)}` };
+}
+
+async function asisHandlerExportar(ctx) {
+    if (ctx.contextoLE || /\blista de espera|pacientes en espera\b/.test(ctx.t)) {
+        if (!asisPuede('listaEspera')) return asisSinAcceso('Lista de Espera');
+        if (!asisPuede('listaEspera_exportar')) return { html: '⛔ Tu cuenta no tiene permiso para exportar desde Lista de Espera.' };
+        const csv = /\bcsv\b/.test(ctx.t);
+        asisAbrirListaPacientesFiltrada(ctx);
+        setTimeout(() => { const fn = csv ? window.downloadCSV : window.downloadExcel; if (typeof fn === 'function') fn(); }, 1600);
+        return { html: `📥 Abrí Lista de Pacientes con los filtros ${asisDescribirFiltros(ctx, { conLE: true, conEstatusLE: true }) || '(sin filtros)'} y descargué el ${csv ? 'CSV' : 'Excel'} con lo filtrado.`, voz: `Listo, descargué el ${csv ? 'archivo CSV' : 'Excel'}.` };
+    }
+    if (!asisPuede('libro')) return asisSinAcceso('el Libro de Quirófano');
+    asisIrSeccion('libro');
+    return { html: '📘 Te llevé al Libro de Quirófano: aplica los filtros arriba y usa <b>📊 Exportar a Excel</b> (exporta todo lo filtrado, no solo la página visible).', voz: 'Te llevé al libro de quirófano para exportar.' };
+}
+
+function asisHandlerImprimirDia(ctx) {
+    if (!asisPuede('registro')) return asisSinAcceso('la Tabla Quirúrgica');
+    if (!asisPuede('registro_imprimir')) return { html: '⛔ Tu cuenta no tiene permiso para imprimir el día.' };
+    const fecha = ctx.rango && ctx.rango.desde === ctx.rango.hasta ? ctx.rango.desde : asisFmt(asisHoy());
+    const ubic = asisUbicarFechaEnTabla(fecha);
+    if (!ubic) return { html: `No encontré el ${asisFechaLarga(asisParseFecha(fecha))} en la Tabla actual (esa semana puede no estar armada todavía).` };
+    asisIrTabla(ubic.semanaIdx, ubic.diaIdx);
+    setTimeout(() => {
+        const btn = document.querySelector(`#weekContent [data-action="printDay"][data-daykey="${ubic.semanaIdx}-${ubic.diaIdx}"]`) || document.querySelector('#weekContent [data-action="printDay"]');
+        if (btn) btn.click();
+    }, 900);
+    return { html: `🖨️ Abrí la Tabla en <b>${asisFechaLarga(asisParseFecha(fecha))}</b> (Semana ${ubic.semanaIdx + 1}) y lancé <b>Imprimir Día</b>.`, voz: 'Listo, abrí la impresión del día.' };
+}
+
+// =============================================================
+// 🧭 Detección de las intenciones ampliadas (se consulta antes que
+// las demás en asisDetectarIntencionDatos).
+// =============================================================
+async function asisDetectarIntencionExtra(ctx) {
+    const t = ctx.t;
+    if (ctx.esComoHacer) return null;
+    if (/\b(abre|abrir|abreme|muestra|mostrar|ver) (la |su )?ficha\b/.test(t)) return 'abrirFicha';
+    if (/\b(exporta\w*|descarga\w*|bajar|baja)\b/.test(t) && /\b(excel|csv|planilla)\b/.test(t)) return 'exportar';
+    if (/\bimprim\w*\b/.test(t) && (ctx.rango || /\b(tabla|dia)\b/.test(t))) return 'imprimirDia';
+    if (/\b(que hizo|que ha hecho|actividad de|interacciones de|que trabajo)\b/.test(t) && !ctx.contextoTabla) return 'actividadUsuario';
+    if (/\b(ultima vez que (entro|ingreso|se conecto)|ultimo (acceso|ingreso|inicio de sesion)|cuando (entro|se conecto|ingreso))\b/.test(t)) return 'ultimoAcceso';
+    if (/\b(vs|versus|comparad\w*|comparar|comparacion|mejor que|peor que|frente a|respecto al?)\b/.test(t) && /\b(suspen\w*|ocupacion|rendimiento|ambulatoriz\w*|produccion|operad\w*|indicador\w*|kpi)\b/.test(t)) return 'comparar';
+    if (/\b(evolucion|mes a mes|por mes|tendencia|mensual\w*|como ha (ido|evolucionado|variado))\b/.test(t) && /\b(suspen\w*|ocupacion|rendimiento|produccion|operad\w*|cirugias)\b/.test(t)) return 'tendencia';
+    if (/\b(meta|metas)\b/.test(t)) return 'metas';
+    if (/\b(cmay|cmen|proc|procedimientos|rem|cirugias? (mayores|menores))\b/.test(t) && (ctx.esCuanto || /\b(produccion|rem|cuant\w*)\b/.test(t)) && !ctx.contextoLE) return 'rem';
+    if (/\b(dia de la semana|dias de la semana|que dia (se )?(opera|hay|suspend)\w*|dias? (con|que) (mas|menos))\b/.test(t)) return 'diaSemana';
+    if (/\b(promedio de (pacientes|cirugias|operados)|(pacientes|cirugias|operados) (por|al) dia|por pabellon al dia)\b/.test(t)) return 'promedioDia';
+    if (/\b(t ?retraso|retraso)\b/.test(t) && /\b(promedio|cuanto|tiempo|media)\b/.test(t)) return 'retraso';
+    if (/\b(sin fecha|filas? incomplet\w*|incomplet\w*|datos? faltantes?|faltan datos)\b/.test(t) && (ctx.contextoTabla || /\bfilas?\b/.test(t)) && !ctx.contextoLE) return 'tablaIncompletas';
+    if (/\b(color(es)?|marcad\w* (en|con)|resaltad\w*|pintad\w*|en (rojo|amarillo|verde|azul|naranjo|morado))\b/.test(t) && !ctx.contextoLE) return 'colores';
+    if (/\b(editando|quien (esta )?(edita|modifica|escribe)|edicion en curso)\b/.test(t)) return 'editando';
+    if (/\b(vinculad\w*|vinculo|vienen de (la )?lista|desde (la )?lista de espera|cargad\w* desde)\b/.test(t) && ctx.contextoTabla) return 'vinculoLE';
+    if (/\b(whatsapp|wsp|wasap)\b/.test(t) && !ctx.esComoHacer) return 'whatsapp';
+    if (/\bresumen\b/.test(t) && !ctx.contextoLE) return 'resumenTabla';
+    if (/\b(que|cual|quien|ranking|top)\b/.test(t) && /\b(cirujano|cirujanos|anestesist\w*|medico que|doctor que)\b/.test(t) && /\b(mas|menos|ranking|top)\b/.test(t)) return 'rankingPersonas';
+    if (/\b(intervenciones?|cirugias?|procedimientos?)\b/.test(t) && /\b(frecuentes|comunes|mas se (hacen|operan|realizan)|top|ranking|programadas|que (intervenciones|cirugias) hay)\b/.test(t)) return 'intervenciones';
+    if (/\b(duplicad\w*|repetid\w*|multi ?especialidad|mas de una especialidad|varias especialidades)\b/.test(t)) return (ctx.contextoTabla && !/\b(multi|especialidades)\b/.test(t)) ? 'duplicadosTabla' : 'duplicadosLE';
+    if (/\bepa\b/.test(t) && (ctx.umbral || /\b(vencid\w*|antigu\w*|hace)\b/.test(t))) return 'epa';
+    if (/\b(llamadas?|llamados?)\b/.test(t) && /\b(cuant\w*|se hicieron|realizad\w*|hechas|respuesta\w*|rechaz\w*|no contest\w*|no respond\w*|aceptaron|acepto|postergaron|motivo\w*|registrad\w*)\b/.test(t) && !/\b(a quien|hay que llamar|para llamar|pendientes?|atrasad\w*|proxim\w*)\b/.test(t)) return 'llamadasStats';
+    if (/\b(egres\w*|rechaz\w*|traslad\w*|extrasistema|salieron|salidas?)\b/.test(t) && (ctx.rango || ctx.esCuanto) && !/\b(llamad\w*)\b/.test(t)) return 'salidasLE';
+    if (ctx.columnaLE && (ctx.contextoLE || ASIS_CAMPOS_EXAMEN.includes(ctx.columnaLE.campo) || ['contactos', 'folio', 'emailPaciente', 'direccion', 'fechaEpa', 'estatusEpa', 'fechaProximoLlamado', 'indicacionesAnest', 'medicoTratante', 'fechaNac', 'patologiasCronicas', 'medicamentosCronicos', 'lateralidad'].includes(ctx.columnaLE.campo))) return 'columnaLE';
+    return null;
+}
+
+Object.assign(ASIS_INTENCIONES, {
+    tablaIncompletas: asisHandlerTablaIncompletas,
+    colores: asisHandlerColores,
+    editando: asisHandlerEditando,
+    vinculoLE: asisHandlerVinculoLE,
+    whatsapp: asisHandlerWhatsapp,
+    resumenTabla: asisHandlerResumenTabla,
+    rankingPersonas: asisHandlerRankingPersonas,
+    intervenciones: asisHandlerIntervenciones,
+    duplicadosTabla: asisHandlerDuplicadosTabla,
+    comparar: asisHandlerComparar,
+    tendencia: asisHandlerTendencia,
+    rem: asisHandlerRem,
+    metas: asisHandlerMetas,
+    diaSemana: asisHandlerDiaSemana,
+    promedioDia: asisHandlerPromedioDia,
+    retraso: asisHandlerRetraso,
+    epa: asisHandlerEpa,
+    columnaLE: asisHandlerColumnaLE,
+    llamadasStats: asisHandlerLlamadasStats,
+    salidasLE: asisHandlerSalidasLE,
+    duplicadosLE: asisHandlerDuplicadosLE,
+    actividadUsuario: asisHandlerActividadUsuario,
+    ultimoAcceso: asisHandlerUltimoAcceso,
+    abrirFicha: asisHandlerAbrirFicha,
+    exportar: asisHandlerExportar,
+    imprimirDia: asisHandlerImprimirDia
+});
+
 function asisFusionarContexto(previo, nuevo) {
     const r = { ...previo, t: nuevo.t, original: nuevo.original, esCuanto: nuevo.esCuanto || previo.esCuanto, esLista: nuevo.esLista || previo.esLista };
-    ['rango', 'esp', 'pab', 'jornada', 'medico', 'estadoIqx', 'estatusLE', 'prioridad', 'ges', 'n', 'rut', 'nombreTokens'].forEach(k => {
+    ['rango', 'esp', 'pab', 'jornada', 'medico', 'estadoIqx', 'estatusLE', 'prioridad', 'ges', 'n', 'rut', 'nombreTokens', 'columna', 'columnaLE', 'umbral', 'edad', 'comuna'].forEach(k => {
         if (nuevo[k]) r[k] = nuevo[k];
     });
     return r;
@@ -1831,6 +2814,7 @@ function asisRespuestaAyuda() {
     if (asisPuede('registro') || asisPuede('libro')) bloques.push('<b>📋 Tabla y Libro:</b> "¿quiénes se operan el jueves?", "¿qué opera el Dr. X mañana?", "pacientes de traumatología en pabellón 2 esta semana", "¿cuántos suspendidos hubo en septiembre?", "¿hay cupos libres el viernes?"');
     if (asisPuede('estadisticas') || asisPuede('libro')) bloques.push('<b>📊 Indicadores:</b> "índice de suspensión de este año", "¿cuál fue la ocupación el mes pasado?", "causas de suspensión de ginecología", "¿cuánto dura una colecistectomía?", "¿qué especialidad entra más tarde en el bloque AM?", "horarios de entrada del pabellón 1", "producción por especialidad", "ambulatorización por especialidad", "tiempo muerto del mes pasado", "cirugías en horario inhábil"');
     if (asisPuede('listaEspera')) bloques.push('<b>🩺 Lista de Espera:</b> "¿cuántos pacientes programables hay?", "¿quién lleva más tiempo esperando en ORL?", "¿a quién hay que llamar esta semana?", "mediana de espera por especialidad", "programables que aún no están en la tabla", "¿cuántos P1 GES hay?"');
+    bloques.push('<b>➕ Más:</b> "filas sin fecha", "filas marcadas en rojo", "¿quién está editando?", "pacientes sin WhatsApp esta semana", "resumen de la semana", "cirujano con más pacientes", "intervenciones más frecuentes", "suspensión octubre vs septiembre", "ocupación mes a mes", "producción REM de octubre", "¿cómo vamos con las metas?", "¿qué día se opera más?", "retraso promedio", "EPA de más de 6 meses", "pacientes sin teléfono", "¿cuántos sin EKG?", "llamadas que rechazaron este mes", "egresos de octubre", "pacientes en más de una especialidad", "teléfono de Juan Pérez", "abre la ficha de Juan Pérez", "exporta a Excel la lista de espera de ORL", "imprime la tabla de mañana".');
     bloques.push('<b>🔎 Pacientes:</b> "busca a Juan Pérez" o escribe un RUT.');
     bloques.push('<b>🧭 Navegar:</b> "llévame a lista de espera", "abre la tabla del jueves", "ir a estadísticas".');
     bloques.push('<b>💡 Dudas de uso:</b> "¿cómo difiero un paciente?", "¿qué es ACTUALIZAR?", "¿cómo se calcula la ocupación?", "¿por qué no veo Estadísticas?"');
@@ -1871,7 +2855,9 @@ async function asisResponder(original) {
     if (ctx.esComoHacer && kb && kb.puntaje >= 10) return asisRespuestaKB(kb.entrada);
 
     // 4. Consulta de datos
-    let intencion = asisDetectarIntencionDatos(ctx);
+    const attrPac = !ctx.esComoHacer ? await asisIntentarAtributoPaciente(ctx) : null;
+    if (attrPac) return attrPac;
+    let intencion = (await asisDetectarIntencionExtra(ctx)) || asisDetectarIntencionDatos(ctx);
     let ctxFinal = ctx;
 
     // 5. Seguimiento ("¿y mañana?", "¿y de traumatología?", "de urología")
