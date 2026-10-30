@@ -1726,10 +1726,34 @@ function asisGuardarVozActivada(activa) {
     try { localStorage.setItem('asis_voz_' + (currentUser ? currentUser.uid : ''), activa ? 'on' : 'off'); } catch (e) { /* sin localStorage */ }
 }
 
+// ⚙️ Voz configurable por usuario (⚙️ en la pestaña): el navegador no
+// puede clonar la voz grabada de los videos del Avatar -- eso requiere un
+// servicio de clonación de voz pagado -- pero sí elegir entre las voces
+// instaladas y ajustar tono y velocidad para acercarse lo más posible.
+function asisConfigVoz() {
+    const porDefecto = { nombre: '', tono: 0.9, velocidad: 1.0 };
+    try {
+        const g = JSON.parse(localStorage.getItem('asis_config_voz_' + (currentUser ? currentUser.uid : '')) || 'null');
+        return g ? { ...porDefecto, ...g } : porDefecto;
+    } catch (e) { return porDefecto; }
+}
+
+function asisGuardarConfigVoz(cfg) {
+    try { localStorage.setItem('asis_config_voz_' + (currentUser ? currentUser.uid : ''), JSON.stringify(cfg)); } catch (e) { /* sin localStorage */ }
+    asisVoz = asisElegirVoz();
+}
+
+function asisVocesEspanol() {
+    if (!('speechSynthesis' in window)) return [];
+    return window.speechSynthesis.getVoices().filter(v => /^es/i.test(v.lang));
+}
+
 function asisElegirVoz() {
-    if (!('speechSynthesis' in window)) return null;
-    const voces = window.speechSynthesis.getVoices().filter(v => /^es/i.test(v.lang));
+    const voces = asisVocesEspanol();
     if (voces.length === 0) return null;
+    const cfg = asisConfigVoz();
+    const elegida = cfg.nombre && voces.find(v => v.name === cfg.nombre);
+    if (elegida) return elegida;
     // El Avatar es un hombre: se prefiere una voz masculina en español
     // (latinoamericana primero), y si no hay, cualquier voz en español.
     const masculina = /pablo|raul|jorge|alvaro|enrique|diego|carlos|juan|andres|gonzalo|lorenzo|tomas|male|hombre|masculin/i;
@@ -1741,6 +1765,67 @@ function asisElegirVoz() {
 if ('speechSynthesis' in window) {
     asisVoz = asisElegirVoz();
     window.speechSynthesis.addEventListener && window.speechSynthesis.addEventListener('voiceschanged', () => { asisVoz = asisElegirVoz(); });
+}
+
+// 🎬 Movimiento real del Avatar mientras responde: se reproduce uno de sus
+// propios videos SIN SONIDO (boca, gestos) en un <video> aparte -- no toca
+// avatarVideoEl ni su cola de mensajes -- y se dibuja en el mismo canvas
+// con el recorte de fondo de siempre (dibujarAvatarConTransparencia, js/36).
+const ASIS_VIDEO_MOVIMIENTO = 'avatar/mensaje-pabellon.mp4';
+let asisVideoEl = null;
+let asisVideoRaf = null;
+let asisVideoTimer = null;
+
+function asisIniciarMovimiento(duracionMaxMs) {
+    if (typeof avatarReproduciendo !== 'undefined' && avatarReproduciendo) return;
+    const canvas = asisCanvasAvatar();
+    if (!canvas || typeof dibujarAvatarConTransparencia !== 'function') { asisAnimarAvatar('hablando'); return; }
+    if (!asisVideoEl) {
+        asisVideoEl = document.createElement('video');
+        asisVideoEl.muted = true;
+        asisVideoEl.loop = true;
+        asisVideoEl.playsInline = true;
+        asisVideoEl.preload = 'auto';
+        asisVideoEl.style.cssText = 'position:absolute; width:1px; height:1px; opacity:0; pointer-events:none;';
+        asisVideoEl.src = ASIS_VIDEO_MOVIMIENTO;
+        document.body.appendChild(asisVideoEl);
+    }
+    asisAnimarAvatar(null);
+    try {
+        if (asisVideoEl.duration > 4) asisVideoEl.currentTime = 1 + Math.random() * (asisVideoEl.duration - 3);
+    } catch (e) { /* aún sin metadatos: parte desde el inicio */ }
+    const p = asisVideoEl.play();
+    if (p && p.catch) p.catch(() => asisAnimarAvatar('hablando'));
+    cancelAnimationFrame(asisVideoRaf);
+    const loop = () => {
+        if (!asisVideoEl || asisVideoEl.paused || !asisCanvasAvatar()) return;
+        if (asisVideoEl.videoWidth && asisVideoEl.videoHeight) {
+            canvas.width = asisVideoEl.videoWidth;
+            canvas.height = asisVideoEl.videoHeight;
+            dibujarAvatarConTransparencia(asisVideoEl);
+        }
+        asisVideoRaf = requestAnimationFrame(loop);
+    };
+    asisVideoRaf = requestAnimationFrame(loop);
+    clearTimeout(asisVideoTimer);
+    if (duracionMaxMs) asisVideoTimer = setTimeout(asisDetenerMovimiento, duracionMaxMs);
+}
+
+function asisDetenerMovimiento() {
+    clearTimeout(asisVideoTimer);
+    cancelAnimationFrame(asisVideoRaf);
+    asisVideoRaf = null;
+    const estabaMoviendose = asisVideoEl && !asisVideoEl.paused;
+    if (asisVideoEl) asisVideoEl.pause();
+    asisAnimarAvatar(null);
+    // Vuelve a la foto de reposo (no queda congelado a mitad de un gesto).
+    const canvas = asisCanvasAvatar();
+    if (estabaMoviendose && canvas && typeof avatarImgReposo !== 'undefined' && avatarImgReposo && avatarImgReposo.naturalWidth
+        && !(typeof avatarReproduciendo !== 'undefined' && avatarReproduciendo)) {
+        canvas.width = avatarImgReposo.naturalWidth;
+        canvas.height = avatarImgReposo.naturalHeight;
+        dibujarAvatarConTransparencia(avatarImgReposo);
+    }
 }
 
 function asisLimpiarParaVoz(texto) {
@@ -1783,35 +1868,35 @@ function asisDetenerVoz() {
         try { window.speechSynthesis.cancel(); } catch (e) { /* nada que detener */ }
     }
     asisHablandoAhora = false;
-    asisAnimarAvatar(null);
+    asisDetenerMovimiento();
     asisActualizarIndicadorVoz();
 }
 
-function asisHablar(texto) {
+function asisHablar(texto, { forzar = false } = {}) {
     if (typeof avatarReproduciendo !== 'undefined' && avatarReproduciendo) return;
     const limpio = asisLimpiarParaVoz(texto);
-    const puedeHablar = limpio && asisVozActivada() && 'speechSynthesis' in window && typeof SpeechSynthesisUtterance !== 'undefined';
+    if (!limpio) return;
+    const puedeHablar = (forzar || asisVozActivada()) && 'speechSynthesis' in window && typeof SpeechSynthesisUtterance !== 'undefined';
     if (!puedeHablar) {
-        // Sin voz igual "reacciona": un pequeño movimiento al responder.
-        asisAnimarAvatar('reaccion');
-        clearTimeout(asisTimerReaccion);
-        asisTimerReaccion = setTimeout(() => asisAnimarAvatar(null), 1400);
+        // Sin voz igual se mueve, más o menos lo que tardaría en decirlo.
+        asisIniciarMovimiento(Math.min(6000, Math.max(1500, limpio.length * 55)));
         return;
     }
     try {
         window.speechSynthesis.cancel();
+        const cfg = asisConfigVoz();
         const u = new SpeechSynthesisUtterance(limpio);
         u.lang = (asisVoz && asisVoz.lang) || 'es-CL';
         if (asisVoz) u.voice = asisVoz;
-        u.rate = 1.05;
-        u.pitch = 1;
-        u.onstart = () => { asisHablandoAhora = true; asisAnimarAvatar('hablando'); asisActualizarIndicadorVoz(); };
+        u.rate = cfg.velocidad;
+        u.pitch = cfg.tono;
+        u.onstart = () => { asisHablandoAhora = true; asisIniciarMovimiento(); asisActualizarIndicadorVoz(); };
         u.onboundary = (e) => { if (!e.name || e.name === 'word') asisPulsoPalabra(); };
-        u.onend = u.onerror = () => { asisHablandoAhora = false; asisAnimarAvatar(null); asisActualizarIndicadorVoz(); };
+        u.onend = u.onerror = () => { asisHablandoAhora = false; asisDetenerMovimiento(); asisActualizarIndicadorVoz(); };
         window.speechSynthesis.speak(u);
     } catch (e) {
         asisHablandoAhora = false;
-        asisAnimarAvatar(null);
+        asisDetenerMovimiento();
     }
 }
 
@@ -1829,7 +1914,7 @@ function asisInyectarEstilos() {
         @keyframes asisPunto { 0%,80%,100% { opacity: 0.25; transform: translateY(0); } 40% { opacity: 1; transform: translateY(-3px); } }
         .asis-typing span { display:inline-block; width:6px; height:6px; margin:0 2px; border-radius:50%; background:#64748b; animation: asisPunto 1.2s infinite ease-in-out; }
         .asis-typing span:nth-child(2) { animation-delay: 0.15s; } .asis-typing span:nth-child(3) { animation-delay: 0.3s; }
-        .asis-burbuja { max-width:88%; border-radius:10px; padding:7px 10px; font-size:0.76rem; line-height:1.45; word-break:break-word; }
+        .asis-burbuja { max-width:90%; border-radius:10px; padding:8px 11px; font-size:0.8rem; line-height:1.45; word-break:break-word; }
         .asis-burbuja-usuario { background:#1e3a8a; color:white; align-self:flex-end; }
         .asis-burbuja-asistente { background:white; color:#1e293b; border:1px solid #e2e8f0; align-self:flex-start; }
         .asis-lista { margin:6px 0 2px; padding-left:16px; }
@@ -1857,7 +1942,7 @@ function renderTabAsistente(cuerpo) {
     asisInyectarEstilos();
     const vozOn = asisVozActivada();
     cuerpo.innerHTML = `
-        <div style="display:flex; flex-direction:column; height:360px;">
+        <div style="display:flex; flex-direction:column; height:${Math.max(360, Math.min(700, window.innerHeight - 60) - 100)}px;">
             <div style="display:flex; align-items:center; gap:6px; margin-bottom:6px; flex-shrink:0;">
                 <div style="flex-grow:1; min-width:0;">
                     <div style="font-weight:700; color:#0b2a4f; font-size:0.82rem;">🤖 Asistente</div>
@@ -1865,8 +1950,10 @@ function renderTabAsistente(cuerpo) {
                 </div>
                 <span id="asisIndicadorVoz" style="display:none; align-items:center; gap:3px; font-size:0.66rem; color:#1e40af; cursor:pointer;" title="Detener">🔊 hablando… ⏹</span>
                 <span id="asisBtnVoz" title="${vozOn ? 'Silenciar voz' : 'Activar voz'}" style="cursor:pointer; font-size:0.95rem;">${vozOn ? '🔊' : '🔇'}</span>
+                <span id="asisBtnConfigVoz" title="Elegir voz, tono y velocidad" style="cursor:pointer; font-size:0.9rem;">⚙️</span>
                 <span id="asisBtnLimpiar" title="Nueva conversación" style="cursor:pointer; font-size:0.85rem;">🗑️</span>
             </div>
+            <div id="asisConfigVoz" style="display:none; flex-shrink:0; background:#f1f5f9; border-radius:8px; padding:8px; margin-bottom:6px; font-size:0.72rem; color:#334155;"></div>
             <div id="asisMensajes" style="flex-grow:1; overflow-y:auto; background:#f8fafc; border-radius:8px; padding:8px; margin-bottom:8px; display:flex; flex-direction:column; gap:6px;"></div>
             <div style="display:flex; gap:6px; flex-shrink:0;">
                 <input type="text" id="asisInput" placeholder="Pregúntame algo..." autocomplete="off" style="flex-grow:1; min-width:0; border:1px solid #dbe3ee; border-radius:8px; padding:7px 9px; font-size:0.78rem; box-sizing:border-box;">
@@ -1890,6 +1977,13 @@ function renderTabAsistente(cuerpo) {
         const btn = document.getElementById('asisBtnVoz');
         btn.textContent = activar ? '🔊' : '🔇';
         btn.title = activar ? 'Silenciar voz' : 'Activar voz';
+    });
+    document.getElementById('asisBtnConfigVoz').addEventListener('click', e => {
+        e.stopPropagation();
+        const cont = document.getElementById('asisConfigVoz');
+        const abrir = cont.style.display === 'none';
+        cont.style.display = abrir ? 'block' : 'none';
+        if (abrir) asisRenderConfigVoz();
     });
     document.getElementById('asisIndicadorVoz').addEventListener('click', e => { e.stopPropagation(); asisDetenerVoz(); });
     document.getElementById('asisBtnLimpiar').addEventListener('click', e => {
@@ -1915,6 +2009,43 @@ function renderTabAsistente(cuerpo) {
     asisRenderMensajes();
     asisActualizarIndicadorVoz();
     setTimeout(() => { const i = document.getElementById('asisInput'); if (i) i.focus(); }, 50);
+}
+
+function asisRenderConfigVoz() {
+    const cont = document.getElementById('asisConfigVoz');
+    if (!cont) return;
+    const voces = asisVocesEspanol();
+    const cfg = asisConfigVoz();
+    const actual = asisVoz ? asisVoz.name : '';
+    cont.innerHTML = voces.length === 0
+        ? 'Este navegador no tiene voces en español instaladas. En Windows: Configuración → Hora e idioma → Voz → Agregar voces (por ejemplo "Español (México)" o "Español (España)").'
+        : `<div style="display:flex; flex-direction:column; gap:6px;">
+            <label>Voz: <select id="asisCfgVoz" style="max-width:100%; font-size:0.72rem;">${voces.map(v => `<option value="${asisEsc(v.name)}" ${v.name === actual ? 'selected' : ''}>${asisEsc(v.name)} (${asisEsc(v.lang)})</option>`).join('')}</select></label>
+            <label>Tono: <input type="range" id="asisCfgTono" min="0.5" max="1.5" step="0.05" value="${cfg.tono}" style="vertical-align:middle; width:140px;"> <span id="asisCfgTonoVal">${cfg.tono}</span></label>
+            <label>Velocidad: <input type="range" id="asisCfgVel" min="0.7" max="1.4" step="0.05" value="${cfg.velocidad}" style="vertical-align:middle; width:140px;"> <span id="asisCfgVelVal">${cfg.velocidad}</span></label>
+            <div><button id="asisCfgProbar" class="asis-btn-accion">▶️ Probar</button> <span style="color:#64748b;">Se guarda solo para tu usuario. Un tono un poco más bajo (0.85–0.95) suena más grave.</span></div>
+        </div>`;
+    const guardar = () => {
+        const nuevo = {
+            nombre: document.getElementById('asisCfgVoz').value,
+            tono: parseFloat(document.getElementById('asisCfgTono').value),
+            velocidad: parseFloat(document.getElementById('asisCfgVel').value)
+        };
+        document.getElementById('asisCfgTonoVal').textContent = nuevo.tono;
+        document.getElementById('asisCfgVelVal').textContent = nuevo.velocidad;
+        asisGuardarConfigVoz(nuevo);
+    };
+    cont.querySelectorAll('select, input').forEach(el => {
+        el.addEventListener('click', e => e.stopPropagation());
+        el.addEventListener('input', guardar);
+        el.addEventListener('change', guardar);
+    });
+    const probar = document.getElementById('asisCfgProbar');
+    if (probar) probar.addEventListener('click', e => {
+        e.stopPropagation();
+        guardar();
+        asisHablar('Hola, soy el asistente del proceso quirúrgico. ¿En qué te puedo ayudar?', { forzar: true });
+    });
 }
 
 function asisRenderMensajes(conEscribiendo) {

@@ -76,6 +76,7 @@ const ACCIONES_POR_SECCION = {
 let currentUserSecciones = null;
 let currentUserSoloLecturaTabla = false;
 let currentUserAvatarActivo = true;
+let currentUserAsistenteActivo = true;
 
 // Los administradores nunca están restringidos, EXCEPTO en "admin": el
 // panel Administrador es exclusivo del superadministrador — un
@@ -178,7 +179,7 @@ function aplicarSoloLecturaTabla() {
 // -------------------------------------------------------------
 // 🧰 UI DE PERMISOS — reutilizada en "Crear Usuario" y "Editar Permisos"
 // -------------------------------------------------------------
-function renderCheckboxesPermisos(seccionesActuales, soloLecturaActual, avatarActivoActual) {
+function renderCheckboxesPermisos(seccionesActuales, soloLecturaActual, avatarActivoActual, asistenteActivoActual) {
     let html = `<div id="permisosSeccionesWrap">
         <label style="font-size:0.8rem; font-weight:600; color:#475569; display:block; margin-top:12px; margin-bottom:6px;">Secciones a las que puede acceder</label>
         <div style="display:flex; flex-direction:column; gap:6px; background:#f8fafc; border-radius:8px; padding:10px;">`;
@@ -224,6 +225,10 @@ function renderCheckboxesPermisos(seccionesActuales, soloLecturaActual, avatarAc
             <input type="checkbox" id="permAvatarActivo" ${avatarActivoActual !== false ? 'checked' : ''}>
             🗣️ Mostrar el avatar con recordatorios y chat al iniciar sesión
         </label>
+        <label style="display:flex; align-items:center; gap:8px; font-size:0.85rem; margin-top:6px; cursor:pointer;">
+            <input type="checkbox" id="permAsistenteActivo" ${asistenteActivoActual !== false ? 'checked' : ''}>
+            🤖 Asistente (independiente del avatar: si el avatar está desactivado, el avatar aparece igual pero solo con el asistente)
+        </label>
     </div>`;
 
     return html;
@@ -236,5 +241,6 @@ function leerPermisosDesdeFormulario() {
     });
     const soloLecturaTabla = document.getElementById('permSoloLecturaTabla')?.checked || false;
     const avatarActivo = document.getElementById('permAvatarActivo')?.checked !== false;
-    return { secciones, soloLecturaTabla, avatarActivo };
+    const asistenteActivo = document.getElementById('permAsistenteActivo')?.checked !== false;
+    return { secciones, soloLecturaTabla, avatarActivo, asistenteActivo };
 }

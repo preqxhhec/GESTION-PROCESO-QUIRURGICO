@@ -648,6 +648,7 @@
             currentUserSecciones = (userData && userData.secciones) || null;
             currentUserSoloLecturaTabla = !!(userData && userData.soloLecturaTabla);
             currentUserAvatarActivo = !(userData && userData.avatarActivo === false);
+            currentUserAsistenteActivo = !(userData && userData.asistenteActivo === false);
 
             console.log('✅ Usuario autenticado:', currentUserEmail, 'Rol:', currentUserRol);
 
@@ -710,6 +711,7 @@
             currentUserSecciones = null;
             currentUserSoloLecturaTabla = false;
             currentUserAvatarActivo = true;
+            currentUserAsistenteActivo = true;
             detenerTemporizadoresInactividad();
             loginContainer.style.display = 'flex';
             appContainer.style.display = 'none';

@@ -98,7 +98,17 @@ let avatarEscuchandoPresenciaChat = false;
 // 🚀 INICIO (se llama una vez por sesión, justo después del login — js/15)
 // =============================================================
 async function inicializarAvatarMensajes() {
-    if (!currentUser || !currentUserAvatarActivo) return;
+    const asistenteOn = typeof currentUserAsistenteActivo === 'undefined' || currentUserAsistenteActivo;
+    if (!currentUser || (!currentUserAvatarActivo && !asistenteOn)) return;
+
+    // 🤖 Asistente con el avatar desactivado: el widget aparece igual (es la
+    // "cara" del asistente) pero solo con la pestaña Asistente -- sin
+    // videos, recordatorios ni chat.
+    if (!currentUserAvatarActivo) {
+        avatarPanelTabActiva = 'asistente';
+        construirWidgetAvatar();
+        return;
+    }
 
     // 🧱 El widget se arma siempre (antes solo si había mensajes de video
     // asignados) -- el chat debe funcionar para cualquier usuario con
@@ -555,8 +565,17 @@ function renderPanelRecordatorios() {
 
     // Ancho fijo de 340px para las 3 pestañas (con 270px no caben los tres
     // botones); el alto sigue siendo menor en Recordatorios.
-    const anchoTab = 340;
-    const altoTab = avatarPanelTabActiva === 'recordatorios' ? 360 : 460;
+    // Si el asistente no está permitido para este usuario, nunca queda como
+    // pestaña activa; si el avatar está desactivado, es la única.
+    const asisPermitido = typeof currentUserAsistenteActivo === 'undefined' || currentUserAsistenteActivo;
+    if (!asisPermitido && avatarPanelTabActiva === 'asistente') avatarPanelTabActiva = 'recordatorios';
+    if (!currentUserAvatarActivo) avatarPanelTabActiva = 'asistente';
+    // El Asistente usa un panel más grande (respuestas con listas), acotado
+    // al tamaño de la ventana.
+    const esAsistente = avatarPanelTabActiva === 'asistente';
+    const anchoTab = esAsistente ? Math.max(340, Math.min(520, window.innerWidth - 40)) : 340;
+    const altoTab = esAsistente ? Math.max(460, Math.min(700, window.innerHeight - 60))
+        : (avatarPanelTabActiva === 'recordatorios' ? 360 : 460);
     panel.style.width = anchoTab + 'px';
     panel.style.maxHeight = altoTab + 'px';
 
@@ -573,9 +592,9 @@ function renderPanelRecordatorios() {
         <div style="${estiloPuntero}"></div>
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
             <div style="display:flex; gap:4px;">
-                <button id="avatarTabRecordatorios" style="${estiloTabBase} ${avatarPanelTabActiva === 'recordatorios' ? estiloTabActiva : estiloTabInactiva}">📝 Recordatorios${badgeTab(totalRecordatorios)}</button>
-                <button id="avatarTabChat" style="${estiloTabBase} ${avatarPanelTabActiva === 'chat' ? estiloTabActiva : estiloTabInactiva}">💬 Chat${badgeTab(totalChatsNoLeidos)}</button>
-                <button id="avatarTabAsistente" style="${estiloTabBase} ${avatarPanelTabActiva === 'asistente' ? estiloTabActiva : estiloTabInactiva}">🤖 Asistente</button>
+                ${currentUserAvatarActivo ? `<button id="avatarTabRecordatorios" style="${estiloTabBase} ${avatarPanelTabActiva === 'recordatorios' ? estiloTabActiva : estiloTabInactiva}">📝 Recordatorios${badgeTab(totalRecordatorios)}</button>
+                <button id="avatarTabChat" style="${estiloTabBase} ${avatarPanelTabActiva === 'chat' ? estiloTabActiva : estiloTabInactiva}">💬 Chat${badgeTab(totalChatsNoLeidos)}</button>` : ''}
+                ${asisPermitido ? `<button id="avatarTabAsistente" style="${estiloTabBase} ${avatarPanelTabActiva === 'asistente' ? estiloTabActiva : estiloTabInactiva}">🤖 Asistente</button>` : ''}
             </div>
             <span id="avatarCerrarRecordatorios" style="cursor:pointer; color:#94a3b8; font-size:1rem; line-height:1;">✕</span>
         </div>
