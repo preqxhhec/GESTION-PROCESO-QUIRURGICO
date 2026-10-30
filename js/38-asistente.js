@@ -680,6 +680,47 @@ function asisVerFicha(key) {
     if (typeof leShowPatientModal === 'function') leShowPatientModal(key);
 }
 
+// 📋 Abre Lista de Pacientes con los MISMOS filtros de la consulta
+// (especialidad, estatus, prioridad, GES, médico tratante y, si aplica,
+// rango de Fecha Ind. Qx), para ver ahí exactamente los pacientes que
+// encontró el asistente. Usa los filtros propios de la sección
+// (js/25), no una vista aparte.
+function asisAbrirListaPacientesFiltrada(ctx, extra = {}) {
+    asisIrSeccion('listaEspera', 'listaPacientes');
+    let intentos = 0;
+    const aplicar = () => {
+        const selEsp = document.getElementById('filterEspecialidad');
+        if (!selEsp || typeof leFilterPatients !== 'function') {
+            if (++intentos < 20) setTimeout(aplicar, 150);
+            return;
+        }
+        if (typeof leClearFilters === 'function') leClearFilters();
+        const elegir = (id, condicion) => {
+            const sel = document.getElementById(id);
+            if (!sel) return;
+            const op = Array.from(sel.options).find(o => o.value && condicion(o.value));
+            if (op) sel.value = op.value;
+        };
+        if (ctx.esp) elegir('filterEspecialidad', v => ctx.esp.coincide(v));
+        if (typeof leActualizarFiltroMedicos === 'function') leActualizarFiltroMedicos();
+        if (ctx.medico) elegir('filterMedico', v => asisCoincideTokens(v, ctx.medico.tokens));
+        const estatus = extra.estatus || ctx.estatusLE;
+        if (estatus) elegir('filterEstatus', v => v.toString().trim().toUpperCase() === estatus);
+        if (ctx.prioridad) elegir('filterPrioridad', v => v.toString().replace(/\D/g, '') === ctx.prioridad);
+        if (ctx.ges) elegir('filterGes', v => v.toString().toUpperCase() === ctx.ges);
+        if (extra.desde) { const d = document.getElementById('filterFechaDesde'); if (d) d.value = extra.desde; }
+        if (extra.hasta) { const h = document.getElementById('filterFechaHasta'); if (h) h.value = extra.hasta; }
+        // Sin estatus elegido, el asistente cuenta solo los gestionables:
+        // se activa "Ocultar No Gestionables" para que la lista coincida.
+        if (!estatus && !extra.incluirNoGestionables && typeof ocultarNoGestionables !== 'undefined') {
+            ocultarNoGestionables = true;
+        }
+        if (typeof leActualizarBotonesFiltrosVisuales === 'function') leActualizarBotonesFiltrosVisuales();
+        leFilterPatients();
+    };
+    setTimeout(aplicar, 300);
+}
+
 function asisAccionesPaciente(p) {
     if (!asisPacienteEnMemoria(p.firebaseKey)) return '';
     let html = asisBotonInline('👁️', () => asisVerFicha(p.firebaseKey), 'Ver ficha');
@@ -687,6 +728,155 @@ function asisAccionesPaciente(p) {
         html += asisBotonInline('📞', () => { asisCerrarPanel(); abrirModalRegistroLlamada(p.firebaseKey); }, 'Registrar llamada');
     }
     return html;
+}
+
+// =============================================================
+// 📊 MÁS CONSULTAS DE ESTADÍSTICAS (horarios, producción por
+// especialidad, ambulatorización por especialidad, horario inhábil,
+// perianalgesia). Reutilizan las mismas funciones de js/18 y js/22, así
+// los números coinciden con lo que muestran Estadísticas y Análisis IA.
+// =============================================================
+
+// Registros del Libro en el período pedido (por defecto: este año hasta
+// el último día con datos), con los filtros de especialidad/pabellón.
+async function asisLibroEnRango(ctx, { porDefecto = 'anio' } = {}) {
+    const hoy = asisHoy();
+    const libro = await asisRegistrosLibro();
+    const ultima = libro.map(x => x.fecha).filter(Boolean).sort().pop() || asisFmt(hoy);
+    const rango = ctx.rango || (porDefecto === 'mes'
+        ? { desde: asisFmt(new Date(hoy.getFullYear(), hoy.getMonth(), 1)), hasta: ultima, etiqueta: `este mes (${ASIS_MESES[hoy.getMonth()]})` }
+        : { desde: asisFmt(new Date(hoy.getFullYear(), 0, 1)), hasta: ultima, etiqueta: `este año (${hoy.getFullYear()})` });
+    const hasta = rango.hasta > ultima ? ultima : rango.hasta;
+    const regs = libro.filter(x => x.fecha >= rango.desde && x.fecha <= hasta
+        && (!ctx.esp || ctx.esp.coincide(x.fila.Especialidad))
+        && (!ctx.pab || x.pab === ctx.pab)).map(x => ({ ...x.fila }));
+    return { rango, hasta, regs, nota: hasta < rango.hasta ? `<div class="asis-nota">Calculado hasta el ${asisFechaCorta(hasta)}, último día con datos en el Libro.</div>` : '' };
+}
+
+function asisSinAccesoEstadisticas() {
+    return (!asisPuede('estadisticas') && !asisPuede('libro')) ? asisSinAcceso('Estadísticas ni al Libro de Quirófano') : null;
+}
+
+// --- Horarios de entrada/salida AM/PM ---
+async function asisHandlerHorarios(ctx) {
+    const sin = asisSinAccesoEstadisticas(); if (sin) return sin;
+    if (typeof calcularAnalisisHorariosLibro !== 'function' || typeof calcularComportamientoPorEspecialidad !== 'function') {
+        return { html: 'El cálculo de horarios no está disponible en este momento.' };
+    }
+    const { rango, regs, nota } = await asisLibroEnRango(ctx);
+    if (regs.length === 0) return { html: `No hay registros en el Libro ${asisDescribirFiltros(ctx, { sinEstado: true })} ${asisEsc(rango.etiqueta)}.` };
+    const t = ctx.t;
+    // Bloque pedido: la jornada detectada ("bloque AM", "en la tarde") -- no
+    // la palabra "tarde" suelta, que en "entra más tarde" no significa PM.
+    const soloAm = ctx.jornada === 'AM';
+    const soloPm = ctx.jornada === 'PM';
+    const bloques = soloAm ? ['am'] : soloPm ? ['pm'] : ['am', 'pm'];
+    const nombreBloque = b => b === 'am' ? 'AM (08:00–13:00)' : 'PM (14:00–17:00)';
+    const porSalida = /\b(sal\w*|cierr\w*|termin\w*|cierre)\b/.test(t) && !/\bentr\w*\b/.test(t);
+    const pideRanking = /\b(especialidad\w*|temprano|tarde|antes|despues|ultim\w*|primer\w*|puntual\w*|atrasad\w*|ranking|cual\w*|quien\w*|mas|menos)\b/.test(t) && !ctx.esp;
+    const atraso = d => d.atrasoMin === null ? 's/d' : (d.atrasoMin > 0 ? `+${Math.round(d.atrasoMin)} min` : 'a tiempo');
+    const partes = [];
+    const vozPartes = [];
+
+    if (pideRanking) {
+        const esp = calcularComportamientoPorEspecialidad(regs);
+        bloques.forEach(b => {
+            const campo = porSalida ? 'salidaPromMin' : 'entradaPromMin';
+            const lista = esp.filter(e => e[b].casos > 0 && e[b][campo] !== null).sort((x, y) => x[b][campo] - y[b][campo]);
+            if (lista.length === 0) return;
+            const primero = lista[0], ultimo = lista[lista.length - 1];
+            const txt = e => porSalida ? e[b].salidaPromTxt : e[b].entradaPromTxt;
+            partes.push(`<div class="asis-sub">Bloque ${nombreBloque(b)} — ${porSalida ? 'cierre (salida) promedio' : 'inicio (entrada) promedio'}, de más temprano a más tarde:</div>`
+                + `<div>🌅 Más temprano: <b>${asisEsc(primero.especialidad)}</b> (${txt(primero)}) · 🌇 Más tarde: <b>${asisEsc(ultimo.especialidad)}</b> (${txt(ultimo)})</div>`
+                + `<ul class="asis-lista">${lista.map(e => `<li><b>${asisEsc(e.especialidad)}</b>: entrada ${e[b].entradaPromTxt || 's/d'} · salida ${e[b].salidaPromTxt || 's/d'} · atraso ${atraso(e[b])} · ${e[b].dias} día(s)/${e[b].casos} caso(s)</li>`).join('')}</ul>`);
+            vozPartes.push(`En el bloque ${b === 'am' ? 'a eme' : 'pe eme'}, ${porSalida ? 'termina' : 'entra'} más temprano ${primero.especialidad}, a las ${txt(primero)}, y más tarde ${ultimo.especialidad}, a las ${txt(ultimo)}`);
+        });
+        partes.push('<div class="asis-nota">Solo cirugías electivas. Por cada día, el inicio del bloque es la entrada más temprana y el cierre la salida más tardía; luego se promedian los días.</div>');
+    } else {
+        const ambitos = calcularAnalisisHorariosLibro(regs);
+        const filas = [];
+        ambitos.forEach(a => bloques.forEach(b => {
+            if (a[b].casos === 0) return;
+            filas.push(`<li><b>${asisEsc(a.clave)}</b> ${nombreBloque(b)}: entrada <b>${a[b].entradaPromTxt || 's/d'}</b> · salida <b>${a[b].salidaPromTxt || 's/d'}</b> · atraso ${atraso(a[b])} · ${a[b].dias} día(s)/${a[b].casos} caso(s)</li>`);
+        }));
+        partes.push(`<ul class="asis-lista">${filas.join('')}</ul><div class="asis-nota">El atraso se mide contra 08:00 (AM) y 14:00 (PM). Puedes preguntar "¿qué especialidad entra más tarde en el bloque AM?".</div>`);
+        const g = ambitos[0];
+        bloques.forEach(b => { if (g[b].casos) vozPartes.push(`El bloque ${b === 'am' ? 'a eme' : 'pe eme'} empieza en promedio a las ${g[b].entradaPromTxt} y termina a las ${g[b].salidaPromTxt}`); });
+    }
+    return {
+        html: `⏱️ Horarios de entrada/salida ${asisDescribirFiltros(ctx, { sinEstado: true })} ${asisEsc(rango.etiqueta)} (Libro de Quirófano):${partes.join('')}${nota}`,
+        acciones: asisPuede('estadisticas') ? [{ texto: '📊 Abrir Estadísticas', fn: () => asisIrSeccion('estadisticas') }] : [],
+        voz: vozPartes.join('. ') + '.'
+    };
+}
+
+// --- Producción / horas por especialidad ---
+async function asisHandlerProduccionEsp(ctx) {
+    const sin = asisSinAccesoEstadisticas(); if (sin) return sin;
+    const { rango, regs, nota } = await asisLibroEnRango(ctx);
+    if (regs.length === 0 || typeof calcularComportamientoPorEspecialidad !== 'function') return { html: `No hay registros en el Libro ${asisEsc(rango.etiqueta)}.` };
+    const esp = calcularComportamientoPorEspecialidad(regs);
+    const cmayPorEsp = {};
+    regs.forEach(r => {
+        if (typeof REM_ESTADOS_EXCLUIDOS_GENERAL !== 'undefined' && REM_ESTADOS_EXCLUIDOS_GENERAL.includes(r.ESTADO_DE_IQx)) return;
+        const n = [r.Tipo_Actividad, r.Tipo_Actividad_2, r.Tipo_Actividad_3].filter(x => x === 'Cmay').length;
+        const k = r.Especialidad || 'Sin especialidad';
+        cmayPorEsp[k] = (cmayPorEsp[k] || 0) + n;
+    });
+    const porHoras = /\bhoras?\b|\btiempo\b|\bocupa/.test(ctx.t);
+    const orden = [...esp].sort((a, b) => porHoras ? b.horas - a.horas : b.produccion - a.produccion);
+    const menos = /\bmenos\b/.test(ctx.t);
+    const destacado = menos ? orden[orden.length - 1] : orden[0];
+    const fmtH = h => typeof estadisticasFormatearHoras === 'function' ? estadisticasFormatearHoras(h) : asisFmtNum(h);
+    return {
+        html: `🏥 Producción por especialidad ${asisEsc(rango.etiqueta)} (cirugías electivas, sin suspendidas ni urgencias):<div>${menos ? '🔻 Menor' : '🏆 Mayor'} ${porHoras ? 'uso de pabellón' : 'producción'}: <b>${asisEsc(destacado.especialidad)}</b> (${destacado.produccion} pacientes, ${fmtH(destacado.horas)} h)</div>`
+            + `<ul class="asis-lista">${orden.map(e => `<li><b>${asisEsc(e.especialidad)}</b>: ${e.produccion} pacientes · ${cmayPorEsp[e.especialidad] || 0} intervenciones Cmay · ${fmtH(e.horas)} h (${asisFmtNum(e.pctDelTotal)}% del tiempo electivo)</li>`).join('')}</ul>${nota}`,
+        acciones: asisPuede('estadisticas') ? [{ texto: '📊 Abrir Estadísticas', fn: () => asisIrSeccion('estadisticas') }] : [],
+        voz: `La especialidad con ${menos ? 'menor' : 'mayor'} ${porHoras ? 'uso de pabellón' : 'producción'} ${rango.etiqueta} es ${destacado.especialidad}, con ${destacado.produccion} pacientes.`
+    };
+}
+
+// --- Ambulatorización por especialidad ---
+async function asisHandlerAmbEsp(ctx) {
+    const sin = asisSinAccesoEstadisticas(); if (sin) return sin;
+    const { rango, regs, nota } = await asisLibroEnRango(ctx);
+    const grupos = {};
+    regs.forEach(r => { const k = r.Especialidad || 'Sin especialidad'; (grupos[k] = grupos[k] || []).push(r); });
+    const calc = typeof calcularAmbulatorizacion === 'function' ? calcularAmbulatorizacion : null;
+    if (!calc) return { html: 'El cálculo de ambulatorización no está disponible en este momento.' };
+    const filas = Object.keys(grupos).map(k => ({ k, ...calc(grupos[k]) })).filter(x => x.denominador > 0).sort((a, b) => b.indice - a.indice);
+    if (filas.length === 0) return { html: `No hay pacientes Cmay programados operados ${asisEsc(rango.etiqueta)}.` };
+    const general = calc(regs);
+    return {
+        html: `🚶 Ambulatorización por especialidad ${asisEsc(rango.etiqueta)} (general: <b>${asisFmtNum(general.indice)}%</b>):<ul class="asis-lista">${filas.map(x => `<li><b>${asisEsc(x.k)}</b>: ${asisFmtNum(x.indice)}% (${x.numerador} CMA de ${x.denominador})</li>`).join('')}</ul>${nota}`,
+        voz: `La que más ambulatoriza es ${filas[0].k}, con ${asisFmtNum(filas[0].indice)} por ciento, y la que menos es ${filas[filas.length - 1].k}, con ${asisFmtNum(filas[filas.length - 1].indice)} por ciento.`
+    };
+}
+
+// --- Horario inhábil ---
+async function asisHandlerInhabil(ctx) {
+    const sin = asisSinAccesoEstadisticas(); if (sin) return sin;
+    if (typeof calcularKpisHorarioInhabil !== 'function') return { html: 'El cálculo de horario inhábil no está disponible en este momento.' };
+    const { rango, regs, nota } = await asisLibroEnRango(ctx);
+    if (typeof obtenerFeriados === 'function') { try { await obtenerFeriados([+rango.desde.slice(0, 4)]); } catch (e) { /* sin feriados */ } }
+    const k = calcularKpisHorarioInhabil(regs);
+    const fmtH = h => typeof estadisticasFormatearHoras === 'function' ? estadisticasFormatearHoras(h) : asisFmtNum(h);
+    return {
+        html: `⏰ Horario inhábil (fuera de 08:00–17:00, fines de semana y feriados) ${asisDescribirFiltros(ctx, { sinEstado: true })} ${asisEsc(rango.etiqueta)}:<div class="asis-bloques"><div>Cirugías: <b>${k.totalCirugias}</b> · Horas trabajadas: <b>${fmtH(k.horasTrabajadas)}</b></div><div>Urgencias: <b>${k.totalUrgencias}</b> · Horas de urgencia: <b>${fmtH(k.horasUrgencia)}</b></div></div>${nota}`,
+        voz: `En horario inhábil hubo ${asisPlural(k.totalCirugias, 'cirugía', 'cirugías')}, de las cuales ${k.totalUrgencias} fueron urgencias.`
+    };
+}
+
+// --- Perianalgesia por mes ---
+async function asisHandlerPerianalgesia(ctx) {
+    const sin = asisSinAccesoEstadisticas(); if (sin) return sin;
+    const { rango, regs } = await asisLibroEnRango(ctx);
+    const casos = regs.filter(r => (r.ESTADO_DE_IQx || '').toUpperCase().startsWith('PERIANALGESIA'));
+    const porMes = asisContarPor(casos, r => { const f = asisFechaDesdeValor(r.FECHA); return f ? ASIS_MESES[+f.slice(5, 7) - 1] + ' ' + f.slice(0, 4) : ''; });
+    return {
+        html: `🤰 <b>${asisPlural(casos.length, 'perianalgesia', 'perianalgesias')}</b> (parto) ${asisEsc(rango.etiqueta)}.${casos.length ? asisChipsConteo(porMes, 12) : ''}`,
+        voz: `Hubo ${asisPlural(casos.length, 'perianalgesia', 'perianalgesias')} ${rango.etiqueta}.`
+    };
 }
 
 // =============================================================
@@ -853,15 +1043,17 @@ async function asisHandlerKpi(ctx) {
     const pideAmb = /\bambulatori/.test(t);
     const pideOcup = /\bocupacion/.test(t);
     const pideRend = /\brendimiento/.test(t);
-    const todos = !pideSusp && !pideAmb && !pideOcup && !pideRend;
+    const pideMuerto = /\btiempos? muertos?\b/.test(t);
+    const todos = !pideSusp && !pideAmb && !pideOcup && !pideRend && !pideMuerto;
     const k = calcularKPIsEstadisticas(regs);
     const filtros = asisDescribirFiltros(ctx, { sinEstado: true });
     const partes = [];
     const vozPartes = [];
 
     if (pideSusp || todos) {
-        partes.push(`📉 <b>Índice de suspensión Cmay: ${asisFmtNum(k.indiceSuspension)}%</b> (${k.suspCmay} suspendidos Cmay de ${k.progCmay} programados Cmay). Sin reemplazos por urgencia: <b>${asisFmtNum(k.indiceSuspensionSinUrgencia)}%</b>.`);
-        vozPartes.push(`El índice de suspensión es ${asisFmtNum(k.indiceSuspension)} por ciento`);
+        const suspSinUrg = k.suspCmaySinUrgencia != null ? k.suspCmaySinUrgencia : '';
+        partes.push(`📉 <b>Índice de suspensión Cmay (total, incluye reemplazos por urgencia): ${asisFmtNum(k.indiceSuspension)}%</b> — ${k.suspCmay} suspendidos Cmay de ${k.progCmay} programados Cmay.<br>📉 <b>Índice de suspensión Cmay sin reemplazos por urgencia: ${asisFmtNum(k.indiceSuspensionSinUrgencia)}%</b>${suspSinUrg !== '' ? ` — ${suspSinUrg} suspendidos Cmay de ${k.progCmay}` : ''}.`);
+        vozPartes.push(`El índice de suspensión total es ${asisFmtNum(k.indiceSuspension)} por ciento, y sin los reemplazos por urgencia es ${asisFmtNum(k.indiceSuspensionSinUrgencia)} por ciento`);
     }
     if (pideAmb || todos) {
         partes.push(`🚶 <b>Índice de ambulatorización: ${asisFmtNum(k.indiceAmbulatorizacion)}%</b> (pacientes Cmay programados operados con destino CMA).`);
@@ -870,7 +1062,7 @@ async function asisHandlerKpi(ctx) {
     if (todos) {
         partes.push(`🏥 Operados: <b>${k.totalOperados}</b> · Suspendidos: <b>${k.totalSuspendidos}</b> · Urgencias: <b>${k.totalUrgencia}</b> · Agregados: <b>${k.totalAgregados}</b>.`);
     }
-    if ((pideOcup || pideRend || todos) && typeof calcularKpisOcupacion === 'function' && typeof calcularDiasHabiles === 'function') {
+    if ((pideOcup || pideRend || pideMuerto || todos) && typeof calcularKpisOcupacion === 'function' && typeof calcularDiasHabiles === 'function') {
         try {
             if (typeof obtenerFeriados === 'function') {
                 const anios = [];
@@ -882,6 +1074,11 @@ async function asisHandlerKpi(ctx) {
                 await cargarDisponibilidadPabellon();
             }
             const ko = calcularKpisOcupacion(regs, calcularDiasHabiles(rango.desde, hastaEfectivo));
+            if (/\btiempos? muertos?\b/.test(t)) {
+                const muerto = Math.max(0, ko.horasHabilitadas - ko.horasTrabajadas);
+                partes.push(`⏳ <b>Tiempo muerto: ${typeof estadisticasFormatearHoras === 'function' ? estadisticasFormatearHoras(muerto) : asisFmtNum(muerto)} h</b> (${asisFmtNum(ko.horasHabilitadas > 0 ? muerto / ko.horasHabilitadas * 100 : 0)}% de las horas habilitadas sin actividad).`);
+                vozPartes.push(`el tiempo muerto es ${asisFmtNum(ko.horasHabilitadas > 0 ? muerto / ko.horasHabilitadas * 100 : 0)} por ciento de las horas habilitadas`);
+            }
             if (pideOcup || todos) {
                 partes.push(`🏨 <b>Ocupación de pabellón: ${asisFmtNum(ko.porcentajeOcupacion)}%</b> (${typeof estadisticasFormatearHoras === 'function' ? estadisticasFormatearHoras(ko.horasTrabajadas) : asisFmtNum(ko.horasTrabajadas)} h trabajadas de ${typeof estadisticasFormatearHoras === 'function' ? estadisticasFormatearHoras(ko.horasHabilitadas) : asisFmtNum(ko.horasHabilitadas)} h habilitadas, ${ko.diasHabiles} días hábiles).`);
                 vozPartes.push(`la ocupación es ${asisFmtNum(ko.porcentajeOcupacion)} por ciento`);
@@ -1007,6 +1204,7 @@ async function asisHandlerMayorEspera(ctx) {
     const primero = lista[0];
     return {
         html: `⚠️ Los ${lista.length} con mayor espera ${asisDescribirFiltros(ctx, { conLE: true, conEstatusLE: true })} (desde ${fuenteTxt}):${asisListaHtml(lista, x => `<li>${asisAccionesPaciente(x.p)} <b>${asisEsc(x.p.nombreApellido || '')}</b> · ${x.dias} días · ${asisEsc(x.p.especialidad || '')} · <i>${asisEsc(x.p.estatusTabla || '')}</i></li>`, 100)}`,
+        acciones: [{ texto: '📋 Ver en Lista de Espera (con los filtros aplicados)', fn: () => asisAbrirListaPacientesFiltrada(ctx) }],
         voz: `El que más espera es ${primero.p.nombreApellido || 'un paciente'}, con ${primero.dias} días.`
     };
 }
@@ -1050,6 +1248,7 @@ async function asisHandlerProgramablesSinTabla(ctx) {
     const puedeCargar = typeof leMostrarModalCargarATabla === 'function' && asisPuede('listaEspera_cargarATabla') && typeof currentUserSoloLecturaTabla !== 'undefined' && !currentUserSoloLecturaTabla;
     return {
         html: `✅ <b>${asisPlural(lista.length, 'paciente PROGRAMABLE', 'pacientes PROGRAMABLES')}</b> ${asisDescribirFiltros(ctx, { conLE: true })} que todavía no están cargados en la Tabla (de mayor a menor espera):${asisListaHtml(lista, x => `<li>${asisAccionesPaciente(x.p)}${puedeCargar && asisPacienteEnMemoria(x.p.firebaseKey) ? asisBotonInline('📋', () => { asisCerrarPanel(); leMostrarModalCargarATabla(x.p.firebaseKey); }, 'Cargar a la Tabla') : ''} <b>${asisEsc(x.p.nombreApellido || '')}</b> · ${asisEsc(x.p.especialidad || '')} · ${x.dias} días${x.p.prioridad ? ' · ' + asisEsc(x.p.prioridad) : ''}</li>`)}${puedeCargar ? '<div class="asis-nota">📋 abre "Cargar a la Tabla" para ese paciente.</div>' : ''}`,
+        acciones: [{ texto: '📋 Ver PROGRAMABLES en Lista de Espera (con los filtros aplicados)', fn: () => asisAbrirListaPacientesFiltrada(ctx, { estatus: 'PROGRAMABLE' }) }],
         voz: `Hay ${asisPlural(lista.length, 'paciente programable', 'pacientes programables')} que aún no ${lista.length === 1 ? 'está' : 'están'} en la tabla.`
     };
 }
@@ -1066,7 +1265,7 @@ async function asisHandlerIngresos(ctx) {
     if (lista.length && (ctx.esLista || lista.length <= ASIS_MAX_ITEMS_LISTA)) {
         html += asisListaHtml(lista, p => `<li>${asisAccionesPaciente(p)} ${asisFechaCorta(asisFechaDesdeValor(p.fechaIndQx))} — <b>${asisEsc(p.nombreApellido || '')}</b> · ${asisEsc(p.especialidad || '')} · <i>${asisEsc(p.estatusTabla || '')}</i></li>`);
     }
-    return { html, voz: `${asisPlural(lista.length, 'ingreso')} ${rango.etiqueta}.` };
+    return { html, acciones: [{ texto: '📋 Ver estos pacientes en Lista de Espera (con los filtros aplicados)', fn: () => asisAbrirListaPacientesFiltrada(ctx, { desde: rango.desde, hasta: rango.hasta, incluirNoGestionables: true }) }], voz: `${asisPlural(lista.length, 'ingreso')} ${rango.etiqueta}.` };
 }
 
 // --- Lista de Espera: conteos y distribuciones ---
@@ -1100,7 +1299,7 @@ async function asisHandlerLEConteo(ctx) {
     }
     return {
         html,
-        acciones: [{ texto: '📋 Abrir Lista de Pacientes', fn: () => asisIrSeccion('listaEspera', 'listaPacientes') }],
+        acciones: [{ texto: '📋 Ver estos pacientes en Lista de Espera (con los filtros aplicados)', fn: () => asisAbrirListaPacientesFiltrada(ctx) }],
         voz: `${asisPlural(lista.length, 'paciente')}${base} ${asisTextoPlano(filtros)}${etiquetaRango}.`
     };
 }
@@ -1561,11 +1760,24 @@ const ASIS_INTENCIONES = {
     ingresos: asisHandlerIngresos,
     leConteo: asisHandlerLEConteo,
     diferidos: asisHandlerDiferidos,
-    buscar: asisHandlerBuscarPaciente
+    buscar: asisHandlerBuscarPaciente,
+    horarios: asisHandlerHorarios,
+    produccionEsp: asisHandlerProduccionEsp,
+    ambEsp: asisHandlerAmbEsp,
+    inhabil: asisHandlerInhabil,
+    perianalgesia: asisHandlerPerianalgesia
 };
 
 function asisDetectarIntencionDatos(ctx) {
     const t = ctx.t;
+    if (!ctx.esComoHacer) {
+        if (/\b(horario inhabil|fuera de horario|inhabil|despues de las 17|fin(es)? de semana)\b/.test(t)) return 'inhabil';
+        if (/\b(hora (de )?(entrada|salida|inicio|termino|cierre)|horarios?|entra\w* (mas )?(temprano|tarde|antes|despues)|empieza\w*|comienza\w*|inici\w* (el |del )?bloque|cierr\w* (el |del )?bloque|termina\w* (mas )?(temprano|tarde)|sal\w* mas (temprano|tarde)|atraso\w*|atrasad\w*|puntual\w*|bloque (am|pm))\b/.test(t) && !ctx.contextoLE) return 'horarios';
+        if (/\bambulatoriz\w*\b/.test(t) && /\b(por especialidad|cada especialidad|que especialidad|cual especialidad|ranking|mas|menos)\b/.test(t)) return 'ambEsp';
+        if (/\b(perianalgesia\w*|partos?)\b/.test(t) && (ctx.esCuanto || ctx.rango || /\bmes\b/.test(t))) return 'perianalgesia';
+        if (/\b(produccion|productividad|que especialidad (opera|tiene|hace|ocupa)|cual especialidad|especialidad(es)? (que|con) (mas|menos)|ranking de especialidades|por especialidad)\b/.test(t) && !ctx.contextoLE && !/\b(suspen\w*|ocupacion|rendimiento|espera)\b/.test(t)) return 'produccionEsp';
+        if (/\btiempos? muertos?\b/.test(t)) return 'kpi';
+    }
     if (/\b(indice|tasa|porcentaje|indicador\w*|kpi)\b/.test(t) && /\b(suspension\w*|ambulatoriz\w*|ocupacion|rendimiento|indicador\w*|kpi)\b/.test(t)) return 'kpi';
     if (/\b(ocupacion|rendimiento)\b/.test(t) && !ctx.esComoHacer) return 'kpi';
     if (/\bambulatoriz\w*/.test(t) && !ctx.esComoHacer) return 'kpi';
@@ -1617,7 +1829,7 @@ function asisSugerencias(max = 6) {
 function asisRespuestaAyuda() {
     const bloques = [];
     if (asisPuede('registro') || asisPuede('libro')) bloques.push('<b>📋 Tabla y Libro:</b> "¿quiénes se operan el jueves?", "¿qué opera el Dr. X mañana?", "pacientes de traumatología en pabellón 2 esta semana", "¿cuántos suspendidos hubo en septiembre?", "¿hay cupos libres el viernes?"');
-    if (asisPuede('estadisticas') || asisPuede('libro')) bloques.push('<b>📊 Indicadores:</b> "índice de suspensión de este año", "¿cuál fue la ocupación el mes pasado?", "causas de suspensión de ginecología", "¿cuánto dura una colecistectomía?"');
+    if (asisPuede('estadisticas') || asisPuede('libro')) bloques.push('<b>📊 Indicadores:</b> "índice de suspensión de este año", "¿cuál fue la ocupación el mes pasado?", "causas de suspensión de ginecología", "¿cuánto dura una colecistectomía?", "¿qué especialidad entra más tarde en el bloque AM?", "horarios de entrada del pabellón 1", "producción por especialidad", "ambulatorización por especialidad", "tiempo muerto del mes pasado", "cirugías en horario inhábil"');
     if (asisPuede('listaEspera')) bloques.push('<b>🩺 Lista de Espera:</b> "¿cuántos pacientes programables hay?", "¿quién lleva más tiempo esperando en ORL?", "¿a quién hay que llamar esta semana?", "mediana de espera por especialidad", "programables que aún no están en la tabla", "¿cuántos P1 GES hay?"');
     bloques.push('<b>🔎 Pacientes:</b> "busca a Juan Pérez" o escribe un RUT.');
     bloques.push('<b>🧭 Navegar:</b> "llévame a lista de espera", "abre la tabla del jueves", "ir a estadísticas".');
@@ -1731,7 +1943,10 @@ function asisGuardarVozActivada(activa) {
 // servicio de clonación de voz pagado -- pero sí elegir entre las voces
 // instaladas y ajustar tono y velocidad para acercarse lo más posible.
 function asisConfigVoz() {
-    const porDefecto = { nombre: '', tono: 0.9, velocidad: 1.0 };
+    // Voz por defecto para todos: Google español, tono 1.1, velocidad 1.
+    // Solo el superadministrador puede cambiarla (para sí mismo, desde ⚙️).
+    const porDefecto = { nombre: 'Google español', tono: 1.1, velocidad: 1.0 };
+    if (typeof esSuperAdministrador !== 'function' || !esSuperAdministrador()) return porDefecto;
     try {
         const g = JSON.parse(localStorage.getItem('asis_config_voz_' + (currentUser ? currentUser.uid : '')) || 'null');
         return g ? { ...porDefecto, ...g } : porDefecto;
@@ -1950,7 +2165,7 @@ function renderTabAsistente(cuerpo) {
                 </div>
                 <span id="asisIndicadorVoz" style="display:none; align-items:center; gap:3px; font-size:0.66rem; color:#1e40af; cursor:pointer;" title="Detener">🔊 hablando… ⏹</span>
                 <span id="asisBtnVoz" title="${vozOn ? 'Silenciar voz' : 'Activar voz'}" style="cursor:pointer; font-size:0.95rem;">${vozOn ? '🔊' : '🔇'}</span>
-                <span id="asisBtnConfigVoz" title="Elegir voz, tono y velocidad" style="cursor:pointer; font-size:0.9rem;">⚙️</span>
+                ${typeof esSuperAdministrador === 'function' && esSuperAdministrador() ? '<span id="asisBtnConfigVoz" title="Elegir voz, tono y velocidad" style="cursor:pointer; font-size:0.9rem;">⚙️</span>' : ''}
                 <span id="asisBtnLimpiar" title="Nueva conversación" style="cursor:pointer; font-size:0.85rem;">🗑️</span>
             </div>
             <div id="asisConfigVoz" style="display:none; flex-shrink:0; background:#f1f5f9; border-radius:8px; padding:8px; margin-bottom:6px; font-size:0.72rem; color:#334155;"></div>
@@ -1978,7 +2193,7 @@ function renderTabAsistente(cuerpo) {
         btn.textContent = activar ? '🔊' : '🔇';
         btn.title = activar ? 'Silenciar voz' : 'Activar voz';
     });
-    document.getElementById('asisBtnConfigVoz').addEventListener('click', e => {
+    document.getElementById('asisBtnConfigVoz')?.addEventListener('click', e => {
         e.stopPropagation();
         const cont = document.getElementById('asisConfigVoz');
         const abrir = cont.style.display === 'none';
