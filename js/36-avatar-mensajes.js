@@ -79,7 +79,7 @@ let avatarEscuchandoRecordatoriosTexto = false;
 // La presencia (online/offline) reutiliza usuarios/{uid}/sesionActiva, que
 // ya existe para el candado de sesión única (js/15) -- no se crea un nodo
 // de presencia aparte.
-let avatarPanelTabActiva = 'recordatorios'; // 'recordatorios' | 'chat'
+let avatarPanelTabActiva = 'recordatorios'; // 'recordatorios' | 'chat' | 'asistente' (js/38)
 let avatarChatVista = 'lista';              // 'lista' | 'nuevo' | 'conversacion'
 let avatarChatConversacionActivaId = null;
 let avatarChatIndice = {};                  // chats_index/{miUid} en vivo
@@ -227,7 +227,7 @@ function construirWidgetAvatar() {
 
     const wrap = document.createElement('div');
     wrap.id = 'avatarRecordatorioWidget';
-    wrap.title = 'Recordatorios y chat (arrástralo para moverlo)';
+    wrap.title = 'Recordatorios, chat y asistente (arrástralo para moverlo)';
     wrap.style.cssText = 'position:fixed; right:18px; bottom:18px; z-index:9998; display:flex; flex-direction:column; align-items:center; cursor:pointer; touch-action:none;';
     wrap.innerHTML = `
         <div style="position:relative;">
@@ -391,6 +391,7 @@ function habilitarArrastreAvatar(wrap) {
 }
 
 function limpiarWidgetAvatar() {
+    if (typeof asisReiniciar === 'function') asisReiniciar();
     detenerAvatar();
     cerrarPanelRecordatorios();
     detenerEscuchaRecordatoriosTexto();
@@ -495,6 +496,7 @@ function abrirPanelRecordatorios() {
 }
 
 function cerrarPanelRecordatorios() {
+    if (typeof asisDetenerVoz === 'function') asisDetenerVoz();
     const panel = document.getElementById('avatarPanelRecordatorios');
     if (panel) panel.style.display = 'none';
     avatarPanelRecordatoriosAbierto = false;
@@ -510,6 +512,7 @@ function cerrarPanelRecordatoriosPorClicAfuera() {
 // 💬 Pestaña activa del panel (📝 Recordatorios / 💬 Chat).
 function cambiarTabPanel(nombre) {
     if (avatarPanelTabActiva === nombre) return;
+    if (avatarPanelTabActiva === 'asistente' && typeof asisDetenerVoz === 'function') asisDetenerVoz();
     avatarPanelTabActiva = nombre;
     renderPanelRecordatorios();
     avatarChatActualizarListenersSegunEstado();
@@ -550,8 +553,10 @@ function renderPanelRecordatorios() {
         ? 'position:absolute; right:-7px; bottom:36px; width:14px; height:14px; background:white; transform:rotate(45deg);'
         : 'position:absolute; left:-7px; bottom:36px; width:14px; height:14px; background:white; transform:rotate(45deg);';
 
-    const anchoTab = avatarPanelTabActiva === 'chat' ? 340 : 270;
-    const altoTab = avatarPanelTabActiva === 'chat' ? 460 : 360;
+    // Ancho fijo de 340px para las 3 pestañas (con 270px no caben los tres
+    // botones); el alto sigue siendo menor en Recordatorios.
+    const anchoTab = 340;
+    const altoTab = avatarPanelTabActiva === 'recordatorios' ? 360 : 460;
     panel.style.width = anchoTab + 'px';
     panel.style.maxHeight = altoTab + 'px';
 
@@ -560,16 +565,17 @@ function renderPanelRecordatorios() {
     const badgeTab = (n) => n > 0
         ? `<span style="display:inline-block; min-width:15px; height:15px; padding:0 3px; border-radius:8px; background:#dc2626; color:white; font-size:8px; font-weight:700; line-height:15px; text-align:center; margin-left:4px;">${n > 9 ? '9+' : n}</span>`
         : '';
-    const estiloTabBase = 'border:none; border-radius:20px; padding:6px 10px; font-size:0.76rem; font-weight:600; cursor:pointer; display:flex; align-items:center;';
+    const estiloTabBase = 'border:none; border-radius:20px; padding:5px 8px; font-size:0.72rem; font-weight:600; cursor:pointer; display:flex; align-items:center; white-space:nowrap;';
     const estiloTabActiva = 'background:#1e3a8a; color:white;';
     const estiloTabInactiva = 'background:#f1f5f9; color:#475569;';
 
     panel.innerHTML = `
         <div style="${estiloPuntero}"></div>
         <div style="display:flex; justify-content:space-between; align-items:center; margin-bottom:10px;">
-            <div style="display:flex; gap:6px;">
+            <div style="display:flex; gap:4px;">
                 <button id="avatarTabRecordatorios" style="${estiloTabBase} ${avatarPanelTabActiva === 'recordatorios' ? estiloTabActiva : estiloTabInactiva}">📝 Recordatorios${badgeTab(totalRecordatorios)}</button>
                 <button id="avatarTabChat" style="${estiloTabBase} ${avatarPanelTabActiva === 'chat' ? estiloTabActiva : estiloTabInactiva}">💬 Chat${badgeTab(totalChatsNoLeidos)}</button>
+                <button id="avatarTabAsistente" style="${estiloTabBase} ${avatarPanelTabActiva === 'asistente' ? estiloTabActiva : estiloTabInactiva}">🤖 Asistente</button>
             </div>
             <span id="avatarCerrarRecordatorios" style="cursor:pointer; color:#94a3b8; font-size:1rem; line-height:1;">✕</span>
         </div>
@@ -588,10 +594,16 @@ function renderPanelRecordatorios() {
         e.stopPropagation();
         cambiarTabPanel('chat');
     });
+    document.getElementById('avatarTabAsistente')?.addEventListener('click', (e) => {
+        e.stopPropagation();
+        cambiarTabPanel('asistente');
+    });
 
     const cuerpo = document.getElementById('avatarPanelCuerpo');
     if (avatarPanelTabActiva === 'chat') {
         renderTabChat(cuerpo);
+    } else if (avatarPanelTabActiva === 'asistente' && typeof renderTabAsistente === 'function') {
+        renderTabAsistente(cuerpo);
     } else {
         renderTabRecordatorios(cuerpo);
     }
@@ -1470,6 +1482,9 @@ function avatarReproducirActual() {
         return;
     }
     const mensaje = avatarColaMensajes[avatarIndiceCola];
+    // Un video del Avatar (con su propio audio) tiene prioridad sobre la voz
+    // del asistente -- nunca suenan los dos a la vez.
+    if (typeof asisDetenerVoz === 'function') asisDetenerVoz();
     avatarVideoEl.src = mensaje.archivo;
     avatarVideoEl.currentTime = 0;
     const promesa = avatarVideoEl.play();
