@@ -368,6 +368,14 @@ td.col-intervencion textarea.intervencion-textarea:focus {
 .campo-alto.es-select > .campo-alto-texto {
     padding-right: 16px !important;
 }
+/* Causal y Motivo: ancho fijo (sus opciones son largas y el select
+   tomaría el ancho de la más larga); el texto salta de línea. */
+td select.input-auto.causal-select,
+td select.input-auto.motivo-select {
+    width: 150px !important;
+    min-width: 150px !important;
+    max-width: 150px !important;
+}
 .campo-alto-texto.vacio {
     color: #94a3b8;
 }
