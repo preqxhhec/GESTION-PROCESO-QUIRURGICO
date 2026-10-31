@@ -529,6 +529,7 @@ function asisAnalizar(original) {
         umbral: asisDetectarUmbralDias(t),
         edad: asisDetectarEdad(t),
         comuna: asisDetectarComuna(t),
+        terminoLE: asisDetectarTerminoLE(t),
         esComoHacer: asisEsComoHacer(t),
         esCuanto: /\b(cuant[oa]s?|numero de|cantidad de|total de|cuenta)\b/.test(t),
         esLista: /\b(quien(es)?|cuales|lista(do)?|detalle|nombres?|que pacientes|muestra(me)?|dime (los|las|quienes)|ver (los|las)|cuales son)\b/.test(t)
@@ -542,6 +543,8 @@ function asisAnalizar(original) {
     ctx.contextoTabla = /\b(tabla|programad\w*|pabellon|cupos?|filas?|jornada|operan|opera|operara|operaran|se opera\w*|agendad\w*|cirugias?|intervenciones|cirujano)\b/.test(t)
         || !!ctx.pab || !!ctx.jornada;
     ctx.contextoLibro = /\b(libro|registrad\w*|realizad\w*|se hicieron|se realizaron|se operaron|produccion|hubo)\b/.test(t);
+    if (ctx.terminoLE && ctx.nombreTokens && ctx.nombreTokens.every(tk => !asisPacientesLESinc().some(p => asisNorm(p.nombreApellido).split(' ').some(w => w.startsWith(tk))))) { ctx.nombreTokens = null; ctx.contextoLE = true; }
+    if ((ctx.terminoLE || ctx.comuna) && !ctx.contextoTabla && !ctx.contextoLibro) ctx.contextoLE = true;
     return ctx;
 }
 
@@ -683,6 +686,7 @@ function asisDescribirFiltros(ctx, opciones = {}) {
     if (ctx.medico) partes.push(`con <b>${asisEsc(ctx.medico.etiqueta)}</b>`);
     if (ctx.estadoIqx && !opciones.sinEstado && !opciones.conLE) partes.push(`en estado <b>${asisEsc(ctx.estadoIqx.etiqueta)}</b>`);
     if (ctx.columna && opciones.conColumna) partes.push(asisDescribirColumna(ctx.columna));
+    if (ctx.terminoLE && opciones.conLE) partes.push(`con diagnóstico/intervención <b>${asisEsc(ctx.terminoLE.etiqueta)}</b>`);
     if (ctx.comuna && opciones.conLE) partes.push(`de la comuna <b>${asisEsc(ctx.comuna)}</b>`);
     if (ctx.umbral && opciones.conLE) partes.push(`con ${asisEsc(ctx.umbral.texto)} de espera`);
     if (ctx.edad) partes.push(asisEsc(ctx.edad.texto));
@@ -808,6 +812,15 @@ function asisAbrirListaPacientesFiltrada(ctx, extra = {}) {
         if (estatus) elegir('filterEstatus', v => v.toString().trim().toUpperCase() === estatus);
         if (ctx.prioridad) elegir('filterPrioridad', v => v.toString().replace(/\D/g, '') === ctx.prioridad);
         if (ctx.ges) elegir('filterGes', v => v.toString().toUpperCase() === ctx.ges);
+        if (ctx.comuna) elegir('filterComuna', v => asisNorm(v) === asisNorm(ctx.comuna));
+        // Diagnóstico (puede abarcar varias palabras: colecist/colelit/vesícula),
+        // edad y días de espera no tienen filtro propio en la pantalla: se pasan
+        // como filtro extra que leFilterPatients aplica y muestra.
+        const extras = [];
+        if (ctx.terminoLE) extras.push({ texto: `diagnóstico/intervención: ${ctx.terminoLE.etiqueta}`, fn: p => ctx.terminoLE.coincide(asisNorm(`${p.diagnostico || ''} ${p.intervencion || ''}`)) });
+        if (ctx.edad) extras.push({ texto: ctx.edad.texto, fn: p => asisCumpleEdad(p, ctx.edad) });
+        if (ctx.umbral) extras.push({ texto: `${ctx.umbral.texto} de espera`, fn: p => { const d = asisDiasEspera(p, 'fechaIndQx'); return d !== null && (ctx.umbral.tipo === 'mas' ? d > ctx.umbral.dias : d < ctx.umbral.dias); } });
+        if (extras.length) leFiltroAsistente = { texto: extras.map(e => e.texto).join(' · '), fn: p => extras.every(e => e.fn(p)) };
         if (extra.desde) { const d = document.getElementById('filterFechaDesde'); if (d) d.value = extra.desde; }
         if (extra.hasta) { const h = document.getElementById('filterFechaHasta'); if (h) h.value = extra.hasta; }
         // Sin estatus elegido, el asistente cuenta solo los gestionables:
@@ -1291,6 +1304,7 @@ function asisFiltrarLE(pacientes, ctx, { soloGestionables = true } = {}) {
         && (!ctx.ges || (p.ges || '').toString().trim().toUpperCase() === ctx.ges)
         && (!ctx.medico || asisCoincideTokens(p.medicoTratante, ctx.medico.tokens))
         && (!ctx.comuna || asisNorm(p.comuna) === asisNorm(ctx.comuna))
+        && (!ctx.terminoLE || ctx.terminoLE.coincide(asisNorm(`${p.diagnostico || ''} ${p.intervencion || ''}`)))
         && asisCumpleEdad(p, ctx.edad)
         && (!ctx.umbral || (d => d !== null && (ctx.umbral.tipo === 'mas' ? d > ctx.umbral.dias : d < ctx.umbral.dias))(asisDiasEspera(p, 'fechaIndQx'))));
 }
@@ -2049,6 +2063,41 @@ function asisValorLE(p, campo) {
     return p[campo] == null ? '' : String(p[campo]);
 }
 
+// --- Diagnóstico / intervención en Lista de Espera ("coles", "hernias") ---
+const ASIS_ABREVIATURAS_DIAG = [
+    [/^(coles?|colecis\w*|colelit\w*|vesicul\w*|litiasis)$/, 'colecist', 'colecistectomía / colelitiasis', /colecist|colelit|vesicul/],
+    [/^(hernias?|hernioplast\w*)$/, 'hernia', 'hernia', /hernia/],
+    [/^(amigdal\w*|amigdalas)$/, 'amigdal', 'amigdalectomía', /amigdal/],
+    [/^(adenoid\w*)$/, 'adenoid', 'adenoidectomía', /adenoid/],
+    [/^(cataratas?|facos?|facoemulsif\w*)$/, 'catarata', 'catarata / faco', /catarat|faco/],
+    [/^(varices|varicos\w*|safen\w*)$/, 'varic', 'várices', /varic|safen/],
+    [/^(fimosis|circuncision\w*)$/, 'fimosis', 'fimosis / circuncisión', /fimosis|circunci/],
+    [/^(histerectom\w*|miomas?)$/, 'histerect', 'histerectomía / miomas', /histerect|mioma/],
+    [/^(lipomas?)$/, 'lipoma', 'lipoma', /lipoma/],
+    [/^(apendic\w*)$/, 'apendic', 'apendicitis', /apendic/]
+];
+
+function asisDetectarTerminoLE(t) {
+    const tokens = asisTokens(t);
+    for (const tok of tokens) {
+        const ab = ASIS_ABREVIATURAS_DIAG.find(a => a[0].test(tok));
+        if (ab) return { busqueda: ab[1], etiqueta: ab[2], coincide: txt => ab[3].test(txt) };
+    }
+    // Genérico: una palabra de la pregunta que sea inicio de una palabra de
+    // algún diagnóstico/intervención cargado (y no de un nombre de paciente).
+    const pacientes = asisPacientesLESinc();
+    if (!pacientes.length) return null;
+    const ignorar = /^(menores?|mayores?|anos?|hay|cuant\w*|lista|espera|pacientes?|comuna|diagnostico|intervencion|con|sin|de|del|en|los|las)$/;
+    for (const tok of tokens) {
+        if (tok.length < 4 || /\d/.test(tok) || ignorar.test(tok) || ASIS_STOPWORDS.has(tok) || ASIS_PALABRAS_NO_NOMBRE.has(tok)) continue;
+        const enDiag = pacientes.some(p => asisNorm(`${p.diagnostico || ''} ${p.intervencion || ''}`).split(' ').some(w => w.startsWith(tok)));
+        const enNombre = pacientes.some(p => asisNorm(p.nombreApellido).split(' ').some(w => w.startsWith(tok)));
+        const enComuna = pacientes.some(p => asisNorm(p.comuna).split(' ').some(w => w.startsWith(tok)));
+        if (enDiag && !enNombre && !enComuna) return { busqueda: tok, etiqueta: tok, coincide: txt => txt.split(' ').some(w => w.startsWith(tok)) };
+    }
+    return null;
+}
+
 function asisDetectarColumnaLE(t) {
     const cands = [];
     ASIS_COLUMNAS_LE.forEach(c => c.sin.forEach(sn => cands.push({ c, sn })));
@@ -2787,7 +2836,7 @@ Object.assign(ASIS_INTENCIONES, {
 
 function asisFusionarContexto(previo, nuevo) {
     const r = { ...previo, t: nuevo.t, original: nuevo.original, esCuanto: nuevo.esCuanto || previo.esCuanto, esLista: nuevo.esLista || previo.esLista };
-    ['rango', 'esp', 'pab', 'jornada', 'medico', 'estadoIqx', 'estatusLE', 'prioridad', 'ges', 'n', 'rut', 'nombreTokens', 'columna', 'columnaLE', 'umbral', 'edad', 'comuna'].forEach(k => {
+    ['rango', 'esp', 'pab', 'jornada', 'medico', 'estadoIqx', 'estatusLE', 'prioridad', 'ges', 'n', 'rut', 'nombreTokens', 'columna', 'columnaLE', 'umbral', 'edad', 'comuna', 'terminoLE'].forEach(k => {
         if (nuevo[k]) r[k] = nuevo[k];
     });
     return r;

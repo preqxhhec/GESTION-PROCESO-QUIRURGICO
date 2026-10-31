@@ -376,6 +376,10 @@ function leMakeTableSortable() {
 // 🔍 FILTRADO PRINCIPAL
 // =============================================================
 
+// Filtro extra que aplica el Asistente (edad, días de espera...) y que no
+// tiene control propio en la pantalla. Se limpia con "Limpiar filtros".
+let leFiltroAsistente = null;
+
 function leFilterPatients(resetPage = true) {
     if (resetPage) lePaginaActualLista = 1;
 
@@ -416,6 +420,7 @@ function leFilterPatients(resetPage = true) {
         if (soloSinProgramacion && (p.fechaEstatusProgram || '').toString().trim() !== '') pasa = false;
 
         if (ocultarNoGestionables && !esGestionable(p)) pasa = false;
+        if (leFiltroAsistente && !leFiltroAsistente.fn(p)) pasa = false;
 
         if (soloOperadoSinFechaCirugia) {
             const esOperado = (p.estatusTabla || '').toString().trim().toUpperCase() === 'OPERADO';
@@ -664,6 +669,20 @@ function leToggleOperadoSinFechaCirugia() {
 }
 
 function leActualizarBotonesFiltrosVisuales() {
+    // Aviso del filtro extra aplicado por el Asistente (edad, días de espera)
+    const busq = document.getElementById('busquedaGeneral');
+    let chip = document.getElementById('leChipFiltroAsistente');
+    if (leFiltroAsistente && busq && busq.parentNode) {
+        if (!chip) {
+            chip = document.createElement('div');
+            chip.id = 'leChipFiltroAsistente';
+            chip.style.cssText = 'margin-top:6px;padding:4px 10px;border-radius:12px;background:#ede9fe;color:#5b21b6;font-size:12px;display:inline-block;';
+            busq.parentNode.appendChild(chip);
+        }
+        chip.textContent = `🤖 Filtro del asistente: ${leFiltroAsistente.texto} (se quita con Limpiar filtros)`;
+    } else if (chip) {
+        chip.remove();
+    }
     const btnSinFolio = document.getElementById('btnSinFolio');
     if (btnSinFolio) {
         btnSinFolio.style.background = soloSinFolio ? '#eab308' : '';
@@ -703,6 +722,7 @@ function leActualizarBotonesFiltrosVisuales() {
 }
 
 function leClearFilters() {
+    leFiltroAsistente = null;
     soloSinFolio = false;
     mostrarDuplicados = false;
     ocultarNoGestionables = false;
