@@ -322,6 +322,11 @@ async function renderDayTable(dayData, semanaIdx, diaIdx) {
                     inputHtml = `<input type="${inputType}" ${extraAttrs} data-col="${col}" data-rowkey="${rowKey}" value="${val}" placeholder="${col}" class="input-auto" />`;
                 }
 
+                // Selects y textos de una línea: se envuelven para que la celda
+                // crezca en alto con su contenido (ver refrescarCamposAltos()).
+                if (/^<select/.test(inputHtml) || /^<input type="text"/.test(inputHtml)) {
+                    inputHtml = `<div class="campo-alto"><div class="campo-alto-texto"></div>${inputHtml}</div>`;
+                }
                 html += `<td class="small-cell ${colClass} ${isIntervencion ? 'col-intervencion' : ''}">${inputHtml}</td>`;
             }
 
@@ -379,3 +384,93 @@ function inicializarScrollBotonesPabellon() {
         actualizarBotones();
     });
 }
+
+// =============================================================
+// ↕️ CAMPOS QUE CRECEN EN ALTO CON SU CONTENIDO
+// Los <select> y <input type="text"> de la Tabla van dentro de
+// .campo-alto con un texto "espejo" que sí hace salto de línea; el
+// control queda encima con el mismo ancho de siempre. Los <textarea>
+// (intervenciones, observaciones) se ajustan a su scrollHeight.
+// =============================================================
+function refrescarCampoAlto(control) {
+    if (!control) return;
+    if (control.tagName === 'TEXTAREA') {
+        if (!control.closest('#weekContent') || !control.offsetParent) return;
+        const anterior = control.style.height;
+        control.style.height = 'auto';
+        const nuevo = (control.scrollHeight + 2) + 'px';
+        control.style.height = nuevo;
+        if (anterior === nuevo) return;
+        return;
+    }
+    const wrap = control.parentNode;
+    if (!wrap || !wrap.classList || !wrap.classList.contains('campo-alto')) return;
+    const espejo = wrap.querySelector('.campo-alto-texto');
+    if (!espejo) return;
+    let texto, vacio;
+    if (control.tagName === 'SELECT') {
+        if (!wrap.classList.contains('es-select')) wrap.classList.add('es-select');
+        const op = control.options[control.selectedIndex];
+        texto = op ? op.text : '';
+        vacio = !control.value || control.value === 'Seleccione';
+    } else {
+        if (!espejo.classList.contains('de-input')) espejo.classList.add('de-input');
+        texto = control.value || control.placeholder || '';
+        vacio = !control.value;
+    }
+    if (espejo.textContent !== texto) espejo.textContent = texto;
+    if (espejo.classList.contains('vacio') !== vacio) espejo.classList.toggle('vacio', vacio);
+    if (!control.offsetParent) return; // tabla oculta: se mide al mostrarse
+    if (!control.dataset.altoBase) {
+        // Misma letra y relleno que el control (cambian en celular)
+        const cs = getComputedStyle(control);
+        espejo.style.fontSize = cs.fontSize;
+        espejo.style.fontFamily = cs.fontFamily;
+        espejo.style.textAlign = cs.textAlign;
+        espejo.style.padding = `${cs.paddingTop} ${cs.paddingRight} ${cs.paddingBottom} ${cs.paddingLeft}`;
+        control.dataset.altoBase = control.offsetHeight;
+    }
+    const alto = Math.max(+control.dataset.altoBase, espejo.offsetHeight) + 'px';
+    if (control.style.height !== alto) control.style.height = alto;
+}
+
+function refrescarCamposAltos(raiz) {
+    (raiz || document).querySelectorAll('#weekContent .campo-alto > select, #weekContent .campo-alto > input, #weekContent textarea.intervencion-textarea, #weekContent textarea.observaciones-textarea')
+        .forEach(refrescarCampoAlto);
+}
+
+(function iniciarCamposAltos() {
+    let pendiente = false;
+    const programar = () => {
+        if (pendiente) return;
+        pendiente = true;
+        requestAnimationFrame(() => { pendiente = false; refrescarCamposAltos(); });
+    };
+    // Escritura del usuario
+    ['input', 'change'].forEach(ev => document.addEventListener(ev, e => {
+        const t = e.target;
+        if (t && t.closest && t.closest('#weekContent')) refrescarCampoAlto(t);
+    }, true));
+    // Cambios por código (.value = ..., repoblar opciones, renderizar el día)
+    const parchar = (proto, prop) => {
+        const d = Object.getOwnPropertyDescriptor(proto, prop);
+        if (!d || !d.set) return;
+        Object.defineProperty(proto, prop, {
+            configurable: true, enumerable: d.enumerable, get: d.get,
+            set(v) { d.set.call(this, v); if (this.parentNode && this.parentNode.classList && this.parentNode.classList.contains('campo-alto')) programar(); }
+        });
+    };
+    parchar(HTMLSelectElement.prototype, 'value');
+    parchar(HTMLSelectElement.prototype, 'selectedIndex');
+    parchar(HTMLInputElement.prototype, 'value');
+    parchar(HTMLTextAreaElement.prototype, 'value');
+    const observar = () => {
+        const cont = document.getElementById('weekContent');
+        if (!cont) return setTimeout(observar, 500);
+        new MutationObserver(programar).observe(cont, { childList: true, subtree: true, attributes: true, attributeFilter: ['disabled'] });
+        programar();
+    };
+    // Al cambiar de semana/día/pestaña las tablas recién visibles se miden de nuevo
+    document.addEventListener('click', programar, true);
+    if (document.readyState === 'loading') document.addEventListener('DOMContentLoaded', observar); else observar();
+})();

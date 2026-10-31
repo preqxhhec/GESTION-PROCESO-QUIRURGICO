@@ -325,6 +325,66 @@ td.col-intervencion textarea.intervencion-textarea:focus {
 }
 
 /* ============================================ */
+/* ↕️ CAMPOS QUE CRECEN EN ALTO CON SU CONTENIDO */
+/* El control conserva su ancho de siempre; un texto "espejo" encima
+   (mismo ancho) hace el salto de línea y js/07 ajusta el alto del
+   control a ese texto (ver refrescarCampoAlto()). */
+/* ============================================ */
+.campo-alto {
+    position: relative;
+    display: inline-block;
+    vertical-align: middle;
+}
+.campo-alto > .input-auto {
+    color: transparent;
+    vertical-align: top;
+}
+.campo-alto > input.input-auto:focus {
+    color: #1e293b;
+}
+.campo-alto > input.input-auto::placeholder {
+    color: transparent;
+}
+.campo-alto > input.input-auto:focus::placeholder {
+    color: #94a3b8;
+}
+.campo-alto > select.input-auto option {
+    color: #1e293b;
+}
+.campo-alto-texto {
+    position: absolute;
+    top: 0;
+    left: 0;
+    right: 0;
+    box-sizing: border-box;
+    border: 1px solid transparent;
+    white-space: pre-wrap;
+    overflow-wrap: anywhere;
+    line-height: 1.25;
+    pointer-events: none;
+    z-index: 1;
+    color: #1e293b;
+}
+.campo-alto.es-select > .campo-alto-texto {
+    padding-right: 16px !important;
+}
+.campo-alto-texto.vacio {
+    color: #94a3b8;
+}
+.campo-alto:focus-within > .campo-alto-texto.de-input {
+    visibility: hidden;
+}
+.campo-alto > select:disabled + .campo-alto-texto,
+.campo-alto > .campo-alto-texto.deshabilitado {
+    opacity: 0.6;
+}
+td.col-intervencion textarea.intervencion-textarea,
+textarea.observaciones-textarea {
+    max-height: none !important;
+    overflow: hidden !important;
+}
+
+/* ============================================ */
 /* DROPDOWN DE INTERVENCIONES                    */
 /* ============================================ */
 .intervencion-dropdown {
@@ -1873,79 +1933,3 @@ body.vista-dividida-modo .app {
     }
 }
 
-/* ============================================================= */
-/* 🔄 AVISO "GIRA TU PANTALLA" — celular/tablet en vertical        */
-/* La tabla principal (~25 columnas) necesita el ancho del modo    */
-/* horizontal. Oculto por defecto; la media query de abajo lo      */
-/* muestra solo cuando el dispositivo está en vertical Y es        */
-/* angosto (cubre celulares y tablets, no una ventana de escritorio */
-/* achicada en horizontal). Es 100% CSS: al girar el dispositivo,   */
-/* el navegador reevalúa la orientación al instante, sin recargar.  */
-/* ============================================================= */
-.rotate-overlay {
-    display: none;
-    position: fixed;
-    inset: 0;
-    z-index: 999999;
-    background: linear-gradient(135deg, #0b2a4f 0%, #1a6d8a 100%);
-    color: #ffffff;
-    flex-direction: column;
-    align-items: center;
-    justify-content: center;
-    text-align: center;
-    padding: 32px;
-}
-
-/* Solo se exige horizontal en las secciones con tablas anchas: Tabla
-   Quirúrgica (registro) y Libro de Quirófano. El resto (Estadísticas,
-   Diferidos, Admin, Manual, Lista de Espera) y la pantalla de login (sin
-   data-seccion todavía) se pueden usar en vertical sin problema. El
-   atributo lo pone cambiarSeccion() en js/15-navegacion-y-autenticacion.js. */
-@media (max-width: 1024px) and (orientation: portrait) {
-    body[data-seccion="registro"] .rotate-overlay,
-    body[data-seccion="libro"] .rotate-overlay {
-        display: flex;
-    }
-
-    /* "Reunión de Tabla" y "Análisis IA" son modales que se abren desde el
-       menú SIN cambiar de sección (quedan flotando sobre lo que sea que
-       esté activo detrás, incluida la Tabla Quirúrgica) — ver
-       js/21-reunion-tabla.js y js/22-analisis-ia.js. Como esos modales ya
-       se adaptan bien en vertical (con scroll propio), el aviso de girar no
-       debe taparlos aunque la sección de atrás sea registro/libro. */
-    body:has(#reunionTablaOverlay) .rotate-overlay,
-    body:has(#analisisIaOverlay) .rotate-overlay,
-    body:has(#analisisIaPreviaOverlay) .rotate-overlay {
-        display: none !important;
-    }
-}
-
-.rotate-overlay-icon {
-    font-size: 3.4rem;
-    animation: rotateOverlaySpin 1.8s ease-in-out infinite;
-}
-
-.rotate-overlay-arrow {
-    font-size: 1.6rem;
-    margin-top: 4px;
-    opacity: 0.85;
-}
-
-@keyframes rotateOverlaySpin {
-    0%, 100% { transform: rotate(0deg); }
-    50% { transform: rotate(-90deg); }
-}
-
-.rotate-overlay-title {
-    font-size: 1.4rem;
-    font-weight: 700;
-    margin-top: 18px;
-}
-
-.rotate-overlay-sub {
-    font-size: 0.95rem;
-    color: rgba(255, 255, 255, 0.85);
-    margin-top: 10px;
-    max-width: 320px;
-    line-height: 1.6;
-}
