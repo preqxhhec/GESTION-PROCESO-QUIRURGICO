@@ -465,6 +465,9 @@
             const valores = obtenerValoresUnicos(f.campo);
             const id = `filtro_${f.campo}`;
             let opts = `<option value="">Todos</option>`;
+            // Todos los OPERADO (programado, agregado, condicional...) sin
+            // URGENCIA, que ya tiene su propia opción.
+            if (f.campo === 'ESTADO_DE_IQx') opts += `<option value="${LIBRO_FILTRO_OPERADOS_SIN_URGENCIA}">✅ TODOS LOS OPERADOS (sin urgencia)</option>`;
             valores.forEach(v => {
                 opts += `<option value="${v}">${v}</option>`;
             });
@@ -499,6 +502,8 @@
         html += `
                 </div>
                 <div style="display:flex; justify-content:flex-end; margin-top:10px; gap:8px;">
+                    <input type="hidden" id="filtro_sin1raIntervencion" class="filtro-select" data-campo="sin1raIntervencion" value="">
+                    <button class="btn-sm" id="libroSin1raIntervencionBtn" title="Muestra solo los registros con la 1ra Intervención Qx Realizada vacía" style="background:#e2e8f0; border:none; padding:6px 16px; border-radius:30px; font-size:0.7rem; font-weight:500; cursor:pointer; color:#475569;">🩺 Sin 1ra intervención</button>
                     <button class="btn-sm btn-clear-filtros" id="limpiarFiltrosBtn" style="background:#e2e8f0; border:none; padding:6px 16px; border-radius:30px; font-size:0.7rem; font-weight:500; cursor:pointer; color:#475569;">🗑️ Limpiar filtros</button>
                 </div>
             </div>
@@ -573,6 +578,16 @@
     // renderizarTablaLibro() (que después sí recorta para mostrar la
     // página actual) como exportarLibroAExcel() (que exporta el resultado
     // completo, sin recortar).
+    const LIBRO_FILTRO_OPERADOS_SIN_URGENCIA = '__OPERADOS_SIN_URGENCIA__';
+
+    function libroActualizarBotonSin1ra() {
+        const activo = document.getElementById('filtro_sin1raIntervencion')?.value === '1';
+        const btn = document.getElementById('libroSin1raIntervencionBtn');
+        if (!btn) return;
+        btn.style.background = activo ? '#f59e0b' : '#e2e8f0';
+        btn.style.color = activo ? 'white' : '#475569';
+    }
+
     function libroObtenerDatosFiltrados(registros, filtros = {}) {
         let datosFiltrados = registros;
 
@@ -611,8 +626,19 @@
         // guion ("12.345.678-9"), sin ellos, o con espacios.
         const limpiarRut = (s) => (s || '').toString().replace(/[^0-9kK]/gi, '').toLowerCase();
 
+        if (filtros.sin1raIntervencion) {
+            datosFiltrados = datosFiltrados.filter(r => {
+                const v = (r['1ra_Intervencion_Qx_Realizada'] || '').toString().trim();
+                return v === '' || v === 'Seleccione';
+            });
+        }
+
         camposFiltro.forEach(campo => {
             const valor = filtros[campo] || '';
+            if (campo === 'ESTADO_DE_IQx' && valor === LIBRO_FILTRO_OPERADOS_SIN_URGENCIA) {
+                datosFiltrados = datosFiltrados.filter(r => (r.ESTADO_DE_IQx || '').toString().trim().toUpperCase().startsWith('OPERADO'));
+                return;
+            }
             if (valor && valor !== '') {
                 datosFiltrados = datosFiltrados.filter(r => {
                     const val = r[campo] || '';
@@ -869,6 +895,14 @@
 
         document.getElementById('limpiarFiltrosBtn')?.addEventListener('click', function() {
             limpiarFiltrosLibro(registros);
+            libroActualizarBotonSin1ra();
+        });
+        document.getElementById('libroSin1raIntervencionBtn')?.addEventListener('click', function() {
+            const oculto = document.getElementById('filtro_sin1raIntervencion');
+            if (!oculto) return;
+            oculto.value = oculto.value === '1' ? '' : '1';
+            libroActualizarBotonSin1ra();
+            aplicarFiltros();
         });
     }
 
@@ -1053,6 +1087,9 @@
 
             let modoEdicion = false;
 
+            // Permisos por usuario (Admin → Editar Permisos → Libro de Quirófano)
+            const puedeEditarLibro = usuarioTienePermisoExplicito('libro_editar');
+            const puedeEliminarLibro = usuarioTienePermisoExplicito('libro_eliminar');
             const overlay = document.createElement('div');
             overlay.className = 'modal-overlay';
             overlay.id = 'detalleLibroModal';
@@ -1064,9 +1101,9 @@
                         ${generarContenidoVista()}
                     </div>
                     <div class="modal-actions" id="detalleLibroActions">
-                        ${esAdministrador() ? `
-                        <button class="modal-btn modal-btn-success" id="editarRegistroBtn">✏️ Editar</button>
-                        <button class="modal-btn modal-btn-danger" id="eliminarRegistroBtn" style="background:#dc2626; color:white; box-shadow:0 4px 12px rgba(220,38,38,0.35);">🗑️ Eliminar</button>
+                        ${puedeEditarLibro || puedeEliminarLibro ? `
+                        <button class="modal-btn modal-btn-success" id="editarRegistroBtn" style="${puedeEditarLibro ? '' : 'display:none;'}">✏️ Editar</button>
+                        <button class="modal-btn modal-btn-danger" id="eliminarRegistroBtn" style="background:#dc2626; color:white; box-shadow:0 4px 12px rgba(220,38,38,0.35);${puedeEliminarLibro ? '' : ' display:none;'}">🗑️ Eliminar</button>
                         ` : ''}
                         <button class="modal-btn modal-btn-cancel" id="cerrarDetalleLibro">✅ Cerrar</button>
                     </div>
@@ -1091,6 +1128,7 @@
                     editarBtn.textContent = '💾 Guardar Cambios';
                     editarBtn.style.background = '#16a34a';
                     editarBtn.style.color = 'white';
+                    eliminarBtn.style.display = '';
                     eliminarBtn.textContent = '❌ Cancelar';
                     eliminarBtn.style.background = '#f59e0b';
                     eliminarBtn.style.color = 'white';
@@ -1101,6 +1139,7 @@
                     editarBtn.textContent = '✏️ Editar';
                     editarBtn.style.background = '';
                     editarBtn.style.color = '';
+                    eliminarBtn.style.display = puedeEliminarLibro ? '' : 'none';
                     eliminarBtn.textContent = '🗑️ Eliminar';
                     eliminarBtn.style.background = '#dc2626';
                     eliminarBtn.style.color = 'white';
@@ -1321,6 +1360,7 @@
             }
 
             if (editarBtn) editarBtn.addEventListener('click', async function() {
+                if (!puedeEditarLibro) return;
                 if (modoEdicion) {
                     const camposEditados = contentDiv.querySelectorAll('.edit-field');
                     const datosActualizados = {};
@@ -1396,6 +1436,7 @@
                     await actualizarContenido();
                     return;
                 }
+                if (!puedeEliminarLibro) return;
 
                 const confirmado = await showModal({
                     title: '🗑️ Eliminar Registro',

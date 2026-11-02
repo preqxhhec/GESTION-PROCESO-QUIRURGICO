@@ -50,7 +50,11 @@ const ACCIONES_POR_SECCION = {
         { key: 'registro_tablaOftalmologia', label: '👁️ Tabla Oftalmología (botón por día)' }
     ],
     libro: [
-        { key: 'libro_exportarExcel', label: '📊 Exportar a Excel' }
+        { key: 'libro_exportarExcel', label: '📊 Exportar a Excel' },
+        // Editar/Eliminar registros: antes solo administradores. Quedan
+        // desmarcados por defecto (porDefecto:false) y hay que darlos a mano.
+        { key: 'libro_editar', label: '✏️ Editar registro (en el detalle)', porDefecto: false },
+        { key: 'libro_eliminar', label: '🗑️ Eliminar registro (en el detalle)', porDefecto: false }
     ],
     diferidos: [
         { key: 'diferidos_reintegrar', label: '↩️ Reintegrar' },
@@ -90,6 +94,13 @@ function usuarioTieneAccesoSeccion(seccion) {
     if (esAdministrador()) return true;
     if (!currentUserSecciones) return true;
     return currentUserSecciones[seccion] !== false;
+}
+
+// Para acciones que vienen DESACTIVADAS por defecto (porDefecto:false en
+// ACCIONES_POR_SECCION): solo se tienen si se marcaron explícitamente.
+function usuarioTienePermisoExplicito(clave) {
+    if (esAdministrador()) return true;
+    return !!(currentUserSecciones && currentUserSecciones[clave] === true);
 }
 
 function obtenerPrimeraSeccionAccesible() {
@@ -196,7 +207,9 @@ function renderCheckboxesPermisos(seccionesActuales, soloLecturaActual, avatarAc
         if (acciones && acciones.length) {
             html += `<div style="display:flex; flex-direction:column; gap:4px; margin:2px 0 6px 26px; padding-left:10px; border-left:2px solid #e2e8f0;">`;
             acciones.forEach(acc => {
-                const accMarcado = !seccionesActuales || seccionesActuales[acc.key] !== false;
+                const accMarcado = acc.porDefecto === false
+                    ? !!(seccionesActuales && seccionesActuales[acc.key] === true)
+                    : (!seccionesActuales || seccionesActuales[acc.key] !== false);
                 html += `<label style="display:flex; align-items:center; gap:8px; font-size:0.78rem; color:#64748b; cursor:pointer;">
                     <input type="checkbox" class="chk-permiso-seccion" data-seccion="${acc.key}" ${accMarcado ? 'checked' : ''}> ${acc.label}
                 </label>`;
