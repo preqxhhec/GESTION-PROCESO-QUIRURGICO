@@ -502,6 +502,9 @@
         html += `
                 </div>
                 <div style="display:flex; justify-content:flex-end; margin-top:10px; gap:8px;">
+                    <label title="Si está marcado, los filtros se guardan en este equipo y se vuelven a aplicar al entrar de nuevo al Libro" style="display:flex; align-items:center; gap:5px; margin-right:auto; font-size:0.72rem; color:#475569; cursor:pointer; user-select:none;">
+                        <input type="checkbox" id="libroMantenerFiltrosChk" ${libroMantenerFiltrosActivo() ? 'checked' : ''}> 📌 Mantener filtros
+                    </label>
                     <input type="hidden" id="filtro_sin1raIntervencion" class="filtro-select" data-campo="sin1raIntervencion" value="">
                     <button class="btn-sm" id="libroSin1raIntervencionBtn" title="Muestra solo los registros con la 1ra Intervención Qx Realizada vacía" style="background:#e2e8f0; border:none; padding:6px 16px; border-radius:30px; font-size:0.7rem; font-weight:500; cursor:pointer; color:#475569;">🩺 Sin 1ra intervención</button>
                     <button class="btn-sm btn-clear-filtros" id="limpiarFiltrosBtn" style="background:#e2e8f0; border:none; padding:6px 16px; border-radius:30px; font-size:0.7rem; font-weight:500; cursor:pointer; color:#475569;">🗑️ Limpiar filtros</button>
@@ -579,6 +582,40 @@
     // página actual) como exportarLibroAExcel() (que exporta el resultado
     // completo, sin recortar).
     const LIBRO_FILTRO_OPERADOS_SIN_URGENCIA = '__OPERADOS_SIN_URGENCIA__';
+
+    // 📌 "Mantener filtros": se guardan por equipo (localStorage) y se
+    // vuelven a aplicar cada vez que se arma el panel de filtros del Libro.
+    const LIBRO_MANTENER_FILTROS_KEY = 'libro_mantener_filtros';
+    const LIBRO_FILTROS_GUARDADOS_KEY = 'libro_filtros_guardados';
+
+    function libroMantenerFiltrosActivo() {
+        try { return localStorage.getItem(LIBRO_MANTENER_FILTROS_KEY) === '1'; } catch (e) { return false; }
+    }
+
+    function libroGuardarFiltros() {
+        if (!libroMantenerFiltrosActivo()) return;
+        try { localStorage.setItem(LIBRO_FILTROS_GUARDADOS_KEY, JSON.stringify(libroLeerFiltrosDesdeDom())); } catch (e) { /* sin almacenamiento */ }
+    }
+
+    // Devuelve true si había filtros guardados y se pusieron en pantalla.
+    function libroRestaurarFiltros() {
+        if (!libroMantenerFiltrosActivo()) return false;
+        let guardados = null;
+        try { guardados = JSON.parse(localStorage.getItem(LIBRO_FILTROS_GUARDADOS_KEY) || 'null'); } catch (e) { guardados = null; }
+        if (!guardados) return false;
+        const ini = document.getElementById('filtroFechaInicio');
+        const fin = document.getElementById('filtroFechaFin');
+        if (ini) ini.value = guardados.fechaInicio || '';
+        if (fin) fin.value = guardados.fechaFin || '';
+        document.querySelectorAll('.filtro-select, .filtro-autocomplete').forEach(el => {
+            const v = guardados[el.dataset.campo];
+            if (v === undefined) return;
+            if (el.tagName === 'SELECT' && v && !Array.from(el.options).some(o => o.value === v)) return;
+            el.value = v;
+        });
+        libroActualizarBotonSin1ra();
+        return true;
+    }
 
     function libroActualizarBotonSin1ra() {
         const activo = document.getElementById('filtro_sin1raIntervencion')?.value === '1';
@@ -849,6 +886,7 @@
                 filtros[campo] = valor;
             });
 
+            libroGuardarFiltros();
             const tablaHTML = renderizarTablaLibro(registros, filtros);
             const container = document.getElementById('libroTablaContainer');
             if (container) {
@@ -896,7 +934,16 @@
         document.getElementById('limpiarFiltrosBtn')?.addEventListener('click', function() {
             limpiarFiltrosLibro(registros);
             libroActualizarBotonSin1ra();
+            libroGuardarFiltros();
         });
+        document.getElementById('libroMantenerFiltrosChk')?.addEventListener('change', function() {
+            try {
+                if (this.checked) localStorage.setItem(LIBRO_MANTENER_FILTROS_KEY, '1');
+                else { localStorage.removeItem(LIBRO_MANTENER_FILTROS_KEY); localStorage.removeItem(LIBRO_FILTROS_GUARDADOS_KEY); }
+            } catch (e) { /* sin almacenamiento */ }
+            libroGuardarFiltros();
+        });
+        if (libroRestaurarFiltros()) aplicarFiltros();
         document.getElementById('libroSin1raIntervencionBtn')?.addEventListener('click', function() {
             const oculto = document.getElementById('filtro_sin1raIntervencion');
             if (!oculto) return;
