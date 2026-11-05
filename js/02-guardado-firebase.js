@@ -849,6 +849,11 @@ document.querySelectorAll('#weekContent input[data-col="RUT"]').forEach(input =>
                                     if (display) {
                                         display.textContent = tipo || 'Seleccione intervención';
                                     }
+
+                                    // Campo Tipo_Actividad de la misma fila en la tabla: si la
+                                    // intervención se borra (o no es de la lista) queda vacío.
+                                    const tipoInput = this.closest('tr')?.querySelector(`[data-col="${tipoField}"]`);
+                                    if (tipoInput) tipoInput.value = tipo;
                                 }
                             }
                         }

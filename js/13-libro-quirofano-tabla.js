@@ -1357,6 +1357,14 @@
 
                     textarea.addEventListener('input', function() {
                         populateDropdown(this.value);
+                        // El tipo sigue al texto: si la intervención se borra o no
+                        // calza con la lista, el Tipo Actividad queda vacío.
+                        const tipoDisplay = container.querySelector('.edit-tipo-actividad-display');
+                        if (tipoDisplay) {
+                            const tipo = obtenerTipoActividad(this.value.trim());
+                            tipoDisplay.textContent = tipo || 'Seleccione intervención';
+                            tipoDisplay.dataset.tipoActividad = tipo;
+                        }
                         this.style.height = 'auto';
                         let nuevaAltura = this.scrollHeight;
                         if (nuevaAltura < 40) nuevaAltura = 40;
