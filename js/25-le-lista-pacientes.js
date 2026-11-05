@@ -924,7 +924,7 @@ function leShowPatientModal(key) {
         <h3 style="color:#1e40af; background:#f1f5f9; padding:12px 20px; border-radius:8px; margin-bottom:18px;">👤 Datos del Paciente</h3>
         <div style="display:grid; grid-template-columns:repeat(auto-fit, minmax(200px,1fr)); gap:14px 40px; margin-bottom:35px;">
             <p><strong>Nombre y Apellido:</strong> ${currentModalPatient.nombreApellido || '-'}</p>
-            <p><strong>RUT:</strong> ${currentModalPatient.rut || '-'}</p>
+            <p><strong>RUT:</strong> ${currentModalPatient.rut ? formatRut(currentModalPatient.rut) : '-'}</p>
             <p><strong>Fecha de Nacimiento:</strong> ${fechaNacFmt}</p>
             <p><strong>Edad:</strong> ${currentModalPatient.edad || '-'} años</p>
             <p><strong>Comuna:</strong> ${currentModalPatient.comuna || '-'}</p>

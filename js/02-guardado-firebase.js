@@ -393,6 +393,34 @@ function marcarEdicionEnCursoConThrottle(rowKey) {
     }, EDICION_EN_CURSO_INACTIVIDAD_MS));
 }
 
+// 🔽 Mientras haya un desplegable abierto en la tabla (un <select> nativo o
+// la lista de intervenciones de js/05), el contador de guardado automático
+// NO corre: queda en espera y recién parte (con el retardo completo) cuando
+// se elige una opción o se cierra el desplegable. Antes el contador seguía
+// corriendo y el guardado + re-render cerraba el desplegable en la cara.
+let selectTablaAbierto = null;
+let autoSaveEsperandoDesplegable = null; // id de setInterval mientras se espera
+
+function hayDesplegableAbiertoEnTabla() {
+    if (selectTablaAbierto && document.contains(selectTablaAbierto)) return true;
+    selectTablaAbierto = null;
+    return Array.from(document.querySelectorAll('#weekContent .intervencion-dropdown'))
+        .some(d => d.style.display === 'block');
+}
+
+document.addEventListener('mousedown', function(e) {
+    const sel = e.target.closest && e.target.closest('#weekContent select[data-col]');
+    if (!sel) return;
+    // Un segundo clic sobre el mismo select lo cierra sin elegir.
+    selectTablaAbierto = (selectTablaAbierto === sel) ? null : sel;
+}, true);
+['change', 'blur'].forEach(tipo => document.addEventListener(tipo, function(e) {
+    if (e.target === selectTablaAbierto) selectTablaAbierto = null;
+}, true));
+document.addEventListener('keydown', function(e) {
+    if (e.key === 'Escape' && e.target === selectTablaAbierto) selectTablaAbierto = null;
+}, true);
+
 function triggerAutoSave(rowKey, col) {
     // 🛟 Esta fila tiene un cambio sin guardar desde ahora — ver el Set en
     // js/01 para el detalle de qué protege exactamente (solo esta fila, no
@@ -404,6 +432,7 @@ function triggerAutoSave(rowKey, col) {
 
     if (autoSaveTimeout) {
         clearTimeout(autoSaveTimeout);
+        autoSaveTimeout = null;
         console.log('🔄 Auto-save reiniciado (nuevo cambio detectado)');
     } else {
         console.log('🔄 Auto-save iniciado (esperando inactividad)');
@@ -411,7 +440,26 @@ function triggerAutoSave(rowKey, col) {
 
     const delay = CAMPOS_INTERVENCION.includes(col) ? DEBOUNCE_DELAY_INTERVENCION : DEBOUNCE_DELAY;
 
+    if (hayDesplegableAbiertoEnTabla()) {
+        if (!autoSaveEsperandoDesplegable) {
+            console.log('⏸️ Auto-save en espera (desplegable abierto)');
+            autoSaveEsperandoDesplegable = setInterval(() => {
+                if (hayDesplegableAbiertoEnTabla()) return;
+                clearInterval(autoSaveEsperandoDesplegable);
+                autoSaveEsperandoDesplegable = null;
+                if (!autoSaveTimeout) triggerAutoSave(null, col);
+            }, 300);
+        }
+        return;
+    }
+
     autoSaveTimeout = setTimeout(() => {
+        autoSaveTimeout = null;
+        // Se abrió un desplegable durante la espera: esperar a que se cierre.
+        if (hayDesplegableAbiertoEnTabla()) {
+            triggerAutoSave(null, col);
+            return;
+        }
         if (!currentUser) {
             // No hay sesión — no hay dónde guardar. Se limpia el Set para no
             // seguir bloqueando el listener por filas que ya no se pueden
@@ -930,6 +978,10 @@ function detenerAutoSave() {
     if (autoSaveInterval) {
         clearInterval(autoSaveInterval);
         autoSaveInterval = null;
+    }
+    if (autoSaveEsperandoDesplegable) {
+        clearInterval(autoSaveEsperandoDesplegable);
+        autoSaveEsperandoDesplegable = null;
     }
     if (autoSaveTimeout) {
         clearTimeout(autoSaveTimeout);

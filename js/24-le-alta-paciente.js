@@ -649,6 +649,8 @@ function leRellenarFormularioParaEdicion() {
     document.getElementById('patientId').value = currentModalPatient.id || '';
 
     const rutInput = document.getElementById('rut');
+    // Fichas antiguas pueden tener el RUT guardado sin puntos ni guion.
+    if (rutInput && rutInput.value) rutInput.value = formatRut(rutInput.value);
     if (rutInput) setupRutValidationLimpio(rutInput);
 
     if (currentModalPatient.especialidad) {
