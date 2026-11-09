@@ -2815,11 +2815,12 @@ function calcularEstadisticasIntervencion(nombreIntervencion) {
     const duraciones = casos.map(r => parsearDuracionHoras(r.T_QX)).filter(d => d > 0);
 
     if (duraciones.length === 0) {
-        return { nCasos: 0, promedio: 0, minimo: 0, maximo: 0 };
+        return { nCasos: 0, promedio: 0, minimo: 0, maximo: 0, casos };
     }
 
     const suma = duraciones.reduce((a, b) => a + b, 0);
     return {
+        casos,
         nCasos: duraciones.length,
         promedio: suma / duraciones.length,
         minimo: Math.min(...duraciones),
@@ -2874,6 +2875,7 @@ function renderStatsIntervencionHtml(nombre, stats) {
             <div style="background:white; border-radius:14px; border:1px solid #e2e8f0; padding:14px;">
                 <div style="font-weight:700; font-size:0.95rem; color:#1e293b; margin-bottom:6px;">${nombre}</div>
                 <p style="color:#94a3b8; margin:0;">No hay casos con duración registrada (T_QX) para esta intervención.</p>
+                ${renderTablaCasosIntervencionHtml(stats.casos, nombre)}
             </div>
         `;
     }
@@ -2887,7 +2889,77 @@ function renderStatsIntervencionHtml(nombre, stats) {
                 ${renderKpiCardEstadisticas('⬇️', 'Tiempo Mínimo', estadisticasFormatearHoras(stats.minimo), verde)}
                 ${renderKpiCardEstadisticas('⬆️', 'Tiempo Máximo', estadisticasFormatearHoras(stats.maximo), rojo)}
             </div>
+            ${renderTablaCasosIntervencionHtml(stats.casos, nombre)}
         </div>
+    `;
+}
+
+// Tabla de casos bajo los KPI: mismas columnas que el Libro de Quirófano
+// (renderizarTablaLibro en js/13) más T_QX, con el 👁️ que abre el mismo
+// detalle del Libro (mostrarDetalleLibro). Paginada de a 15, con la
+// página guardada por intervención.
+const CASOS_INTERV_POR_PAGINA = 15;
+const estadisticasIntervPaginas = new Map(); // nombre -> página actual
+
+function estadisticasIntervIrAPagina(idx, pagina) {
+    const nombre = Array.from(estadisticasIntervSeleccionadas).sort()[idx];
+    if (nombre === undefined) return;
+    estadisticasIntervPaginas.set(nombre, pagina);
+    renderEstadisticasIntervenciones();
+}
+
+function renderTablaCasosIntervencionHtml(casos, nombre) {
+    if (!casos || casos.length === 0) return '';
+    const idx = Array.from(estadisticasIntervSeleccionadas).sort().indexOf(nombre);
+    const totalPaginas = Math.max(1, Math.ceil(casos.length / CASOS_INTERV_POR_PAGINA));
+    const pagina = Math.min(Math.max(1, estadisticasIntervPaginas.get(nombre) || 1), totalPaginas);
+    const inicio = (pagina - 1) * CASOS_INTERV_POR_PAGINA;
+    const btn = (p, txt, off) => `<button ${off ? 'disabled' : `onclick="estadisticasIntervIrAPagina(${idx}, ${p})"`} style="padding:4px 10px; border:1px solid #cbd5e1; border-radius:6px; background:${off ? '#f1f5f9' : 'white'}; color:${off ? '#94a3b8' : '#1e293b'}; cursor:${off ? 'default' : 'pointer'}; font-size:0.75rem;">${txt}</button>`;
+    const paginacion = totalPaginas <= 1 ? '' : `
+            <div style="display:flex; align-items:center; justify-content:center; gap:6px; margin-top:8px; font-size:0.75rem; color:#475569;">
+                ${btn(1, '⏮', pagina === 1)}${btn(pagina - 1, '◀ Anterior', pagina === 1)}
+                <span>Página <strong>${pagina}</strong> de <strong>${totalPaginas}</strong> · casos ${inicio + 1}-${Math.min(inicio + CASOS_INTERV_POR_PAGINA, casos.length)} de ${casos.length}</span>
+                ${btn(pagina + 1, 'Siguiente ▶', pagina === totalPaginas)}${btn(totalPaginas, '⏭', pagina === totalPaginas)}
+            </div>`;
+    const fechaOrden = f => {
+        const m = String(f || '').match(/^(\d{2})\/(\d{2})\/(\d{4})$/);
+        return m ? `${m[3]}${m[2]}${m[1]}` : String(f || '');
+    };
+    const ordenados = [...casos].sort((a, b) => fechaOrden(b.FECHA).localeCompare(fechaOrden(a.FECHA)))
+        .slice(inicio, inicio + CASOS_INTERV_POR_PAGINA);
+    const td = 'padding:6px 8px; border-bottom:1px solid #f0f0f0; vertical-align:top;';
+    const th = 'padding:7px 8px; background:#f1f5f9; color:#334155; text-align:left; font-weight:600; position:sticky; top:0;';
+    return `
+        <details open style="margin-top:12px;">
+            <summary style="cursor:pointer; font-size:0.8rem; font-weight:600; color:#475569;">📋 Casos (${casos.length})</summary>
+            <div style="max-height:360px; overflow:auto; margin-top:8px; border:1px solid #e2e8f0; border-radius:8px;">
+                <table style="width:100%; border-collapse:collapse; font-size:0.78rem;">
+                    <thead><tr>
+                        <th style="${th}">#</th><th style="${th}">FECHA</th><th style="${th}">Nombre Paciente</th><th style="${th}">RUT</th>
+                        <th style="${th}">Especialidad</th><th style="${th}">ESTADO_DE_IQx</th><th style="${th}">Intervención Realizada</th>
+                        <th style="${th}">DESTINO</th><th style="${th}">T_QX</th><th style="${th} text-align:center;">Acciones</th>
+                    </tr></thead>
+                    <tbody>
+                        ${ordenados.map((r, i) => `
+                            <tr>
+                                <td style="${td} text-align:center;">${inicio + i + 1}</td>
+                                <td style="${td} white-space:nowrap;">${r.FECHA || ''}</td>
+                                <td style="${td}"><strong>${r.Nombre_Paciente || ''}</strong></td>
+                                <td style="${td} white-space:nowrap;">${r.RUT ? formatearRut(r.RUT) : ''}</td>
+                                <td style="${td}">${r.Especialidad || ''}</td>
+                                <td style="${td}">${r.ESTADO_DE_IQx || ''}</td>
+                                <td style="${td}">${r['1ra_Intervencion_Qx_Realizada'] || ''}</td>
+                                <td style="${td}">${r.DESTINO || ''}</td>
+                                <td style="${td} white-space:nowrap;">${r.T_QX || ''}</td>
+                                <td style="${td} text-align:center;">
+                                    <button onclick="mostrarDetalleLibro('${r.id}')" title="Ver detalles completos" style="background:transparent; border:1px solid #3b82f6; border-radius:4px; padding:2px 8px; cursor:pointer; color:#3b82f6; font-size:0.95rem;">👁️</button>
+                                </td>
+                            </tr>
+                        `).join('')}
+                    </tbody>
+                </table>
+            </div>${paginacion}
+        </details>
     `;
 }
 
