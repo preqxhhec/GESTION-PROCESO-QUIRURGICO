@@ -23,13 +23,21 @@
     // lento". 2 segundos sigue agrupando las pulsaciones de una misma
     // palabra/campo en un solo guardado, sin esperar a que la persona
     // termine de trabajar en toda la tabla.
-    const DEBOUNCE_DELAY = 5000;
+    // ⚡ Guardado eficiente: el contador solo corre cuando NO se está
+    // editando (ver hayEdicionEnCursoEnTabla más abajo), así que basta un
+    // margen corto: ~1 s después de elegir una opción o de salir de un
+    // campo de texto. Mientras se escribe, se espera a que el usuario
+    // salga del campo o deje de tipear EDICION_TEXTO_INACTIVIDAD_MS.
+    const DEBOUNCE_DELAY = 1000;
+    const EDICION_TEXTO_INACTIVIDAD_MS = 4000;
     // Los campos de Intervención Qx usan un combobox de sugerencias (ver
     // crearComboboxIntervenciones() en js/05) que se cierra cuando la tabla
     // se re-renderiza al terminar el auto-guardado — si eso pasa mientras el
     // usuario todavía está eligiendo una opción, pierde la selección. Les
     // damos más margen de inactividad antes de guardar/re-renderizar.
-    const DEBOUNCE_DELAY_INTERVENCION = 10000;
+    // Ya no necesita más margen: la lista de intervenciones abierta pausa
+    // el guardado (hayEdicionEnCursoEnTabla).
+    const DEBOUNCE_DELAY_INTERVENCION = DEBOUNCE_DELAY;
     const CAMPOS_INTERVENCION = ['1ra_Intervencion_Qx_Realizada', '2da_Intervencion_Qx_Realizada', '3ra_Intervencion_Realizada'];
 
 // =============================================================
@@ -408,6 +416,21 @@ function hayDesplegableAbiertoEnTabla() {
         .some(d => d.style.display === 'block');
 }
 
+// ✍️ Campo de texto de la tabla con el foco y tecleado hace poco: guardar
+// ahora re-renderizaría la tabla y le quitaría el cursor a quien escribe.
+let ultimaTeclaEnTabla = 0;
+document.addEventListener('input', function(e) {
+    if (e.target.closest && e.target.closest('#weekContent')) ultimaTeclaEnTabla = Date.now();
+}, true);
+
+function hayEdicionEnCursoEnTabla() {
+    if (hayDesplegableAbiertoEnTabla()) return true;
+    const el = document.activeElement;
+    const escribiendo = el && el.closest && el.closest('#weekContent') &&
+        (el.tagName === 'TEXTAREA' || (el.tagName === 'INPUT' && !['date', 'time', 'checkbox', 'radio', 'color'].includes(el.type)));
+    return !!escribiendo && (Date.now() - ultimaTeclaEnTabla) < EDICION_TEXTO_INACTIVIDAD_MS;
+}
+
 document.addEventListener('mousedown', function(e) {
     const sel = e.target.closest && e.target.closest('#weekContent select[data-col]');
     if (!sel) return;
@@ -440,11 +463,11 @@ function triggerAutoSave(rowKey, col) {
 
     const delay = CAMPOS_INTERVENCION.includes(col) ? DEBOUNCE_DELAY_INTERVENCION : DEBOUNCE_DELAY;
 
-    if (hayDesplegableAbiertoEnTabla()) {
+    if (hayEdicionEnCursoEnTabla()) {
         if (!autoSaveEsperandoDesplegable) {
-            console.log('⏸️ Auto-save en espera (desplegable abierto)');
+            console.log('⏸️ Auto-save en espera (edición en curso)');
             autoSaveEsperandoDesplegable = setInterval(() => {
-                if (hayDesplegableAbiertoEnTabla()) return;
+                if (hayEdicionEnCursoEnTabla()) return;
                 clearInterval(autoSaveEsperandoDesplegable);
                 autoSaveEsperandoDesplegable = null;
                 if (!autoSaveTimeout) triggerAutoSave(null, col);
@@ -456,7 +479,7 @@ function triggerAutoSave(rowKey, col) {
     autoSaveTimeout = setTimeout(() => {
         autoSaveTimeout = null;
         // Se abrió un desplegable durante la espera: esperar a que se cierre.
-        if (hayDesplegableAbiertoEnTabla()) {
+        if (hayEdicionEnCursoEnTabla()) {
             triggerAutoSave(null, col);
             return;
         }
@@ -495,7 +518,8 @@ function triggerAutoSave(rowKey, col) {
             for (const dayKey of diasPendientes) {
                 await guardarDiaEnFirebaseOptimizadoConModal(dayKey, false);
             }
-            if (seccionEstaVisible('registro')) renderWeekView(true);
+            // Sin renderWeekView(): la pantalla ya muestra lo guardado y
+            // re-dibujar toda la tabla la hacía parpadear en cada guardado.
         })();
     }, delay);
 }
@@ -969,9 +993,9 @@ function iniciarAutoSave() {
             const dayKey = `${currentWeek}-${currentDay}`;
             if (!isAutoSaving) {
                 console.log('🕒 Guardado automático programado (10 minutos)');
-                guardarDiaEnFirebaseOptimizadoConModal(dayKey, false, true).then(() => {
-    renderWeekView(true); // ← true = auto-save, mantener scroll
-});
+                // Sin re-dibujar la tabla (evita el parpadeo), igual que
+                // el guardado por inactividad en triggerAutoSave().
+                guardarDiaEnFirebaseOptimizadoConModal(dayKey, false, true);
             }
         }
     }, AUTO_SAVE_INTERVAL);

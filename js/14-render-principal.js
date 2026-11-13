@@ -343,7 +343,10 @@ async function renderWeekView(esAutoSave = false) {
             }
 
             if (causalSelect) {
-                causalSelect.disabled = !esSuspendido;
+                // Causal solo se habilita con SUSPENDIDO (igual que js/07): el
+                // guardado automático ya no re-dibuja la tabla para corregirlo.
+                causalSelect.disabled = estado !== 'SUSPENDIDO';
+                if (motivoSelect && estado !== 'SUSPENDIDO') motivoSelect.disabled = true;
                 if (!esSuspendido) {
                     causalSelect.value = '';
                     if (motivoSelect) {

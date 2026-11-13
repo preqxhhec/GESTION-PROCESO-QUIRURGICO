@@ -595,7 +595,7 @@ function construirManualContenidos() {
             </ul>
             <p style="color:#475569; line-height:1.7; margin-bottom:12px;">Los permisos se pueden editar todas las veces que sea necesario, y los cambios se aplican la próxima vez que ese usuario inicie sesión (o al recargar la página si ya la tiene abierta).</p>
             <p style="color:#64748b; font-style:italic; margin-top:8px;">💡 Un usuario creado antes de que existiera este sistema de permisos conserva acceso total mientras no se le configure ninguna restricción explícita — esto también aplica a los permisos por botón agregados después.</p>
-            <p style="color:#dc2626; font-size:0.9rem; margin-top:8px;">⚠️ Quitar "Guardar" no desactiva el guardado automático (cada 2 segundos de inactividad y cada 10 minutos) — solo oculta el botón de guardado manual/inmediato. "Limpiar", en cambio, es una acción exclusivamente manual: quitar ese permiso sí la bloquea por completo.</p>
+            <p style="color:#dc2626; font-size:0.9rem; margin-top:8px;">⚠️ Quitar "Guardar" no desactiva el guardado automático (1 segundo después de terminar de editar un campo y cada 10 minutos) — solo oculta el botón de guardado manual/inmediato. "Limpiar", en cambio, es una acción exclusivamente manual: quitar ese permiso sí la bloquea por completo.</p>
 
             <h2 style="font-size:1.3rem; color:#0b2a4f; margin-top:24px; margin-bottom:12px;">7.5 Gestión de Desplegables</h2>
             <p style="color:#475569; line-height:1.7; margin-bottom:12px;">Puedes gestionar las opciones de los siguientes desplegables:</p>
@@ -904,7 +904,7 @@ location.reload();</pre>
             
             <div style="margin-bottom:20px;">
                 <h3 style="color:#0b2a4f; font-size:1.1rem; margin-bottom:6px;">❓ ¿Qué hago si cierro la página sin guardar?</h3>
-                <p style="color:#475569; line-height:1.7;">El sistema tiene guardado automático 2 segundos después del último cambio, por lo que la mayoría de los datos ya estarán guardados.</p>
+                <p style="color:#475569; line-height:1.7;">El sistema tiene guardado automático 1 segundo después de terminar de editar un campo (al elegir una opción o salir del campo), por lo que la mayoría de los datos ya estarán guardados.</p>
             </div>
             
             <div style="margin-bottom:20px;">
