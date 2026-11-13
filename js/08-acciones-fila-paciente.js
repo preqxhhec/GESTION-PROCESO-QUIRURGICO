@@ -601,19 +601,6 @@ function imprimirDia(dayKey) {
             return;
         }
 
-        const claveIngresada = await showModalClave();
-        if (!claveIngresada) return;
-
-        if (claveIngresada !== '1234') {
-            showModal({
-                title: '❌ Clave incorrecta',
-                message: 'La clave ingresada no es correcta. Intenta nuevamente.',
-                icon: '❌',
-                confirmText: 'Aceptar'
-            });
-            return;
-        }
-
         const parts = rowKey.split('-').map(Number);
         if (parts.length !== 4) {
             showModal({

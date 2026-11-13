@@ -320,6 +320,25 @@ function obtenerFechaFinEsperaCongelada(patient) {
         return patient.timestamp || null;
     }
 
+    // REALIZADA EN EXTRASISTEMA: se congela igual que los demás estados de
+    // término. Fecha de la cirugía si está cargada; si no, la del primer
+    // cambio a este estatus en el historial; como último respaldo, la última
+    // modificación del registro (mismo criterio que EGRESO).
+    if (estatus === 'REALIZADA EN EXTRASISTEMA') {
+        if (patient.fechaCirugia) return patient.fechaCirugia;
+        const historial = patient.historial ? Object.values(patient.historial) : [];
+        const cambios = historial.filter(h => {
+            if (!h.cambios) return false;
+            const arr = Array.isArray(h.cambios) ? h.cambios : [h.cambios];
+            return arr.some(c => /estatusTabla<\/strong>:\s*".*?"\s*→\s*"REALIZADA EN EXTRASISTEMA"/i.test(c));
+        });
+        if (cambios.length > 0) {
+            cambios.sort((a, b) => new Date(a.fecha) - new Date(b.fecha));
+            return cambios[0].fecha;
+        }
+        return patient.timestamp || null;
+    }
+
     return null;
 }
 
